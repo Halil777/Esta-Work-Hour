@@ -17,7 +17,7 @@ function CredentialModal({
   onClose: () => void
 }) {
   const qc = useQueryClient()
-  const { user } = useUiPreferences()
+  useUiPreferences()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { History, Edit2, Trash2, Plus, Search } from "lucide-react";
-import { auditLogApi, type AuditLogRecord } from "../api/auditLog";
+import { auditLogApi } from "../api/auditLog";
 
 const actionColor = (action: string) => {
   if (action === "CREATE") return "#10B981";

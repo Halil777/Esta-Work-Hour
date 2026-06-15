@@ -1,3 +1,4 @@
+import React from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   Building2, LayoutDashboard, Users, Layers, ClipboardCheck, Clock,
@@ -12,7 +13,7 @@ export function Sidebar() {
   const { t } = useTranslation()
   const navigate = useNavigate()
 
-  const navItems = [
+  const navItems: { path: string; icon: React.ElementType; label: string; badge?: number }[] = [
     { path: '/dashboard', icon: LayoutDashboard, label: t.nav.dashboard },
     { path: '/workers', icon: Users, label: t.nav.workers },
     { path: '/brigades', icon: Layers, label: t.nav.brigades },

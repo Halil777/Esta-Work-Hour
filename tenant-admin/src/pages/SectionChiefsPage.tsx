@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { HardHat, KeyRound, X, Eye, EyeOff, Search } from 'lucide-react'
 import { workersApi, type WorkerApi } from '../api/workers'
-import { useUiPreferences } from '../app/providers/useUiPreferences'
 
 function Badge({ variant, children }: { variant: string; children: React.ReactNode }) {
   return <span className={`badge badge-${variant}`}>{children}</span>
