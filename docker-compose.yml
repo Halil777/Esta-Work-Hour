@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: workhour-postgres
+    environment:
+      POSTGRES_DB: workhour
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - workhour-net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: workhour-backend
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: postgres
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: workhour
+      PORT: 3002
+      JWT_SECRET: ${JWT_SECRET}
+    ports:
+      - "3002:3002"
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    networks:
+      - workhour-net
+
+  nginx:
+    image: nginx:alpine
+    container_name: workhour-nginx
+    ports:
+      - "80:80"
+      - "3001:3001"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./tenant-admin/dist:/usr/share/nginx/tenant-admin:ro
+      - ./super-admin/dist:/usr/share/nginx/super-admin:ro
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - workhour-net
+
+volumes:
+  pgdata:
+
+networks:
+  workhour-net:
+    driver: bridge

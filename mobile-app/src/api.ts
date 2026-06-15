@@ -1,9 +1,6 @@
 import { Platform } from "react-native";
 
-export const BASE_URL =
-  Platform.OS === "android"
-    ? "http://10.10.20.240:3002/api"
-    : "http://localhost:3002/api";
+export const BASE_URL = "http://161.104.17.113:3002/api";
 
 let _token: string | null = null;
 
