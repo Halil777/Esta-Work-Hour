@@ -16,6 +16,7 @@ import { HistoryPage } from '../pages/HistoryPage'
 import { AbsentTodayPage } from '../pages/AbsentTodayPage'
 import { SiteChiefsPage } from '../pages/SiteChiefsPage'
 import { SectionChiefsPage } from '../pages/SectionChiefsPage'
+import { TerminatedWorkersPage } from '../pages/TerminatedWorkersPage'
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -37,6 +38,7 @@ export const router = createBrowserRouter([
       { path: 'absent-today', element: <AbsentTodayPage /> },
       { path: 'site-chiefs', element: <SiteChiefsPage /> },
       { path: 'section-chiefs', element: <SectionChiefsPage /> },
+      { path: 'terminated-workers', element: <TerminatedWorkersPage /> },
       { path: 'sync-center', element: <SyncCenterPage /> },
       { path: 'settings', element: <SettingsPage /> },
     ],

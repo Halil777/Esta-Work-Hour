@@ -238,6 +238,7 @@ export class WorkersService {
 
     const created: Worker[] = [];
     const updated: Worker[] = [];
+    const excelWorkerIds = new Set<string>();
 
     for (const row of rows) {
       // Support both Excel format (Sicil No / İnsan Adı) and legacy format
@@ -295,9 +296,15 @@ export class WorkersService {
       let savedWorker: Worker;
 
       if (workerId) {
+        excelWorkerIds.add(workerId);
         const exists = await this.repo.findOneBy({ workerId });
         if (exists) {
           Object.assign(exists, fields);
+          // Restore if previously terminated
+          if (exists.status === WorkerStatus.Terminated) {
+            exists.status = WorkerStatus.Active;
+            exists.terminatedAt = null;
+          }
           savedWorker = (await this.repo.save(exists)) as unknown as Worker;
           updated.push(savedWorker);
         } else {
@@ -335,7 +342,6 @@ export class WorkersService {
               workerId: savedWorker.id,
             });
             const savedForeman = await this.foremanRepo.save(foreman);
-            // Link worker to this foreman
             savedWorker.foremanId = savedForeman.id;
             await this.repo.save(savedWorker);
           }
@@ -343,6 +349,82 @@ export class WorkersService {
       }
     }
 
-    return { imported: created.length, updated: updated.length };
+    // Auto-terminate workers not present in the uploaded Excel
+    let terminated = 0;
+    if (excelWorkerIds.size > 0) {
+      const activeWorkers = await this.repo.find({
+        where: [
+          { status: WorkerStatus.Active },
+          { status: WorkerStatus.Inactive },
+          { status: WorkerStatus.Suspended },
+          { status: WorkerStatus.Transferred },
+        ],
+      });
+      const now = new Date();
+      for (const w of activeWorkers) {
+        if (w.workerId && !excelWorkerIds.has(w.workerId)) {
+          w.status = WorkerStatus.Terminated;
+          w.terminatedAt = now;
+          await this.repo.save(w);
+          terminated++;
+        }
+      }
+    }
+
+    return { imported: created.length, updated: updated.length, terminated };
+  }
+
+  async importCardNumbers(buffer: Buffer) {
+    const workbook = XLSX.read(buffer, { type: 'buffer' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+    // The file has 2 header rows before actual data:
+    // Row 0: merged title "Отчет Сотрудники"
+    // Row 1: column names (Фамилия, Имя, ..., Табельный номер, ..., Карта №, ...)
+    // Row 2+: actual data
+    // When parsed, __EMPTY_3 = Табельный номер, __EMPTY_9 = Карта №
+    const dataRows = rows.slice(2);
+
+    let linked = 0;
+    let notFound = 0;
+
+    for (const row of dataRows) {
+      const tabNo = String(row['__EMPTY_3'] || '').trim();
+      const cardNo = String(row['__EMPTY_9'] || '').trim();
+      if (!tabNo || !cardNo) continue;
+
+      const worker = await this.repo.findOneBy({ workerId: tabNo });
+      if (worker) {
+        worker.nfcCardUid = cardNo;
+        await this.repo.save(worker);
+        linked++;
+      } else {
+        notFound++;
+      }
+    }
+
+    return { linked, notFound };
+  }
+
+  async findTerminated(search?: string) {
+    const where: any[] = [];
+    if (search) {
+      where.push({ status: WorkerStatus.Terminated, name: ILike(`%${search}%`) });
+      where.push({ status: WorkerStatus.Terminated, workerId: ILike(`%${search}%`) });
+    } else {
+      where.push({ status: WorkerStatus.Terminated });
+    }
+    return this.repo.find({ where, order: { terminatedAt: 'DESC' } });
+  }
+
+  async restoreWorker(id: string, changedBy = 'Admin') {
+    const worker = await this.findOne(id);
+    const before = { ...worker };
+    worker.status = WorkerStatus.Active;
+    worker.terminatedAt = null;
+    const saved = await this.repo.save(worker);
+    await this.auditLog.log('Worker', id, 'UPDATE', changedBy, before, saved);
+    return saved;
   }
 }

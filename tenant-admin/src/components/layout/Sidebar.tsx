@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   Building2, LayoutDashboard, Users, Layers, ClipboardCheck, Clock,
   UserX, FileSpreadsheet, RefreshCw, Settings, LogOut, KeyRound,
-  ScanLine, History, WifiOff, ShieldCheck, HardHat,
+  ScanLine, History, WifiOff, ShieldCheck, HardHat, UserMinus,
 } from 'lucide-react'
 import { useUiPreferences } from '../../app/providers/useUiPreferences'
 import { useTranslation } from '../../i18n/useTranslation'
@@ -21,6 +21,7 @@ export function Sidebar() {
     { path: '/overtime', icon: Clock, label: t.nav.overtime },
     { path: '/site-chiefs', icon: ShieldCheck, label: 'Site Chiefs' },
     { path: '/section-chiefs', icon: HardHat, label: 'Bölüm Başlyklary' },
+    { path: '/terminated-workers', icon: UserMinus, label: 'İşden Bosadylanlar' },
     { path: '/absence', icon: UserX, label: t.nav.absence },
     { path: '/reports', icon: FileSpreadsheet, label: t.nav.reports },
     { path: '/access-report', icon: KeyRound, label: t.nav.accessReport },

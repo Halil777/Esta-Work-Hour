@@ -103,11 +103,31 @@ export const workersApi = {
   importExcel: (file: File) => {
     const form = new FormData();
     form.append('file', file);
-    return request<{ imported: number; updated: number }>(
+    return request<{ imported: number; updated: number; terminated: number }>(
       '/workers/import/excel',
       { method: 'POST', body: form },
     );
   },
+
+  importCards: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return request<{ linked: number; notFound: number }>(
+      '/workers/import/cards',
+      { method: 'POST', body: form },
+    );
+  },
+
+  listTerminated: (search?: string) => {
+    const qs = search ? `?search=${encodeURIComponent(search)}` : '';
+    return request<WorkerApi[]>(`/workers/terminated${qs}`);
+  },
+
+  restore: (id: string, changedBy?: string) =>
+    request<WorkerApi>(`/workers/${id}/restore`, {
+      method: 'PATCH',
+      headers: changedBy ? { 'X-Admin-Name': changedBy } : {},
+    }),
 
   getCredential: (workerEntityId: string) =>
     request<MobileCredential>(`/mobile/auth/credentials/${workerEntityId}`),

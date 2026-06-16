@@ -88,4 +88,27 @@ export class WorkersController {
     }
     return this.service.importFromExcel(file.buffer);
   }
+
+  @Post('import/cards')
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
+  async importCards(@UploadedFile() file: Express.Multer.File) {
+    if (!file) throw new BadRequestException('No file uploaded');
+    if (!file.originalname.match(/\.(xlsx|xls)$/i)) {
+      throw new BadRequestException('Only .xlsx or .xls files are allowed');
+    }
+    return this.service.importCardNumbers(file.buffer);
+  }
+
+  @Get('terminated')
+  findTerminated(@Query('search') search?: string) {
+    return this.service.findTerminated(search);
+  }
+
+  @Patch(':id/restore')
+  restore(
+    @Param('id') id: string,
+    @Headers('x-admin-name') adminName?: string,
+  ) {
+    return this.service.restoreWorker(id, adminName || 'Admin');
+  }
 }
