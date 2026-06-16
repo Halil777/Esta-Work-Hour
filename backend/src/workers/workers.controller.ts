@@ -37,6 +37,8 @@ export class WorkersController {
     });
   }
 
+  // ── Static routes MUST come before :id routes ──────────────────────────────
+
   @Get('export')
   async exportExcel(@Res({ passthrough: true }) res: Response): Promise<StreamableFile> {
     const buffer = await this.service.exportToExcel();
@@ -48,31 +50,9 @@ export class WorkersController {
     return new StreamableFile(buffer);
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.service.findOne(id);
-  }
-
-  @Post()
-  create(@Body() dto: CreateWorkerDto) {
-    return this.service.create(dto);
-  }
-
-  @Patch(':id')
-  update(
-    @Param('id') id: string,
-    @Body() dto: UpdateWorkerDto,
-    @Headers('x-admin-name') adminName?: string,
-  ) {
-    return this.service.update(id, dto, adminName || 'Admin');
-  }
-
-  @Delete(':id')
-  remove(
-    @Param('id') id: string,
-    @Headers('x-admin-name') adminName?: string,
-  ) {
-    return this.service.remove(id, adminName || 'Admin');
+  @Get('terminated')
+  findTerminated(@Query('search') search?: string) {
+    return this.service.findTerminated(search);
   }
 
   @Post('import/excel')
@@ -99,9 +79,16 @@ export class WorkersController {
     return this.service.importCardNumbers(file.buffer);
   }
 
-  @Get('terminated')
-  findTerminated(@Query('search') search?: string) {
-    return this.service.findTerminated(search);
+  // ── Parameterized routes ─────────────────────────────────────────────────────
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.service.findOne(id);
+  }
+
+  @Post()
+  create(@Body() dto: CreateWorkerDto) {
+    return this.service.create(dto);
   }
 
   @Patch(':id/restore')
@@ -110,5 +97,22 @@ export class WorkersController {
     @Headers('x-admin-name') adminName?: string,
   ) {
     return this.service.restoreWorker(id, adminName || 'Admin');
+  }
+
+  @Patch(':id')
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateWorkerDto,
+    @Headers('x-admin-name') adminName?: string,
+  ) {
+    return this.service.update(id, dto, adminName || 'Admin');
+  }
+
+  @Delete(':id')
+  remove(
+    @Param('id') id: string,
+    @Headers('x-admin-name') adminName?: string,
+  ) {
+    return this.service.remove(id, adminName || 'Admin');
   }
 }
