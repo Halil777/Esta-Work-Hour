@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ILike } from 'typeorm';
+import { Repository, ILike, Not } from 'typeorm';
 import * as XLSX from 'xlsx';
 import { Worker, WorkerStatus, QrStatus, MobileRole } from './worker.entity';
 import { AttendanceEvent } from '../attendance-events/attendance-event.entity';
@@ -63,7 +63,8 @@ export class WorkersService {
     const mobileRoleFilter = mobileRole && mobileRole !== 'all' ? mobileRole : undefined;
 
     const baseCondition: any = {
-      ...(statusFilter ? { status: statusFilter } : {}),
+      // By default exclude Terminated; only show if explicitly filtered
+      ...(statusFilter ? { status: statusFilter } : { status: Not(WorkerStatus.Terminated) }),
       ...(brigadeFilter ? { brigadeId: brigadeFilter } : {}),
       ...(foremanFilter ? { foremanId: foremanFilter } : {}),
       ...(mobileRoleFilter ? { mobileRole: mobileRoleFilter } : {}),
