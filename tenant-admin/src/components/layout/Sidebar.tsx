@@ -1,8 +1,8 @@
 import React from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
-  Building2, LayoutDashboard, Users, Layers, ClipboardCheck, Clock,
-  UserX, FileSpreadsheet, RefreshCw, Settings, LogOut, KeyRound,
+  Building2, LayoutDashboard, Users, Layers, Clock,
+  Settings, LogOut,
   ScanLine, History, WifiOff, ShieldCheck, HardHat, UserMinus,
 } from 'lucide-react'
 import { useUiPreferences } from '../../app/providers/useUiPreferences'
@@ -17,18 +17,13 @@ export function Sidebar() {
     { path: '/dashboard', icon: LayoutDashboard, label: t.nav.dashboard },
     { path: '/workers', icon: Users, label: t.nav.workers },
     { path: '/brigades', icon: Layers, label: t.nav.brigades },
-    { path: '/attendance', icon: ClipboardCheck, label: t.nav.attendance },
     { path: '/overtime', icon: Clock, label: t.nav.overtime },
     { path: '/site-chiefs', icon: ShieldCheck, label: 'Site Chiefs' },
     { path: '/section-chiefs', icon: HardHat, label: 'Bölüm Başlyklary' },
     { path: '/terminated-workers', icon: UserMinus, label: 'İşden Bosadylanlar' },
-    { path: '/absence', icon: UserX, label: t.nav.absence },
-    { path: '/reports', icon: FileSpreadsheet, label: t.nav.reports },
-    { path: '/access-report', icon: KeyRound, label: t.nav.accessReport },
     { path: '/absent-today', icon: WifiOff, label: 'Skan etmedikler' },
     { path: '/nfc-events', icon: ScanLine, label: t.nav.nfcEvents },
     { path: '/history', icon: History, label: t.nav.history },
-    { path: '/sync-center', icon: RefreshCw, label: t.nav.syncCenter },
     { path: '/settings', icon: Settings, label: t.nav.settings },
   ]
 

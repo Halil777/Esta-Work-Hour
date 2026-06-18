@@ -1,20 +1,27 @@
-import { Users, UserCheck, UserX, Clock } from 'lucide-react'
+import { Users, UserCheck, UserX, Clock, ChevronRight } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from '../i18n/useTranslation'
 import { workersApi } from '../api/workers'
 import { extraHoursApi } from '../api/extraHours'
 import { auditLogApi } from '../api/auditLog'
 
-function StatCard({ value, label, sub, icon, color, bg }: {
+function StatCard({ value, label, sub, icon, color, bg, onClick }: {
   value: string | number; label: string; sub?: string
   icon: React.ReactNode; color: string; bg: string
+  onClick?: () => void
 }) {
   return (
-    <div className="stat-card">
+    <div
+      className="stat-card"
+      onClick={onClick}
+      style={onClick ? { cursor: 'pointer' } : undefined}
+    >
       <div className="stat-card__header">
         <div className="stat-card__icon" style={{ background: bg }}>
           <span style={{ color }}>{icon}</span>
         </div>
+        {onClick && <ChevronRight size={14} style={{ color: 'var(--text-muted)', marginLeft: 'auto' }} />}
       </div>
       <div className="stat-card__value">{value}</div>
       <div className="stat-card__label">{label}</div>
@@ -36,6 +43,7 @@ const entityLabels: Record<string, string> = {
 
 export function DashboardPage() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const today = new Date().toISOString().split('T')[0]
 
   const { data: workers = [] } = useQuery({
@@ -82,21 +90,29 @@ export function DashboardPage() {
     .sort((a, b) => b.total - a.total)
     .slice(0, 10)
 
+  const allPendingOT = [...pendingOT, ...seenOT].sort(
+    (a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime(),
+  )
+
   return (
     <>
       <div className="stats-grid">
         <StatCard value={totalWorkers} label={t.dashboard.totalWorkers}
-          icon={<Users size={16} />} color="var(--primary-text)" bg="var(--primary-light)" />
+          icon={<Users size={16} />} color="var(--primary-text)" bg="var(--primary-light)"
+          onClick={() => navigate('/workers')} />
         <StatCard
           value={presentToday}
           label={t.dashboard.presentToday}
           sub={totalWorkers > 0 ? `${Math.round((presentToday / totalWorkers) * 100)}% gatnaşyk` : undefined}
           icon={<UserCheck size={16} />} color="var(--success)" bg="var(--success-light)"
+          onClick={() => navigate('/workers')}
         />
         <StatCard value={absentToday} label={t.dashboard.absentToday}
-          icon={<UserX size={16} />} color="var(--danger)" bg="var(--danger-light)" />
+          icon={<UserX size={16} />} color="var(--danger)" bg="var(--danger-light)"
+          onClick={() => navigate('/absent-today')} />
         <StatCard value={pendingOTCount} label={t.dashboard.pendingOvertime}
-          icon={<Clock size={16} />} color="var(--warning)" bg="var(--warning-light)" />
+          icon={<Clock size={16} />} color="var(--warning)" bg="var(--warning-light)"
+          onClick={() => navigate('/overtime')} />
       </div>
 
       <div className="dash-grid">
@@ -148,32 +164,64 @@ export function DashboardPage() {
           </div>
         </div>
 
-        <div className="card" style={{ alignSelf: 'start' }}>
-          <div className="card-header"><h3>{t.dashboard.recentActivity}</h3></div>
-          <div className="activity-list">
-            {auditLogs.length === 0 ? (
-              <div style={{ padding: '16px', fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>
-                Hereket ýok
-              </div>
-            ) : auditLogs.slice(0, 12).map(log => {
-              const entity = entityLabels[log.entityType] ?? log.entityType
-              const action = actionLabels[log.action] ?? log.action
-              const name = log.after?.name ?? log.before?.name ?? ''
-              const time = new Date(log.changedAt).toLocaleString('tr-TR', {
-                day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
-              })
-              return (
-                <div key={log.id} className="activity-item">
-                  <span className="activity-time">{time}</span>
-                  <div className="activity-dot" style={{
-                    background: log.action === 'DELETE' ? 'var(--danger)' : log.action === 'CREATE' ? 'var(--success)' : 'var(--info)',
-                  }} />
-                  <span className="activity-text">
-                    {entity} {name ? `"${name}" ` : ''}{action} — {log.changedBy}
-                  </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Pending Overtime */}
+          <div className="card">
+            <div className="card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h3>Garaşylýan Goşmaça Sagat</h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => navigate('/overtime')} style={{ fontSize: 12 }}>
+                Hemmesi →
+              </button>
+            </div>
+            <div className="activity-list">
+              {allPendingOT.length === 0 ? (
+                <div style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>
+                  Garaşylýan ýok
                 </div>
-              )
-            })}
+              ) : allPendingOT.slice(0, 5).map(req => {
+                const totalH = req.items.reduce((s, i) => s + i.extraHours, 0)
+                const sentDate = new Date(req.sentAt).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' })
+                return (
+                  <div key={req.id} className="activity-item" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div className="activity-dot" style={{ background: req.status === 'pending' ? 'var(--warning)' : 'var(--info)', flexShrink: 0 }} />
+                    <span className="activity-text" style={{ flex: 1 }}>
+                      <strong>{req.foremanName}</strong> — {req.items.length} işçi, {totalH}h
+                    </span>
+                    <span className="activity-time" style={{ flexShrink: 0 }}>{sentDate}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Recent Activity */}
+          <div className="card">
+            <div className="card-header"><h3>{t.dashboard.recentActivity}</h3></div>
+            <div className="activity-list">
+              {auditLogs.length === 0 ? (
+                <div style={{ padding: '16px', fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>
+                  Hereket ýok
+                </div>
+              ) : auditLogs.slice(0, 10).map(log => {
+                const entity = entityLabels[log.entityType] ?? log.entityType
+                const action = actionLabels[log.action] ?? log.action
+                const name = log.after?.name ?? log.before?.name ?? ''
+                const time = new Date(log.changedAt).toLocaleString('tr-TR', {
+                  day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+                })
+                return (
+                  <div key={log.id} className="activity-item">
+                    <span className="activity-time">{time}</span>
+                    <div className="activity-dot" style={{
+                      background: log.action === 'DELETE' ? 'var(--danger)' : log.action === 'CREATE' ? 'var(--success)' : 'var(--info)',
+                    }} />
+                    <span className="activity-text">
+                      {entity} {name ? `"${name}" ` : ''}{action} — {log.changedBy}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </div>
       </div>

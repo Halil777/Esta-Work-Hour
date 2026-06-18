@@ -1,4 +1,4 @@
-export type Role = 'Brigadir' | 'Foreman' | 'SiteChief'
+export type Role = 'Foreman' | 'SiteChief'
 export type Language = 'ru' | 'en' | 'tk'
 export type Theme = 'dark' | 'light'
 export type SyncStatus = 'local' | 'pending' | 'syncing' | 'synced' | 'failed' | 'conflict'

@@ -24,6 +24,7 @@ export type WorkerApi = {
   mobileRole?: MobileRole;
   extraSaat?: number;
   nfcCardUid?: string | null;
+  shift?: 'day' | 'night' | null;
 };
 
 export type MobileCredential = {
@@ -51,6 +52,7 @@ export const workersApi = {
     status?: string;
     foremanId?: string;
     mobileRole?: MobileRole;
+    mesaiSistemi?: string;
     startDate?: string;
     endDate?: string;
     noScan?: boolean;
@@ -61,6 +63,7 @@ export const workersApi = {
     if (params?.status) qs.set('status', params.status);
     if (params?.foremanId) qs.set('foremanId', params.foremanId);
     if (params?.mobileRole) qs.set('mobileRole', params.mobileRole);
+    if (params?.mesaiSistemi) qs.set('mesaiSistemi', params.mesaiSistemi);
     if (params?.startDate) qs.set('startDate', params.startDate);
     if (params?.endDate) qs.set('endDate', params.endDate);
     if (params?.noScan) qs.set('noScan', 'true');

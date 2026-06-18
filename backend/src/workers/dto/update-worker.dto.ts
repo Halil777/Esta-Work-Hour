@@ -65,4 +65,8 @@ export class UpdateWorkerDto {
   @IsOptional()
   @IsString()
   nfcCardUid?: string | null;
+
+  @IsOptional()
+  @IsString()
+  shift?: 'day' | 'night' | null;
 }

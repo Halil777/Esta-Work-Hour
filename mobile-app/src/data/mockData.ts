@@ -11,7 +11,7 @@ export const DEMO_USERS: (AuthUser & { password: string })[] = [
   {
     id: "u1",
     name: "Bayram Amanow",
-    role: "Brigadir",
+    role: "Foreman",
     objectId: "obj-01",
     objectName: "Northern Terminal Redevelopment",
     brigadeId: "b1",

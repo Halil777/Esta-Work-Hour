@@ -3,7 +3,6 @@ import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { useApp } from '../context/AppContext'
 import { LoginScreen } from '../screens/auth/LoginScreen'
-import { BrigadirTabs } from './BrigadirTabs'
 import { ForemanTabs } from './ForemanTabs'
 import { SiteChiefTabs } from './SiteChiefTabs'
 
@@ -26,7 +25,6 @@ export function RootNavigator() {
 
   const MainTabs = () => {
     if (!user) return null
-    if (user.role === 'Brigadir') return <BrigadirTabs />
     if (user.role === 'Foreman') return <ForemanTabs />
     return <SiteChiefTabs />
   }

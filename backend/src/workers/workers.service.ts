@@ -51,16 +51,19 @@ export class WorkersService {
     status?: string;
     foremanId?: string;
     mobileRole?: string;
+    mesaiSistemi?: string;
     startDate?: string;
     endDate?: string;
     noScan?: boolean;
   } = {}) {
-    const { search, brigadeId, status, foremanId, mobileRole, startDate, endDate, noScan } = params;
+    const { search, brigadeId, status, foremanId, mobileRole, mesaiSistemi, startDate, endDate, noScan } = params;
     const where: any[] = [];
     const statusFilter = status && status !== 'all' ? (status as WorkerStatus) : undefined;
     const brigadeFilter = brigadeId && brigadeId !== 'all' ? brigadeId : undefined;
     const foremanFilter = foremanId && foremanId !== 'all' ? foremanId : undefined;
     const mobileRoleFilter = mobileRole && mobileRole !== 'all' ? mobileRole : undefined;
+
+    const mesaiFilter = mesaiSistemi && mesaiSistemi !== 'all' ? mesaiSistemi : undefined;
 
     const baseCondition: any = {
       // By default exclude Terminated; only show if explicitly filtered
@@ -68,6 +71,7 @@ export class WorkersService {
       ...(brigadeFilter ? { brigadeId: brigadeFilter } : {}),
       ...(foremanFilter ? { foremanId: foremanFilter } : {}),
       ...(mobileRoleFilter ? { mobileRole: mobileRoleFilter } : {}),
+      ...(mesaiFilter ? { mesaiSistemi: mesaiFilter } : {}),
     };
 
     if (search) {
@@ -180,6 +184,7 @@ export class WorkersService {
     if (sanitized.brigadirId === '') sanitized.brigadirId = null;
     if (sanitized.foremanId === '') sanitized.foremanId = null;
     if (sanitized.nfcCardUid === '') sanitized.nfcCardUid = null;
+    if (sanitized.shift === '') sanitized.shift = null;
     Object.assign(worker, sanitized);
     const saved = await this.repo.save(worker);
     await this.auditLog.log('Worker', id, 'UPDATE', changedBy, before, saved);

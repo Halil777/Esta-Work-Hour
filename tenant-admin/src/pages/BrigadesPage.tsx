@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { Fragment, useState, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Plus, Edit2, Trash2, X, Upload, ChevronDown, ChevronRight,
@@ -383,8 +383,8 @@ export function BrigadesPage() {
               </thead>
               <tbody>
                 {foremans.map(f => (
-                  <>
-                    <tr key={f.id} style={{ cursor: 'pointer' }} onClick={() => toggle(f.id)}>
+                  <Fragment key={f.id}>
+                    <tr style={{ cursor: 'pointer' }} onClick={() => toggle(f.id)}>
                       <td style={{ padding: '10px 8px 10px 14px' }}>
                         {expanded.has(f.id) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                       </td>
@@ -409,13 +409,12 @@ export function BrigadesPage() {
                     </tr>
                     {expanded.has(f.id) && (
                       <ForemanWorkers
-                        key={`${f.id}-workers`}
                         foremanId={f.id}
                         adminName={adminName}
                         onChanged={() => invForeman(f.id)}
                       />
                     )}
-                  </>
+                  </Fragment>
                 ))}
               </tbody>
             </table>
