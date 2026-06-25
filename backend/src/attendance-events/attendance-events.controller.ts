@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Query } from '@nestjs/common';
+import { Controller, Post, Get, Body, Query, Param } from '@nestjs/common';
 import { AttendanceEventsService } from './attendance-events.service';
 import { SyncEventsDto } from './dto/sync-events.dto';
 
@@ -22,5 +22,14 @@ export class AttendanceEventsController {
   @Get('daily-summary')
   getDailySummary(@Query('date') date?: string) {
     return this.service.getDailySummary(date);
+  }
+
+  @Get('worker-summary')
+  getWorkerSummary(
+    @Query('workerEntityId') workerEntityId: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.service.getWorkerAttendanceSummary(workerEntityId, startDate, endDate);
   }
 }

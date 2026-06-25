@@ -12,6 +12,7 @@ import { AbsentTodayPage } from '../pages/AbsentTodayPage'
 import { SiteChiefsPage } from '../pages/SiteChiefsPage'
 import { SectionChiefsPage } from '../pages/SectionChiefsPage'
 import { TerminatedWorkersPage } from '../pages/TerminatedWorkersPage'
+import { WorkerDetailPage } from '../pages/WorkerDetailPage'
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -22,6 +23,7 @@ export const router = createBrowserRouter([
       { index: true, element: <Navigate to="/dashboard" replace /> },
       { path: 'dashboard', element: <DashboardPage /> },
       { path: 'workers', element: <WorkersPage /> },
+      { path: 'workers/:id', element: <WorkerDetailPage /> },
       { path: 'brigades', element: <BrigadesPage /> },
       { path: 'overtime', element: <OvertimePage /> },
       { path: 'nfc-events', element: <NfcEventsPage /> },

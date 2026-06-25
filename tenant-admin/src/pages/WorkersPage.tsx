@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Plus, Search, Upload, Download,
@@ -467,6 +468,7 @@ export function WorkersPage() {
   const { t } = useTranslation();
   const { user } = useUiPreferences();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const adminName = user?.name ?? "Admin";
 
   const [search, setSearch] = useState("");
@@ -644,7 +646,12 @@ export function WorkersPage() {
 
                       {/* İşçi: ady + wezipesi + NFC + extra saat */}
                       <td>
-                        <div style={{ fontWeight: 600, fontSize: 13 }}>{w.name}</div>
+                        <div
+                          style={{ fontWeight: 600, fontSize: 13, cursor: "pointer", color: "var(--primary)" }}
+                          onClick={() => navigate(`/workers/${w.id}`)}
+                        >
+                          {w.name}
+                        </div>
                         <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 1 }}>
                           {w.profession || "—"}
                         </div>

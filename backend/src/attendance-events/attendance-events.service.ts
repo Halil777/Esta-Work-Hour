@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { AttendanceEvent, EventType } from './attendance-event.entity';
@@ -138,5 +138,103 @@ export class AttendanceEventsService {
     }
 
     return results.sort((a, b) => b.totalMs - a.totalMs);
+  }
+
+  async getWorkerAttendanceSummary(
+    workerEntityId: string,
+    startDate?: string,
+    endDate?: string,
+  ) {
+    const worker = await this.workerRepo.findOne({ where: { id: workerEntityId } });
+    if (!worker) throw new NotFoundException('Worker not found');
+
+    const params: (string)[] = [worker.workerId];
+    let dateFilter = '';
+
+    if (startDate) {
+      params.push(startDate);
+      dateFilter += ` AND DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE '${TZ}') >= $${params.length}`;
+    }
+    if (endDate) {
+      params.push(endDate);
+      dateFilter += ` AND DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE '${TZ}') <= $${params.length}`;
+    }
+
+    const events: { eventType: string; eventTime: string; date: string }[] =
+      await this.repo.query(
+        `SELECT "eventType", "eventTime",
+                DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE '${TZ}') as date
+         FROM attendance_events
+         WHERE "employeeNumber" = $1${dateFilter}
+         ORDER BY "eventTime" ASC`,
+        params,
+      );
+
+    const byDate = new Map<string, { eventType: string; eventTime: number }[]>();
+    for (const ev of events) {
+      const d = ev.date as string;
+      const arr = byDate.get(d) ?? [];
+      arr.push({ eventType: ev.eventType, eventTime: Number(ev.eventTime) });
+      byDate.set(d, arr);
+    }
+
+    let totalMs = 0;
+    const days: {
+      date: string;
+      totalMs: number;
+      checkIn: number | null;
+      checkOut: number | null;
+      sessions: { checkIn: number; checkOut: number | null }[];
+    }[] = [];
+
+    for (const [date, evList] of byDate) {
+      const sessions: { checkIn: number; checkOut: number | null }[] = [];
+      let dayTotalMs = 0;
+      let clockIn: number | null = null;
+      let firstIn: number | null = null;
+      let lastOut: number | null = null;
+
+      for (const ev of evList) {
+        if (ev.eventType === 'CHECK_IN') {
+          if (clockIn === null) clockIn = ev.eventTime;
+          if (firstIn === null) firstIn = ev.eventTime;
+        } else {
+          if (clockIn !== null) {
+            sessions.push({ checkIn: clockIn, checkOut: ev.eventTime });
+            dayTotalMs += ev.eventTime - clockIn;
+            clockIn = null;
+          }
+          lastOut = ev.eventTime;
+        }
+      }
+      if (clockIn !== null) {
+        sessions.push({ checkIn: clockIn, checkOut: null });
+      }
+
+      totalMs += dayTotalMs;
+      days.push({ date, totalMs: dayTotalMs, checkIn: firstIn, checkOut: lastOut, sessions });
+    }
+
+    days.sort((a, b) => a.date.localeCompare(b.date));
+
+    return {
+      worker: {
+        id: worker.id,
+        workerId: worker.workerId,
+        name: worker.name,
+        profession: worker.profession,
+        brigadeName: worker.brigadeName,
+        status: worker.status,
+        mesaiSistemi: worker.mesaiSistemi,
+        shift: worker.shift,
+        hireDate: worker.hireDate,
+        phone: worker.phone,
+        mobileRole: worker.mobileRole,
+        extraSaat: worker.extraSaat,
+        nfcCardUid: worker.nfcCardUid,
+      },
+      days,
+      totalMs,
+    };
   }
 }
