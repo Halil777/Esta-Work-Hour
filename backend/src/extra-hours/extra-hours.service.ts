@@ -22,7 +22,7 @@ export class ExtraHoursService {
     siteChiefWorkerEntityId: string,
     workDate: string,
     note: string | null,
-    items: { workerEntityId: string; extraHours: number }[],
+    items: { workerEntityId: string; extraHours: number; description?: string }[],
   ) {
     const foreman = await this.workerRepo.findOneBy({ id: foremanWorkerEntityId });
     if (!foreman) throw new NotFoundException('Forman tapylmady');
@@ -39,6 +39,7 @@ export class ExtraHoursService {
         workerName: worker.name,
         workerId: worker.workerId,
         extraHours: item.extraHours,
+        description: item.description ?? null,
       });
     }
 

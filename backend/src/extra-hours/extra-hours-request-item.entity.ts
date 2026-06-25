@@ -27,4 +27,7 @@ export class ExtraHoursRequestItem {
 
   @Column({ type: 'decimal', precision: 4, scale: 1 })
   extraHours: number;
+
+  @Column({ type: 'text', nullable: true })
+  description: string | null;
 }

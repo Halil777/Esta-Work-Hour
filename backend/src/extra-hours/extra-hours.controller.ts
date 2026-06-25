@@ -14,6 +14,10 @@ class RequestItemDto {
   @Min(0.5)
   @Type(() => Number)
   extraHours: number;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
 }
 
 class CreateRequestDto {
@@ -44,7 +48,7 @@ export class FormanExtraRequestsController {
       dto.siteChiefWorkerEntityId,
       dto.workDate,
       dto.note ?? null,
-      dto.items,
+      dto.items.map(i => ({ ...i, description: i.description })),
     );
   }
 

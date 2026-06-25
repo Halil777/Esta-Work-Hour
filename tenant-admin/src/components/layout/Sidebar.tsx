@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   Building2, LayoutDashboard, Users, Layers, Clock,
   Settings, LogOut,
-  ScanLine, History, WifiOff, ShieldCheck, HardHat, UserMinus,
+  ScanLine, History, WifiOff, ShieldCheck, HardHat, UserMinus, AlarmClock,
 } from 'lucide-react'
 import { useUiPreferences } from '../../app/providers/useUiPreferences'
 import { useTranslation } from '../../i18n/useTranslation'
@@ -22,6 +22,7 @@ export function Sidebar() {
     { path: '/section-chiefs', icon: HardHat, label: 'Bölüm Başlyklary' },
     { path: '/terminated-workers', icon: UserMinus, label: 'İşden Bosadylanlar' },
     { path: '/absent-today', icon: WifiOff, label: 'Skan etmedikler' },
+    { path: '/late-arrivals', icon: AlarmClock, label: 'Gijä galan işçiler' },
     { path: '/nfc-events', icon: ScanLine, label: t.nav.nfcEvents },
     { path: '/history', icon: History, label: t.nav.history },
     { path: '/settings', icon: Settings, label: t.nav.settings },

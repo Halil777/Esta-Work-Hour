@@ -99,6 +99,13 @@ export const foremanApi = {
     }),
   siteChiefs: () => req<SiteChiefOption[]>("/mobile/foreman/site-chiefs"),
   myRequests: () => req<ExtraHoursRequest[]>("/mobile/foreman/extra-requests"),
+  missingCheckouts: () => req<MissingCheckout[]>("/mobile/foreman/missing-checkouts"),
+  lateArrivals: () => req<{ workers: LateArrival[]; daySettings: any; nightSettings: any; date: string }>("/mobile/foreman/late-arrivals"),
+  saveAbsenceNote: (workerEntityId: string, date: string, note: string) =>
+    req<void>("/mobile/foreman/absence-notes", {
+      method: "POST",
+      body: JSON.stringify({ workerEntityId, date, note }),
+    }),
   createRequest: (payload: {
     siteChiefWorkerEntityId: string;
     workDate: string;
@@ -133,6 +140,29 @@ export interface ExtraHoursRequestItem {
   workerName: string;
   workerId: string;
   extraHours: number;
+  description: string | null;
+}
+
+export interface LateArrival {
+  workerEntityId: string;
+  workerName: string;
+  workerId: string;
+  profession: string;
+  brigadeName: string;
+  shift: 'day' | 'night' | null;
+  isStaff: boolean;
+  absenceNote: { note: string; createdByName: string; createdBy: string } | null;
+}
+
+export interface MissingCheckout {
+  workerEntityId: string;
+  workerName: string;
+  workerId: string;
+  profession: string;
+  brigadeName: string;
+  checkInTime: number;
+  hoursAgo: number;
+  foremanWorkerEntityId: string | null;
 }
 
 export interface ExtraHoursRequest {

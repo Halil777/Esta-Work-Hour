@@ -34,6 +34,17 @@ export type WorkerSummaryResponse = {
   totalMs: number;
 };
 
+export type MissingCheckout = {
+  workerEntityId: string;
+  workerName: string;
+  workerId: string;
+  profession: string;
+  brigadeName: string;
+  checkInTime: number;
+  hoursAgo: number;
+  foremanWorkerEntityId: string | null;
+};
+
 export const attendanceApi = {
   getWorkerSummary: (workerEntityId: string, startDate?: string, endDate?: string) => {
     const qs = new URLSearchParams({ workerEntityId });
@@ -41,4 +52,6 @@ export const attendanceApi = {
     if (endDate) qs.set('endDate', endDate);
     return request<WorkerSummaryResponse>(`/attendance/worker-summary?${qs}`);
   },
+
+  getMissingCheckouts: () => request<MissingCheckout[]>('/attendance/missing-checkouts'),
 };

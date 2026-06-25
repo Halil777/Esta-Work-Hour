@@ -9,6 +9,9 @@ import { Brigadir } from './brigadirs/brigadir.entity';
 import { MobileCredential } from './mobile-auth/mobile-credential.entity';
 import { ExtraHoursRequest } from './extra-hours/extra-hours-request.entity';
 import { ExtraHoursRequestItem } from './extra-hours/extra-hours-request-item.entity';
+import { ShiftSetting } from './shift-settings/shift-setting.entity';
+import { AbsenceNote } from './absence-notes/absence-note.entity';
+import { AttendanceOverride } from './attendance-overrides/attendance-override.entity';
 import { WorkersModule } from './workers/workers.module';
 import { AttendanceEventsModule } from './attendance-events/attendance-events.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
@@ -17,6 +20,9 @@ import { BrigadirsModule } from './brigadirs/brigadirs.module';
 import { MobileAuthModule } from './mobile-auth/mobile-auth.module';
 import { ExtraHoursModule } from './extra-hours/extra-hours.module';
 import { MobileForemanModule } from './mobile-foreman/mobile-foreman.module';
+import { ShiftSettingsModule } from './shift-settings/shift-settings.module';
+import { AbsenceNotesModule } from './absence-notes/absence-notes.module';
+import { AttendanceOverridesModule } from './attendance-overrides/attendance-overrides.module';
 
 @Module({
   imports: [
@@ -30,7 +36,7 @@ import { MobileForemanModule } from './mobile-foreman/mobile-foreman.module';
         username: cfg.get('DB_USERNAME', 'postgres'),
         password: cfg.get('DB_PASSWORD', 'postgres'),
         database: cfg.get('DB_NAME', 'workhour'),
-        entities: [Worker, AttendanceEvent, AuditLog, Foreman, Brigadir, MobileCredential, ExtraHoursRequest, ExtraHoursRequestItem],
+        entities: [Worker, AttendanceEvent, AuditLog, Foreman, Brigadir, MobileCredential, ExtraHoursRequest, ExtraHoursRequestItem, ShiftSetting, AbsenceNote, AttendanceOverride],
         synchronize: true,
       }),
     }),
@@ -42,6 +48,9 @@ import { MobileForemanModule } from './mobile-foreman/mobile-foreman.module';
     MobileAuthModule,
     ExtraHoursModule,
     MobileForemanModule,
+    ShiftSettingsModule,
+    AbsenceNotesModule,
+    AttendanceOverridesModule,
   ],
 })
 export class AppModule {}

@@ -78,6 +78,7 @@ type WorkerForm = {
   mesaiSistemi: string;
   mobileRole: MobileRole;
   shift: WorkerShift;
+  isStaff: boolean;
 };
 
 const emptyForm: WorkerForm = {
@@ -85,7 +86,7 @@ const emptyForm: WorkerForm = {
   brigadeId: "", brigadeName: "", zoneId: "", zoneName: "",
   status: "Active", phone: "",
   hireDate: new Date().toISOString().split("T")[0],
-  mesaiSistemi: "Saatlik", mobileRole: "worker", shift: "",
+  mesaiSistemi: "Saatlik", mobileRole: "worker", shift: "", isStaff: false,
 };
 
 // ─── Worker Modal ──────────────────────────────────────────────────────────────
@@ -110,6 +111,7 @@ function WorkerModal({ initial, onClose, onSave, t }: {
       mesaiSistemi: initial.mesaiSistemi ?? "Saatlik",
       mobileRole: (initial.mobileRole ?? "worker") as MobileRole,
       shift: (initial.shift ?? "") as WorkerShift,
+      isStaff: initial.isStaff ?? false,
     } : emptyForm,
   );
   const [saving, setSaving] = useState(false);
@@ -198,6 +200,13 @@ function WorkerModal({ initial, onClose, onSave, t }: {
               <label className="form-label">{t.workers.hireDate}</label>
               <input type="date" value={form.hireDate} onChange={set("hireDate")} />
             </div>
+          </div>
+          <div className="form-row">
+            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13 }}>
+              <input type="checkbox" checked={form.isStaff} onChange={e => setForm(p => ({ ...p, isStaff: e.target.checked }))}
+                style={{ width: 15, height: 15 }} />
+              Staff işçi (Aýlyk, ofis işçisi) — aýratyn notification
+            </label>
           </div>
         </div>
         <div className="modal-footer">

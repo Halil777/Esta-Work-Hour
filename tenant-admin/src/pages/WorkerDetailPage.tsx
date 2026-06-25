@@ -1,8 +1,11 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, LogIn, LogOut, Sun, Moon } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, LogIn, LogOut, Sun, Moon, Edit2, X, AlertCircle } from "lucide-react";
 import { attendanceApi, type DaySummary } from "../api/attendance";
+import { attendanceOverridesApi, type AttendanceOverride } from "../api/attendanceOverrides";
+import { absenceNotesApi, type AbsenceNote } from "../api/absenceNotes";
+import { useUiPreferences } from "../app/providers/useUiPreferences";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -144,13 +147,116 @@ const STATUS_LABEL: Record<string, string> = {
   Transferred: "Transfer", Terminated: "İşden çykan",
 };
 
+// ─── Override Edit Modal ─────────────────────────────────────────────────────
+
+function OverrideModal({ workerEntityId, date, existing, actualCheckIn, actualCheckOut, onClose, adminName }: {
+  workerEntityId: string; date: string;
+  existing?: AttendanceOverride | null;
+  actualCheckIn?: number | null; actualCheckOut?: number | null;
+  onClose: () => void; adminName: string;
+}) {
+  const qc = useQueryClient();
+  const toTimeStr = (ms: number | null | undefined) => {
+    if (!ms) return "";
+    const d = new Date(ms);
+    return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+  };
+  const [inTime,  setInTime]  = useState(toTimeStr(existing?.checkInMs  ?? actualCheckIn));
+  const [outTime, setOutTime] = useState(toTimeStr(existing?.checkOutMs ?? actualCheckOut));
+  const [note,    setNote]    = useState(existing?.note ?? "");
+  const [err,     setErr]     = useState("");
+
+  const toMs = (dateStr: string, timeStr: string): number | null => {
+    if (!timeStr) return null;
+    const [h, m] = timeStr.split(":").map(Number);
+    const d = new Date(dateStr);
+    d.setHours(h, m, 0, 0);
+    return d.getTime();
+  };
+
+  const save = useMutation({
+    mutationFn: () => attendanceOverridesApi.upsert(
+      workerEntityId, date,
+      toMs(date, inTime), toMs(date, outTime),
+      note || null, adminName,
+    ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["workerSummary", workerEntityId] });
+      qc.invalidateQueries({ queryKey: ["overrides", workerEntityId] });
+      onClose();
+    },
+    onError: (e: any) => setErr(e.message),
+  });
+
+  const remove = useMutation({
+    mutationFn: () => attendanceOverridesApi.remove(workerEntityId, date),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["workerSummary", workerEntityId] });
+      qc.invalidateQueries({ queryKey: ["overrides", workerEntityId] });
+      onClose();
+    },
+  });
+
+  return (
+    <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="modal-box" style={{ maxWidth: 400 }}>
+        <div className="modal-header">
+          <h3>Is wagty düzet — {date}</h3>
+          <button className="btn btn--ghost btn--sm" onClick={onClose}><X size={14} /></button>
+        </div>
+        <div className="modal-body">
+          {err && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 12px", background: "var(--danger-light)", borderRadius: 6, marginBottom: 10, color: "var(--danger)", fontSize: 13 }}>
+              <AlertCircle size={14} /> {err}
+            </div>
+          )}
+          {(actualCheckIn || actualCheckOut) && (
+            <div style={{ padding: "8px 12px", background: "var(--card2)", borderRadius: 6, marginBottom: 10, fontSize: 12, color: "var(--text-muted)" }}>
+              Hakyky: {actualCheckIn ? fmtTime(actualCheckIn) : "—"} → {actualCheckOut ? fmtTime(actualCheckOut) : "—"}
+            </div>
+          )}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div className="form-row">
+              <label className="form-label">Giriş</label>
+              <input type="time" value={inTime} onChange={e => setInTime(e.target.value)} />
+            </div>
+            <div className="form-row">
+              <label className="form-label">Çykyş</label>
+              <input type="time" value={outTime} onChange={e => setOutTime(e.target.value)} />
+            </div>
+          </div>
+          <div className="form-row" style={{ marginTop: 8 }}>
+            <label className="form-label">Bellik</label>
+            <input value={note} onChange={e => setNote(e.target.value)} placeholder="Sebäp..." />
+          </div>
+        </div>
+        <div className="modal-footer">
+          {existing && (
+            <button className="btn btn--ghost btn--sm" style={{ color: "var(--danger)", marginRight: "auto" }}
+              onClick={() => remove.mutate()} disabled={remove.isPending}>
+              Pozmak
+            </button>
+          )}
+          <button className="btn btn--secondary btn--sm" onClick={onClose}>Ýap</button>
+          <button className="btn btn--primary btn--sm" onClick={() => save.mutate()} disabled={save.isPending}>
+            {save.isPending ? "Saklanýar…" : "Sakla"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function WorkerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
+  const { user } = useUiPreferences();
+  const adminName = user?.name ?? "Admin";
   const [preset, setPreset] = useState<Preset>("bu-ay");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd]   = useState("");
+  const [overrideModal, setOverrideModal] = useState<{ date: string; checkIn?: number | null; checkOut?: number | null } | null>(null);
 
   const { startDate, endDate } =
     preset === "custom" ? { startDate: customStart, endDate: customEnd } : getRange(preset);
@@ -183,6 +289,23 @@ export function WorkerDetailPage() {
 
   const worker = data?.worker;
   const days   = data?.days ?? [];
+
+  const { data: overrides = [] } = useQuery({
+    queryKey: ["overrides", id, startDate, endDate],
+    queryFn: () => attendanceOverridesApi.getForWorker(id!, startDate || undefined, endDate || undefined),
+    enabled: !!id,
+    staleTime: 30_000,
+  });
+  const overrideMap = new Map(overrides.map(o => [o.date, o]));
+
+  // Absence notes for worker
+  const { data: absenceNotes = [] } = useQuery({
+    queryKey: ["absence-notes-worker", id],
+    queryFn: () => absenceNotesApi.getForWorker(id!),
+    enabled: !!id,
+    staleTime: 60_000,
+  });
+  const absenceNoteMap = new Map(absenceNotes.map((n: AbsenceNote) => [n.date, n]));
 
   // Calendar: show for single-month presets
   const showCalendar = preset === "bu-ay" || preset === "onki-ay";
@@ -333,46 +456,87 @@ export function WorkerDetailPage() {
                       <th>Giriş</th>
                       <th>Çykyş</th>
                       <th>Jemi sag</th>
-                      <th>Sessiýa</th>
+                      <th>Sebäp / Bellik</th>
+                      <th></th>
                     </tr>
                   </thead>
                   <tbody>
                     {days.length === 0 && !isLoading ? (
                       <tr>
-                        <td colSpan={5}>
+                        <td colSpan={6}>
                           <div className="empty-state"><p>Bu döwürde maglumat ýok</p></div>
                         </td>
                       </tr>
                     ) : (
-                      [...days].reverse().map(day => (
-                        <tr key={day.date}>
-                          <td className="td-mono" style={{ fontSize: 12 }}>{day.date}</td>
-                          <td>
-                            {day.checkIn
-                              ? <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: "#10B981", fontSize: 12 }}>
-                                  <LogIn size={10} />{fmtTime(day.checkIn)}
-                                </span>
-                              : <span className="td-muted">—</span>}
-                          </td>
-                          <td>
-                            {day.checkOut
-                              ? <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: "#F59E0B", fontSize: 12 }}>
-                                  <LogOut size={10} />{fmtTime(day.checkOut)}
-                                </span>
-                              : <span className="td-muted">—</span>}
-                          </td>
-                          <td>
-                            <strong style={{ fontSize: 13, color: day.totalMs > 0 ? "var(--primary)" : "var(--text-muted)" }}>
-                              {fmtMs(day.totalMs)}
-                            </strong>
-                          </td>
-                          <td>
-                            <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                              {day.sessions.length} ses.
-                            </span>
-                          </td>
-                        </tr>
-                      ))
+                      [...days].reverse().map(day => {
+                        const ov = overrideMap.get(day.date);
+                        const displayIn  = ov?.checkInMs  != null ? Number(ov.checkInMs)  : day.checkIn;
+                        const displayOut = ov?.checkOutMs != null ? Number(ov.checkOutMs) : day.checkOut;
+                        const overrideTotalMs = ov?.checkInMs != null && ov?.checkOutMs != null
+                          ? Math.max(0, Number(ov.checkOutMs) - Number(ov.checkInMs)) : null;
+                        const displayMs = overrideTotalMs ?? day.totalMs;
+                        const absNote = absenceNoteMap.get(day.date);
+                        const isOverridden = !!ov;
+
+                        return (
+                          <tr key={day.date}>
+                            <td className="td-mono" style={{ fontSize: 12 }}>{day.date}</td>
+                            <td>
+                              {displayIn
+                                ? <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: "#10B981", fontSize: 12 }}>
+                                    <LogIn size={10} />{fmtTime(displayIn)}
+                                    {isOverridden && day.checkIn && Number(ov.checkInMs) !== day.checkIn && (
+                                      <span title={`Hakyky: ${fmtTime(day.checkIn)}`} style={{ fontSize: 9, color: "var(--text-muted)" }}>✏</span>
+                                    )}
+                                  </span>
+                                : <span className="td-muted">—</span>}
+                              {/* always show actual if different */}
+                              {isOverridden && day.checkIn && ov.checkInMs != null && Number(ov.checkInMs) !== day.checkIn && (
+                                <div style={{ fontSize: 10, color: "var(--text-muted)" }}>hakyky: {fmtTime(day.checkIn)}</div>
+                              )}
+                            </td>
+                            <td>
+                              {displayOut
+                                ? <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: "#F59E0B", fontSize: 12 }}>
+                                    <LogOut size={10} />{fmtTime(displayOut)}
+                                  </span>
+                                : <span className="td-muted">—</span>}
+                              {isOverridden && day.checkOut && ov.checkOutMs != null && Number(ov.checkOutMs) !== day.checkOut && (
+                                <div style={{ fontSize: 10, color: "var(--text-muted)" }}>hakyky: {fmtTime(day.checkOut)}</div>
+                              )}
+                            </td>
+                            <td>
+                              <strong style={{ fontSize: 13, color: displayMs > 0 ? (isOverridden ? "var(--warning, #F59E0B)" : "var(--primary)") : "var(--text-muted)" }}>
+                                {fmtMs(displayMs)}
+                              </strong>
+                              {isOverridden && day.totalMs > 0 && (
+                                <div style={{ fontSize: 10, color: "var(--text-muted)" }}>hakyky: {fmtMs(day.totalMs)}</div>
+                              )}
+                            </td>
+                            <td>
+                              {absNote ? (
+                                <div>
+                                  <div style={{ fontSize: 11, color: "var(--text)" }}>"{absNote.note}"</div>
+                                  <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{absNote.createdByName}</div>
+                                </div>
+                              ) : ov?.note ? (
+                                <span style={{ fontSize: 11, color: "var(--text-muted)", fontStyle: "italic" }}>{ov.note}</span>
+                              ) : (
+                                <span className="td-muted" style={{ fontSize: 11 }}>—</span>
+                              )}
+                            </td>
+                            <td>
+                              <button
+                                className="btn btn--ghost btn--sm"
+                                title="Is wagtyny düzet"
+                                onClick={() => setOverrideModal({ date: day.date, checkIn: day.checkIn, checkOut: day.checkOut })}
+                              >
+                                <Edit2 size={12} />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -380,6 +544,18 @@ export function WorkerDetailPage() {
             </div>
           </div>
         </>
+      )}
+
+      {overrideModal && worker && (
+        <OverrideModal
+          workerEntityId={worker.id}
+          date={overrideModal.date}
+          existing={overrideMap.get(overrideModal.date)}
+          actualCheckIn={overrideModal.checkIn}
+          actualCheckOut={overrideModal.checkOut}
+          onClose={() => setOverrideModal(null)}
+          adminName={adminName}
+        />
       )}
     </>
   );

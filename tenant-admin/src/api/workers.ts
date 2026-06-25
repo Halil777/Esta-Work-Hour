@@ -25,6 +25,7 @@ export type WorkerApi = {
   extraSaat?: number;
   nfcCardUid?: string | null;
   shift?: 'day' | 'night' | null;
+  isStaff?: boolean;
 };
 
 export type MobileCredential = {

@@ -168,6 +168,11 @@ export function ApprovalsScreen() {
                     <View style={{ flex: 1 }}>
                       <Text style={[{ color: colors.text, fontSize: 13, fontWeight: '600' }]}>{item.workerName}</Text>
                       <Text style={{ color: colors.textMuted, fontSize: 11 }}>{item.workerId}</Text>
+                      {item.description ? (
+                        <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 3, fontStyle: 'italic' }}>
+                          "{item.description}"
+                        </Text>
+                      ) : null}
                     </View>
                     <View style={[s.hrsPill, { backgroundColor: palette.primary + '22' }]}>
                       <Text style={{ color: palette.primary, fontWeight: '700', fontSize: 14 }}>{item.extraHours}h</Text>

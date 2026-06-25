@@ -33,7 +33,7 @@ function CreateModal({
   const [siteChiefId, setSiteChiefId] = useState('')
   const [workDate, setWorkDate] = useState(new Date().toISOString().split('T')[0])
   const [note, setNote] = useState('')
-  const [selectedWorkers, setSelectedWorkers] = useState<Map<string, number>>(new Map())
+  const [selectedWorkers, setSelectedWorkers] = useState<Map<string, { hours: number; description: string }>>(new Map())
   const [saving, setSaving] = useState(false)
   const [step, setStep] = useState<'form' | 'workers'>('form')
 
@@ -48,7 +48,7 @@ function CreateModal({
     setSelectedWorkers(prev => {
       const m = new Map(prev)
       if (m.has(id)) m.delete(id)
-      else m.set(id, 2)
+      else m.set(id, { hours: 2, description: '' })
       return m
     })
   }
@@ -56,7 +56,17 @@ function CreateModal({
   const setHours = (id: string, h: number) => {
     setSelectedWorkers(prev => {
       const m = new Map(prev)
-      m.set(id, Math.max(0.5, Math.min(12, h)))
+      const cur = m.get(id) ?? { hours: 2, description: '' }
+      m.set(id, { ...cur, hours: Math.max(0.5, Math.min(24, h)) })
+      return m
+    })
+  }
+
+  const setDesc = (id: string, desc: string) => {
+    setSelectedWorkers(prev => {
+      const m = new Map(prev)
+      const cur = m.get(id) ?? { hours: 2, description: '' }
+      m.set(id, { ...cur, description: desc })
       return m
     })
   }
@@ -70,7 +80,11 @@ function CreateModal({
         siteChiefWorkerEntityId: siteChiefId,
         workDate,
         note: note || undefined,
-        items: Array.from(selectedWorkers.entries()).map(([workerEntityId, extraHours]) => ({ workerEntityId, extraHours })),
+        items: Array.from(selectedWorkers.entries()).map(([workerEntityId, { hours, description }]) => ({
+          workerEntityId,
+          extraHours: hours,
+          description: description || undefined,
+        })),
       })
       onCreated()
       onClose()
@@ -142,7 +156,7 @@ function CreateModal({
                 <Text style={[sm.label, { color: colors.textSecondary, marginBottom: 8 }]}>Işçi saýla ({selectedWorkers.size} saýlanan)</Text>
                 {workers.map(w => {
                   const sel = selectedWorkers.has(w.id)
-                  const hrs = selectedWorkers.get(w.id) ?? 2
+                  const entry = selectedWorkers.get(w.id) ?? { hours: 2, description: '' }
                   return (
                     <View key={w.id} style={[sm.workerRow, { borderColor: sel ? palette.primary : colors.border, backgroundColor: sel ? palette.primary + '11' : undefined }]}>
                       <TouchableOpacity style={sm.workerCheck} onPress={() => toggleWorker(w.id)}>
@@ -153,17 +167,27 @@ function CreateModal({
                           <Text style={[{ color: colors.text, fontSize: 13, fontWeight: '600' }]}>{w.name}</Text>
                           <Text style={{ color: colors.textMuted, fontSize: 11 }}>{w.workerId}</Text>
                         </View>
+                        {sel && (
+                          <View style={sm.hrsRow}>
+                            <TouchableOpacity onPress={() => setHours(w.id, entry.hours - 0.5)} style={sm.hrsBtn}>
+                              <Text style={{ color: palette.primary, fontSize: 18 }}>−</Text>
+                            </TouchableOpacity>
+                            <Text style={[sm.hrsVal, { color: colors.text }]}>{entry.hours}h</Text>
+                            <TouchableOpacity onPress={() => setHours(w.id, entry.hours + 0.5)} style={sm.hrsBtn}>
+                              <Text style={{ color: palette.primary, fontSize: 18 }}>+</Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
                       </TouchableOpacity>
                       {sel && (
-                        <View style={sm.hrsRow}>
-                          <TouchableOpacity onPress={() => setHours(w.id, hrs - 0.5)} style={sm.hrsBtn}>
-                            <Text style={{ color: palette.primary, fontSize: 18 }}>−</Text>
-                          </TouchableOpacity>
-                          <Text style={[sm.hrsVal, { color: colors.text }]}>{hrs}h</Text>
-                          <TouchableOpacity onPress={() => setHours(w.id, hrs + 0.5)} style={sm.hrsBtn}>
-                            <Text style={{ color: palette.primary, fontSize: 18 }}>+</Text>
-                          </TouchableOpacity>
-                        </View>
+                        <TextInput
+                          style={[sm.descInput, { backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }]}
+                          value={entry.description}
+                          onChangeText={t => setDesc(w.id, t)}
+                          placeholder="Edilen iş (islege görä)..."
+                          placeholderTextColor={colors.textMuted}
+                          multiline
+                        />
                       )}
                     </View>
                   )
@@ -310,4 +334,5 @@ const sm = StyleSheet.create({
   hrsRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   hrsBtn: { padding: 4 },
   hrsVal: { fontSize: 14, fontWeight: '700', minWidth: 30, textAlign: 'center' },
+  descInput: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, fontSize: 12, marginTop: 6, minHeight: 40, textAlignVertical: 'top' },
 })

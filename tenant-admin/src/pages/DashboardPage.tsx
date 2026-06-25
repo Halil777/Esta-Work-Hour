@@ -1,10 +1,11 @@
-import { Users, UserCheck, UserX, Clock, ChevronRight } from 'lucide-react'
+import { Users, UserCheck, UserX, Clock, ChevronRight, AlertTriangle } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from '../i18n/useTranslation'
 import { workersApi } from '../api/workers'
 import { extraHoursApi } from '../api/extraHours'
 import { auditLogApi } from '../api/auditLog'
+import { attendanceApi } from '../api/attendance'
 
 function StatCard({ value, label, sub, icon, color, bg, onClick }: {
   value: string | number; label: string; sub?: string
@@ -72,6 +73,21 @@ export function DashboardPage() {
     refetchInterval: 60_000,
   })
 
+  const { data: missingCheckouts = [] } = useQuery({
+    queryKey: ['missing-checkouts'],
+    queryFn: () => attendanceApi.getMissingCheckouts(),
+    staleTime: 60_000,
+    refetchInterval: 5 * 60_000,
+  })
+
+  const { data: lateData } = useQuery({
+    queryKey: ['late-arrivals', 'all'],
+    queryFn: () => fetch('/api/attendance/late-arrivals').then(r => r.json()),
+    staleTime: 60_000,
+    refetchInterval: 5 * 60_000,
+  })
+  const lateArrivals: any[] = lateData?.workers ?? []
+
   const presentToday = workers.filter(w => w.lastCheckIn).length
   const absentToday = workers.filter(w => !w.lastCheckIn).length
   const totalWorkers = workers.length
@@ -94,8 +110,55 @@ export function DashboardPage() {
     (a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime(),
   )
 
+  const fmtCheckInTime = (ms: number) =>
+    new Date(ms).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
+
   return (
     <>
+      {lateArrivals.length > 0 && (
+        <div style={{
+          background: 'var(--warning-light, #FFF7ED)', border: '1px solid var(--warning, #F59E0B)',
+          borderRadius: 10, padding: '10px 16px', marginBottom: 10,
+          display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
+        }} onClick={() => navigate('/late-arrivals')}>
+          <AlertTriangle size={15} style={{ color: 'var(--warning, #F59E0B)', flexShrink: 0 }} />
+          <span style={{ color: 'var(--warning, #F59E0B)', fontWeight: 600, fontSize: 13 }}>
+            {lateArrivals.length} işçi iş başlangyjyna çenli gelmedi
+          </span>
+          <span style={{ fontSize: 12, color: 'var(--warning, #F59E0B)', marginLeft: 'auto' }}>Görkezmek →</span>
+        </div>
+      )}
+      {missingCheckouts.length > 0 && (
+        <div style={{
+          background: 'var(--danger-light)', border: '1px solid var(--danger)', borderRadius: 10,
+          padding: '12px 16px', marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 8,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <AlertTriangle size={16} style={{ color: 'var(--danger)', flexShrink: 0 }} />
+            <strong style={{ color: 'var(--danger)', fontSize: 14 }}>
+              {missingCheckouts.length} işçi çykyş belgisi ýok (14+ sagat işde)
+            </strong>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {missingCheckouts.map(w => (
+              <div
+                key={w.workerEntityId}
+                onClick={() => navigate(`/workers/${w.workerEntityId}`)}
+                style={{
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+                  background: 'var(--card)', border: '1px solid var(--danger)',
+                  borderRadius: 8, padding: '5px 10px', fontSize: 12,
+                }}
+              >
+                <span style={{ fontWeight: 600, color: 'var(--text)' }}>{w.workerName}</span>
+                <span style={{ color: 'var(--text-muted)' }}>·</span>
+                <span style={{ color: 'var(--danger)', fontWeight: 700 }}>{w.hoursAgo}h</span>
+                <span style={{ color: 'var(--text-muted)' }}>({fmtCheckInTime(w.checkInTime)} girdi)</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="stats-grid">
         <StatCard value={totalWorkers} label={t.dashboard.totalWorkers}
           icon={<Users size={16} />} color="var(--primary-text)" bg="var(--primary-light)"

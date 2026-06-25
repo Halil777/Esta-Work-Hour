@@ -81,6 +81,9 @@ export class Worker {
   @Column({ type: 'varchar', nullable: true, default: null })
   nfcCardUid: string | null;
 
+  @Column({ type: 'boolean', default: false })
+  isStaff: boolean;
+
   @Column({ type: 'timestamp', nullable: true, default: null })
   terminatedAt: Date | null;
 

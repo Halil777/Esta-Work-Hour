@@ -69,4 +69,7 @@ export class UpdateWorkerDto {
   @IsOptional()
   @IsString()
   shift?: 'day' | 'night' | null;
+
+  @IsOptional()
+  isStaff?: boolean;
 }
