@@ -288,9 +288,17 @@ export class AttendanceEventsService {
     );
     const checkedInSet = new Set(checkedIn.map(r => r.employeeNumber));
 
+    // Include null-shift workers under day shift if day deadline passed
+    const includeNullShift = lateShifts.includes('day');
+
     // Find workers in late shifts not yet checked in
     let qb = this.workerRepo.createQueryBuilder('w')
-      .where('w.shift IN (:...shifts)', { shifts: lateShifts })
+      .where(
+        includeNullShift
+          ? '(w.shift IN (:...shifts) OR w.shift IS NULL)'
+          : 'w.shift IN (:...shifts)',
+        { shifts: lateShifts },
+      )
       .andWhere('w.status != :terminated', { terminated: 'Terminated' });
 
     if (foremanWorkerEntityId) {
@@ -325,7 +333,7 @@ export class AttendanceEventsService {
         workerId:       w.workerId,
         profession:     w.profession,
         brigadeName:    w.brigadeName,
-        shift:          w.shift,
+        shift:          w.shift ?? (includeNullShift ? 'day' : null),
         isStaff:        w.isStaff,
         foremanId:      w.foremanId,
         absenceNote:    noteMap.get(w.id) ?? null,
