@@ -1,16 +1,12 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Download, Sun, Moon, X, AlertCircle } from "lucide-react";
-import { attendanceApi } from "../api/attendance";
 import { absenceNotesApi } from "../api/absenceNotes";
 import { useUiPreferences } from "../app/providers/useUiPreferences";
 
 type StaffFilter = "all" | "staff" | "workers";
 
-function fmtTime(ms: number) {
-  return new Date(ms).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
-}
 
 function NoteModal({ workerEntityId, workerName, date, existingNote, onClose, adminName }: {
   workerEntityId: string;
@@ -77,7 +73,6 @@ function NoteModal({ workerEntityId, workerName, date, existingNote, onClose, ad
 export function LateArrivalsPage() {
   const navigate = useNavigate();
   const { user } = useUiPreferences();
-  const qc = useQueryClient();
   const adminName = user?.name ?? "Admin";
 
   const [staffFilter, setStaffFilter] = useState<StaffFilter>("all");
