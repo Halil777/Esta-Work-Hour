@@ -4,9 +4,10 @@ import { AttendanceEvent } from './attendance-event.entity';
 import { Worker } from '../workers/worker.entity';
 import { AttendanceEventsController, MobileForemanAttendanceController } from './attendance-events.controller';
 import { AttendanceEventsService } from './attendance-events.service';
+import { MobileAuthModule } from '../mobile-auth/mobile-auth.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AttendanceEvent, Worker])],
+  imports: [TypeOrmModule.forFeature([AttendanceEvent, Worker]), MobileAuthModule],
   controllers: [AttendanceEventsController, MobileForemanAttendanceController],
   providers: [AttendanceEventsService],
 })
