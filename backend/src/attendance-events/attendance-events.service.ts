@@ -163,7 +163,7 @@ export class AttendanceEventsService {
     const events: { eventType: string; eventTime: string; date: string }[] =
       await this.repo.query(
         `SELECT "eventType", "eventTime",
-                DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE '${TZ}') as date
+                DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE '${TZ}')::text as date
          FROM attendance_events
          WHERE "employeeNumber" = $1${dateFilter}
          ORDER BY "eventTime" ASC`,
