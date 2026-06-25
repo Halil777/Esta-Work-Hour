@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, Global } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 import { MobileCredential } from './mobile-credential.entity';
@@ -9,6 +9,7 @@ import { JwtGuard } from './jwt.guard';
 
 export const JWT_SECRET = process.env.JWT_SECRET || 'workhour-mobile-secret-2025';
 
+@Global()
 @Module({
   imports: [
     TypeOrmModule.forFeature([MobileCredential, Worker]),

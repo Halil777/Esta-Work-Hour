@@ -9,12 +9,9 @@ import {
   SiteChiefExtraRequestsController,
   AdminExtraHoursController,
 } from './extra-hours.controller';
-import { MobileAuthModule } from '../mobile-auth/mobile-auth.module';
-
 @Module({
   imports: [
     TypeOrmModule.forFeature([ExtraHoursRequest, ExtraHoursRequestItem, Worker]),
-    MobileAuthModule,
   ],
   controllers: [
     FormanExtraRequestsController,

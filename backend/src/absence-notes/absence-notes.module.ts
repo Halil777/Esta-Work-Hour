@@ -4,10 +4,8 @@ import { AbsenceNote } from './absence-note.entity';
 import { Worker } from '../workers/worker.entity';
 import { AbsenceNotesService } from './absence-notes.service';
 import { AbsenceNotesController, MobileForemanAbsenceNotesController } from './absence-notes.controller';
-import { MobileAuthModule } from '../mobile-auth/mobile-auth.module';
-
 @Module({
-  imports: [TypeOrmModule.forFeature([AbsenceNote, Worker]), MobileAuthModule],
+  imports: [TypeOrmModule.forFeature([AbsenceNote, Worker])],
   controllers: [AbsenceNotesController, MobileForemanAbsenceNotesController],
   providers: [AbsenceNotesService],
   exports: [AbsenceNotesService],
