@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Sun, Moon, KeyRound } from 'lucide-react'
+import { Sun, Moon } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from '../i18n/useTranslation'
 import { useUiPreferences } from '../app/providers/useUiPreferences'
@@ -86,48 +86,6 @@ function ShiftSettingsCard() {
   )
 }
 
-function AdminTokenCard() {
-  const [token, setToken] = useState(() => localStorage.getItem('adminToken') ?? '')
-  const [saved, setSaved] = useState(false)
-
-  const save = () => {
-    if (token.trim()) {
-      localStorage.setItem('adminToken', token.trim())
-    } else {
-      localStorage.removeItem('adminToken')
-    }
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
-  }
-
-  return (
-    <div className="card">
-      <div className="card-header"><h3><KeyRound size={14} style={{ display: 'inline', marginRight: 6 }} />Admin Token</h3></div>
-      <div className="card-body">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
-            Backend API-ä girişmek üçin token. Boş goýsaňyz — token iberilmez.
-          </p>
-          <div className="form-row">
-            <label className="form-label">Token</label>
-            <input
-              type="password"
-              value={token}
-              onChange={e => setToken(e.target.value)}
-              placeholder="workhour-admin-2025"
-              autoComplete="off"
-            />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <button className="btn btn--primary btn--sm" onClick={save}>Sakla</button>
-            {saved && <span style={{ fontSize: 12, color: 'var(--success)' }}>✓ Saklandi</span>}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export function SettingsPage() {
   const { t } = useTranslation()
   const { theme, setTheme, language, setLanguage, user } = useUiPreferences()
@@ -182,7 +140,6 @@ export function SettingsPage() {
           </div>
         </div>
         <ShiftSettingsCard />
-        <AdminTokenCard />
       </div>
     </>
   )

@@ -7,9 +7,9 @@ import { memoryStorage } from 'multer';
 import { ForemanService } from './foremans.service';
 import { CreateForemanDto } from './dto/create-foreman.dto';
 import { UpdateForemanDto } from './dto/update-foreman.dto';
-import { AdminGuard } from '../common/admin.guard';
+import { AdminJwtGuard } from '../admin-auth/admin-auth.guard';
 
-@UseGuards(AdminGuard)
+@UseGuards(AdminJwtGuard)
 @Controller('foremans')
 export class ForemanController {
   constructor(private readonly service: ForemanService) {}

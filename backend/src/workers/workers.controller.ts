@@ -8,10 +8,10 @@ import { memoryStorage } from 'multer';
 import { WorkersService } from './workers.service';
 import { CreateWorkerDto } from './dto/create-worker.dto';
 import { UpdateWorkerDto } from './dto/update-worker.dto';
-import { AdminGuard } from '../common/admin.guard';
+import { AdminJwtGuard } from '../admin-auth/admin-auth.guard';
 import type { Response } from 'express';
 
-@UseGuards(AdminGuard)
+@UseGuards(AdminJwtGuard)
 @Controller('workers')
 export class WorkersController {
   constructor(private readonly service: WorkersService) {}

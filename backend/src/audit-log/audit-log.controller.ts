@@ -1,8 +1,8 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AuditLogService } from './audit-log.service';
-import { AdminGuard } from '../common/admin.guard';
+import { AdminJwtGuard } from '../admin-auth/admin-auth.guard';
 
-@UseGuards(AdminGuard)
+@UseGuards(AdminJwtGuard)
 @Controller('audit-logs')
 export class AuditLogController {
   constructor(private readonly service: AuditLogService) {}

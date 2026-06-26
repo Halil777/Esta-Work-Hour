@@ -1,4 +1,5 @@
-import { Sun, Moon, Bell } from 'lucide-react'
+import { Sun, Moon, Bell, LogOut } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useUiPreferences } from '../../app/providers/useUiPreferences'
 import { useTranslation } from '../../i18n/useTranslation'
 import type { Language } from '../../types/tenant'
@@ -12,8 +13,9 @@ const LANGS: { key: Language; label: string }[] = [
 ]
 
 export function Header({ title }: Props) {
-  const { theme, language, toggleTheme, setLanguage } = useUiPreferences()
+  const { theme, language, toggleTheme, setLanguage, logout } = useUiPreferences()
   const { t } = useTranslation()
+  const navigate = useNavigate()
 
   return (
     <header className="header">
@@ -38,6 +40,14 @@ export function Header({ title }: Props) {
 
         <button className="icon-btn" title="Notifications">
           <Bell size={16} />
+        </button>
+
+        <button
+          className="icon-btn"
+          title="Çykış"
+          onClick={() => { logout(); navigate('/login', { replace: true }) }}
+        >
+          <LogOut size={16} />
         </button>
       </div>
     </header>

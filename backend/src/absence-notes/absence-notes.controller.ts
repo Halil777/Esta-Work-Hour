@@ -4,10 +4,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Worker } from '../workers/worker.entity';
 import { JwtGuard } from '../mobile-auth/jwt.guard';
-import { AdminGuard } from '../common/admin.guard';
+import { AdminJwtGuard } from '../admin-auth/admin-auth.guard';
 
 // Admin endpoints
-@UseGuards(AdminGuard)
+@UseGuards(AdminJwtGuard)
 @Controller('absence-notes')
 export class AbsenceNotesController {
   constructor(

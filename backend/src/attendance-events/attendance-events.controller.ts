@@ -3,7 +3,7 @@ import type { Response } from 'express';
 import { AttendanceEventsService } from './attendance-events.service';
 import { SyncEventsDto } from './dto/sync-events.dto';
 import { JwtGuard } from '../mobile-auth/jwt.guard';
-import { AdminGuard } from '../common/admin.guard';
+import { AdminJwtGuard } from '../admin-auth/admin-auth.guard';
 
 @Controller('attendance')
 export class AttendanceEventsController {
@@ -14,7 +14,7 @@ export class AttendanceEventsController {
     return this.service.syncEvents(dto);
   }
 
-  @UseGuards(AdminGuard)
+  @UseGuards(AdminJwtGuard)
   @Get('events')
   findAll(
     @Query('date') date?: string,
@@ -23,13 +23,13 @@ export class AttendanceEventsController {
     return this.service.findAll(date, limit ? Number(limit) : 500);
   }
 
-  @UseGuards(AdminGuard)
+  @UseGuards(AdminJwtGuard)
   @Get('daily-summary')
   getDailySummary(@Query('date') date?: string) {
     return this.service.getDailySummary(date);
   }
 
-  @UseGuards(AdminGuard)
+  @UseGuards(AdminJwtGuard)
   @Get('worker-summary')
   getWorkerSummary(
     @Query('workerEntityId') workerEntityId: string,
@@ -39,13 +39,13 @@ export class AttendanceEventsController {
     return this.service.getWorkerAttendanceSummary(workerEntityId, startDate, endDate);
   }
 
-  @UseGuards(AdminGuard)
+  @UseGuards(AdminJwtGuard)
   @Get('missing-checkouts')
   getMissingCheckouts(@Query('foremanWorkerEntityId') foremanWorkerEntityId?: string) {
     return this.service.getMissingCheckouts(foremanWorkerEntityId);
   }
 
-  @UseGuards(AdminGuard)
+  @UseGuards(AdminJwtGuard)
   @Get('late-arrivals')
   getLateArrivals(
     @Query('foremanWorkerEntityId') foremanWorkerEntityId?: string,
@@ -54,7 +54,7 @@ export class AttendanceEventsController {
     return this.service.getLateArrivals(foremanWorkerEntityId, staffFilter);
   }
 
-  @UseGuards(AdminGuard)
+  @UseGuards(AdminJwtGuard)
   @Get('late-arrivals/export')
   async exportLateArrivals(
     @Query('staffFilter') staffFilter: 'staff' | 'workers' | undefined,

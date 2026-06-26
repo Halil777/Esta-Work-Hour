@@ -23,6 +23,7 @@ import { MobileForemanModule } from './mobile-foreman/mobile-foreman.module';
 import { ShiftSettingsModule } from './shift-settings/shift-settings.module';
 import { AbsenceNotesModule } from './absence-notes/absence-notes.module';
 import { AttendanceOverridesModule } from './attendance-overrides/attendance-overrides.module';
+import { AdminAuthModule } from './admin-auth/admin-auth.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { AttendanceOverridesModule } from './attendance-overrides/attendance-ove
     ShiftSettingsModule,
     AbsenceNotesModule,
     AttendanceOverridesModule,
+    AdminAuthModule,
   ],
 })
 export class AppModule {}

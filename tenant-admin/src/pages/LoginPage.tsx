@@ -2,25 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Building2, Eye, EyeOff, Sun, Moon } from 'lucide-react'
 import { useUiPreferences } from '../app/providers/useUiPreferences'
-import type { AuthUser } from '../types/tenant'
-
-const MOCK_USERS: Array<{ username: string; password: string; user: AuthUser }> = [
-  {
-    username: 'admin',
-    password: 'admin123',
-    user: { id: 'u1', name: 'Aleksey Petrov', role: 'ObjectAdmin', objectName: 'Kazan Object', objectId: 'obj-kazan' },
-  },
-  {
-    username: 'hr',
-    password: 'hr123',
-    user: { id: 'u2', name: 'Elena Smirnova', role: 'HR', objectName: 'Kazan Object', objectId: 'obj-kazan' },
-  },
-  {
-    username: 'chief',
-    password: 'chief123',
-    user: { id: 'u3', name: 'Dmitry Volkov', role: 'SiteChief', objectName: 'Kazan Object', objectId: 'obj-kazan' },
-  },
-]
+import { adminAuthApi } from '../api/adminAuth'
 
 export function LoginPage() {
   const { login, theme, toggleTheme } = useUiPreferences()
@@ -32,18 +14,19 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false)
 
   const handleLogin = async () => {
-    if (!username || !password) { setError('Please fill all fields'); return }
+    if (!username || !password) { setError('Username we paroly giriziň'); return }
     setLoading(true)
     setError('')
-    await new Promise(r => setTimeout(r, 600))
-    const match = MOCK_USERS.find(u => u.username === username && u.password === password)
-    if (match) {
-      login(match.user)
+    try {
+      const { token, user } = await adminAuthApi.login(username, password)
+      localStorage.setItem('adminJwt', token)
+      login(user)
       navigate('/dashboard', { replace: true })
-    } else {
-      setError('Invalid credentials')
+    } catch (e: any) {
+      setError(e.message ?? 'Giriş başartmady')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   return (
@@ -113,13 +96,8 @@ export function LoginPage() {
             onClick={handleLogin}
             disabled={loading}
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? 'Girýär…' : 'Giriş'}
           </button>
-
-          <div className="login-hint">
-            <strong>Demo credentials:</strong><br />
-            admin / admin123 · hr / hr123 · chief / chief123
-          </div>
         </div>
       </div>
     </div>

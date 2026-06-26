@@ -1,8 +1,8 @@
 import { Controller, Get, Put, Param, Body, UseGuards } from '@nestjs/common';
 import { ShiftSettingsService } from './shift-settings.service';
-import { AdminGuard } from '../common/admin.guard';
+import { AdminJwtGuard } from '../admin-auth/admin-auth.guard';
 
-@UseGuards(AdminGuard)
+@UseGuards(AdminJwtGuard)
 @Controller('shift-settings')
 export class ShiftSettingsController {
   constructor(private readonly service: ShiftSettingsService) {}

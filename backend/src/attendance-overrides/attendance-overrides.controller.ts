@@ -1,8 +1,8 @@
 import { Controller, Post, Delete, Get, Body, Query, UseGuards } from '@nestjs/common';
 import { AttendanceOverridesService } from './attendance-overrides.service';
-import { AdminGuard } from '../common/admin.guard';
+import { AdminJwtGuard } from '../admin-auth/admin-auth.guard';
 
-@UseGuards(AdminGuard)
+@UseGuards(AdminJwtGuard)
 @Controller('attendance-overrides')
 export class AttendanceOverridesController {
   constructor(private readonly service: AttendanceOverridesService) {}

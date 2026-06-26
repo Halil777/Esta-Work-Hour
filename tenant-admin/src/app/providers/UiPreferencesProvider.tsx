@@ -60,6 +60,7 @@ export function UiPreferencesProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setUser(null)
     window.localStorage.removeItem(USER_KEY)
+    window.localStorage.removeItem('adminJwt')
   }
 
   return (
