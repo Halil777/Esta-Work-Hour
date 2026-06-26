@@ -2,6 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ILike, Not } from 'typeorm';
 import * as XLSX from 'xlsx';
+import * as path from 'path';
+import * as fs from 'fs';
 import { Worker, WorkerStatus, QrStatus, MobileRole } from './worker.entity';
 import { AttendanceEvent } from '../attendance-events/attendance-event.entity';
 import { Foreman } from '../foremans/foreman.entity';
@@ -181,6 +183,25 @@ export class WorkersService {
     const worker = await this.findOne(id);
     await this.auditLog.log('Worker', id, 'DELETE', changedBy, worker, null);
     return this.repo.remove(worker);
+  }
+
+  async uploadPhoto(id: string, file: Express.Multer.File): Promise<{ photoUrl: string }> {
+    const worker = await this.findOne(id);
+    const uploadDir = path.join(process.cwd(), 'uploads', 'photos');
+    await fs.promises.mkdir(uploadDir, { recursive: true });
+
+    if (worker.photoUrl) {
+      const oldPath = path.join(process.cwd(), worker.photoUrl.replace(/^\//, ''));
+      await fs.promises.unlink(oldPath).catch(() => {});
+    }
+
+    const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
+    const filename = `${worker.workerId}${ext}`;
+    await fs.promises.writeFile(path.join(uploadDir, filename), file.buffer);
+
+    const photoUrl = `/uploads/photos/${filename}`;
+    await this.repo.update(id, { photoUrl });
+    return { photoUrl };
   }
 
   async exportToExcel(): Promise<Buffer> {

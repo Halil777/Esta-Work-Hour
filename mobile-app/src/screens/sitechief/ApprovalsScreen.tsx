@@ -32,7 +32,9 @@ export function ApprovalsScreen() {
     try {
       const data = await siteChiefApi.incomingRequests()
       setRequests(data)
-    } catch {} finally {
+    } catch (e: any) {
+      Alert.alert('Ýalňyşlyk', e?.message ?? 'Maglumat ýüklemek başartmady')
+    } finally {
       setLoading(false); setRefreshing(false)
     }
   }

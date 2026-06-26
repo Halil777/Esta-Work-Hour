@@ -2,11 +2,13 @@
 process.env.TZ = process.env.TZ || 'Asia/Ashgabat';
 
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { ValidationPipe } from '@nestjs/common';
+import * as path from 'path';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   app.setGlobalPrefix('api');
 
@@ -17,6 +19,9 @@ async function bootstrap() {
   });
 
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+
+  // Serve uploaded files (worker photos, etc.) at /uploads/...
+  app.useStaticAssets(path.join(process.cwd(), 'uploads'), { prefix: '/uploads' });
 
   const port = process.env.PORT ?? 3002;
   await app.listen(port);

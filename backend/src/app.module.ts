@@ -24,6 +24,7 @@ import { ShiftSettingsModule } from './shift-settings/shift-settings.module';
 import { AbsenceNotesModule } from './absence-notes/absence-notes.module';
 import { AttendanceOverridesModule } from './attendance-overrides/attendance-overrides.module';
 import { AdminAuthModule } from './admin-auth/admin-auth.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -38,7 +39,8 @@ import { AdminAuthModule } from './admin-auth/admin-auth.module';
         password: cfg.get('DB_PASSWORD', 'postgres'),
         database: cfg.get('DB_NAME', 'workhour'),
         entities: [Worker, AttendanceEvent, AuditLog, Foreman, Brigadir, MobileCredential, ExtraHoursRequest, ExtraHoursRequestItem, ShiftSetting, AbsenceNote, AttendanceOverride],
-        synchronize: true,
+        // synchronize: true is safe in dev; in production use 'npm run migration:run' instead
+        synchronize: cfg.get('NODE_ENV', 'development') !== 'production',
       }),
     }),
     WorkersModule,
@@ -53,6 +55,7 @@ import { AdminAuthModule } from './admin-auth/admin-auth.module';
     AbsenceNotesModule,
     AttendanceOverridesModule,
     AdminAuthModule,
+    ReportsModule,
   ],
 })
 export class AppModule {}

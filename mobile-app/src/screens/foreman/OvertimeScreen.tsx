@@ -6,6 +6,8 @@ import {
 import { useApp } from '../../context/AppContext'
 import { foremanApi, type ExtraHoursRequest, type MobileWorker, type SiteChiefOption } from '../../api'
 import { palette } from '../../theme/colors'
+import { queueAdd } from '../../offline'
+import { useOfflineSync } from '../../hooks/useOfflineSync'
 
 type StatusMeta = { label: string; color: string; bg: string }
 const STATUS_META: Record<ExtraHoursRequest['status'], StatusMeta> = {
@@ -75,22 +77,31 @@ function CreateModal({
     if (!siteChiefId) { Alert.alert('Ýalňyşlyk', 'Site Chief saýlaň'); return }
     if (selectedWorkers.size === 0) { Alert.alert('Ýalňyşlyk', 'Işçi saýlaň'); return }
     setSaving(true)
+    const payload = {
+      siteChiefWorkerEntityId: siteChiefId,
+      workDate,
+      note: note || undefined,
+      items: Array.from(selectedWorkers.entries()).map(([workerEntityId, { hours, description }]) => ({
+        workerEntityId,
+        extraHours: hours,
+        description: description || undefined,
+      })),
+    }
     try {
-      await foremanApi.createRequest({
-        siteChiefWorkerEntityId: siteChiefId,
-        workDate,
-        note: note || undefined,
-        items: Array.from(selectedWorkers.entries()).map(([workerEntityId, { hours, description }]) => ({
-          workerEntityId,
-          extraHours: hours,
-          description: description || undefined,
-        })),
-      })
+      await foremanApi.createRequest(payload)
       onCreated()
       onClose()
       setSiteChiefId(''); setNote(''); setSelectedWorkers(new Map()); setStep('form')
     } catch (e: any) {
-      Alert.alert('Ýalňyşlyk', e.message)
+      // If network error, queue for later
+      if (e.message?.includes('Network') || e.message?.includes('fetch') || e.message?.includes('HTTP')) {
+        await queueAdd('/mobile/foreman/extra-requests', 'POST', payload, `Goşmaça sag — ${workDate}`)
+        Alert.alert('Offline goşuldy', 'Tor baglanyşyk dörände awtomatiki ugradylar.')
+        onClose()
+        setSiteChiefId(''); setNote(''); setSelectedWorkers(new Map()); setStep('form')
+      } else {
+        Alert.alert('Ýalňyşlyk', e.message)
+      }
     } finally {
       setSaving(false)
     }
@@ -221,12 +232,15 @@ export function ForemanOvertimeScreen() {
   const [refreshing, setRefreshing] = useState(false)
   const [filter, setFilter] = useState<ExtraHoursRequest['status'] | 'all'>('all')
   const [showCreate, setShowCreate] = useState(false)
+  const { queueCount, syncing, sync } = useOfflineSync()
 
   const load = async () => {
     try {
       const data = await foremanApi.myRequests()
       setRequests(data)
-    } catch {} finally {
+    } catch (e: any) {
+      Alert.alert('Ýalňyşlyk', e?.message ?? 'Maglumat ýüklemek başartmady')
+    } finally {
       setLoading(false); setRefreshing(false)
     }
   }
@@ -252,6 +266,17 @@ export function ForemanOvertimeScreen() {
           )
         })}
       </ScrollView>
+
+      {queueCount > 0 && (
+        <TouchableOpacity
+          style={[s.offlineBanner, { backgroundColor: '#FFF7ED', borderColor: palette.warning }]}
+          onPress={sync}
+        >
+          <Text style={{ color: palette.warning, fontSize: 12, textAlign: 'center' }}>
+            {syncing ? '↻ Ugradylýar...' : `📤 ${queueCount} sorag offline — ugratmak üçin bas`}
+          </Text>
+        </TouchableOpacity>
+      )}
 
       <TouchableOpacity style={[s.newBtn, { backgroundColor: palette.primary }]} onPress={() => setShowCreate(true)}>
         <Text style={s.newBtnTxt}>+ Täze sorag</Text>
@@ -303,6 +328,7 @@ const s = StyleSheet.create({
   filterContent: { paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
   filterBtn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 99, borderWidth: 1 },
   filterTxt: { fontSize: 13, fontWeight: '600' },
+  offlineBanner: { marginHorizontal: 16, marginBottom: 6, borderRadius: 10, borderWidth: 1, padding: 10 },
   newBtn: { marginHorizontal: 16, marginBottom: 8, borderRadius: 12, paddingVertical: 11, alignItems: 'center' },
   newBtnTxt: { color: '#fff', fontWeight: '700', fontSize: 14 },
   content: { padding: 16, gap: 10, paddingBottom: 32 },

@@ -26,6 +26,7 @@ export type WorkerApi = {
   nfcCardUid?: string | null;
   shift?: 'day' | 'night' | null;
   isStaff?: boolean;
+  photoUrl?: string | null;
 };
 
 export type MobileCredential = {
@@ -125,6 +126,15 @@ export const workersApi = {
       method: 'PATCH',
       headers: changedBy ? { 'X-Admin-Name': changedBy } : {},
     }),
+
+  uploadPhoto: (id: string, file: File) => {
+    const form = new FormData();
+    form.append('photo', file);
+    return request<{ photoUrl: string }>(`/workers/${id}/photo`, {
+      method: 'PATCH',
+      body: form,
+    });
+  },
 
   getCredential: (workerEntityId: string) =>
     request<MobileCredential>(`/mobile/auth/credentials/${workerEntityId}`),

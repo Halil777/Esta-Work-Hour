@@ -5,6 +5,17 @@ import { ExtraHoursRequest, ExtraRequestStatus } from './extra-hours-request.ent
 import { ExtraHoursRequestItem } from './extra-hours-request-item.entity';
 import { Worker } from '../workers/worker.entity';
 
+async function sendExpoPush(to: string, title: string, body: string): Promise<void> {
+  if (!to || !to.startsWith('ExponentPushToken')) return;
+  try {
+    await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ to, title, body, sound: 'default', priority: 'high' }),
+    });
+  } catch {}
+}
+
 @Injectable()
 export class ExtraHoursService {
   constructor(
@@ -56,7 +67,14 @@ export class ExtraHoursService {
       items: requestItems as ExtraHoursRequestItem[],
     });
 
-    return this.requestRepo.save(req);
+    const saved = await this.requestRepo.save(req);
+
+    // Notify site chief about new request
+    if (siteChief.pushToken) {
+      sendExpoPush(siteChief.pushToken, 'Täze goşmaça sag sorogy', `${foreman.name}: ${items.length} işçi, ${workDate}`);
+    }
+
+    return saved;
   }
 
   // FOREMAN: get my sent requests
@@ -119,6 +137,13 @@ export class ExtraHoursService {
       }
     }
 
+    // Notify foreman about action result
+    const foreman = await this.workerRepo.findOneBy({ id: req.foremanWorkerEntityId });
+    if (foreman?.pushToken) {
+      const msg = action === 'approved' ? 'Tassyklandy ✅' : 'Ret edildi ❌';
+      sendExpoPush(foreman.pushToken, 'Goşmaça sag sorogy', `${req.workDate} üçin sorog ${msg}`);
+    }
+
     return req;
   }
 
@@ -141,6 +166,13 @@ export class ExtraHoursService {
           await this.workerRepo.save(worker);
         }
       }
+    }
+
+    // Notify foreman
+    const foreman = await this.workerRepo.findOneBy({ id: req.foremanWorkerEntityId });
+    if (foreman?.pushToken) {
+      const msg = action === 'approved' ? 'Tassyklandy ✅' : 'Ret edildi ❌';
+      sendExpoPush(foreman.pushToken, 'Goşmaça sag sorogy (Admin)', `${req.workDate} üçin sorog ${msg}`);
     }
 
     return req;

@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator
 import { useApp } from '../../context/AppContext'
 import { foremanApi, type MobileWorker } from '../../api'
 import { palette } from '../../theme/colors'
+import { cacheSet, cacheGet } from '../../offline'
 
 const fmtTime = (ts: number | null | undefined) => {
   if (!ts) return '—'
@@ -26,14 +27,24 @@ export function ForemanAttendanceScreen() {
   const [refreshing, setRefreshing] = useState(false)
   const [filter, setFilter] = useState<'all' | 'present' | 'absent'>('all')
   const [error, setError] = useState('')
+  const [stale, setStale] = useState(false)
 
   const load = async () => {
     try {
       const data = await foremanApi.myWorkers()
       setWorkers(data)
       setError('')
+      setStale(false)
+      await cacheSet('foreman:workers', data)
     } catch (e: any) {
-      setError(e.message ?? 'Ýalňyşlyk')
+      const cached = await cacheGet<MobileWorker[]>('foreman:workers')
+      if (cached) {
+        setWorkers(cached)
+        setStale(true)
+        setError('')
+      } else {
+        setError(e.message ?? 'Ýalňyşlyk')
+      }
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -54,6 +65,13 @@ export function ForemanAttendanceScreen() {
 
   return (
     <View style={[s.root, { backgroundColor: colors.bg }]}>
+      {stale && (
+        <View style={{ backgroundColor: '#FFF7ED', borderBottomWidth: 1, borderBottomColor: palette.warning, padding: 8 }}>
+          <Text style={{ color: palette.warning, fontSize: 12, textAlign: 'center' }}>
+            📵 Offline — Soňky göçürilen maglumat görkezilýär
+          </Text>
+        </View>
+      )}
       {/* Filter pills */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.filterBar} contentContainerStyle={s.filterContent}>
         {(['all', 'present', 'absent'] as const).map(f => {

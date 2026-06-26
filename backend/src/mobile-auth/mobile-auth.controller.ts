@@ -1,6 +1,7 @@
-import { Controller, Post, Body, Get, Param, Patch } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Patch, Req, UseGuards } from '@nestjs/common';
 import { MobileAuthService } from './mobile-auth.service';
 import { IsString, MinLength } from 'class-validator';
+import { JwtGuard } from './jwt.guard';
 
 class LoginDto {
   @IsString()
@@ -45,5 +46,17 @@ export class MobileAuthController {
   @Patch('credentials/:workerEntityId/deactivate')
   deactivate(@Param('workerEntityId') workerEntityId: string) {
     return this.service.deactivateCredential(workerEntityId);
+  }
+}
+
+@UseGuards(JwtGuard)
+@Controller('mobile')
+export class MobilePushController {
+  constructor(private readonly service: MobileAuthService) {}
+
+  @Post('push-token')
+  savePushToken(@Req() req: any, @Body('pushToken') pushToken: string) {
+    const { workerEntityId } = req.user;
+    return this.service.savePushToken(workerEntityId, pushToken);
   }
 }

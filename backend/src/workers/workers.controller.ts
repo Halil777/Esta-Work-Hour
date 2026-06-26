@@ -90,6 +90,16 @@ export class WorkersController {
     return this.service.findOne(id);
   }
 
+  @Patch(':id/photo')
+  @UseInterceptors(FileInterceptor('photo', { storage: memoryStorage() }))
+  async uploadPhoto(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException('No file uploaded');
+    return this.service.uploadPhoto(id, file);
+  }
+
   @Post()
   create(@Body() dto: CreateWorkerDto) {
     return this.service.create(dto);

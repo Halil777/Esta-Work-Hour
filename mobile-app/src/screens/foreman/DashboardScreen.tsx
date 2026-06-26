@@ -4,6 +4,9 @@ import { useApp } from '../../context/AppContext'
 import { StatCard } from '../../components/StatCard'
 import { foremanApi, type MobileWorker } from '../../api'
 import { palette } from '../../theme/colors'
+import { cacheSet, cacheGet } from '../../offline'
+
+const CACHE_KEY = 'foreman:workers'
 
 export function ForemanDashboardScreen() {
   const { colors, t, user } = useApp()
@@ -11,14 +14,25 @@ export function ForemanDashboardScreen() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
+  const [stale, setStale] = useState(false)
 
-  const load = async () => {
+  const load = async (fromRefresh = false) => {
     try {
       const data = await foremanApi.myWorkers()
       setWorkers(data)
       setError('')
+      setStale(false)
+      await cacheSet(CACHE_KEY, data)
     } catch (e: any) {
-      setError(e.message ?? 'Ýalňyşlyk')
+      // Network failure — try cache
+      const cached = await cacheGet<MobileWorker[]>(CACHE_KEY)
+      if (cached) {
+        setWorkers(cached)
+        setStale(true)
+        setError('')
+      } else {
+        setError(e.message ?? 'Ýalňyşlyk')
+      }
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -27,7 +41,7 @@ export function ForemanDashboardScreen() {
 
   useEffect(() => { load() }, [])
 
-  const onRefresh = () => { setRefreshing(true); load() }
+  const onRefresh = () => { setRefreshing(true); load(true) }
 
   const presentCount = workers.filter(w => w.lastCheckIn).length
   const absentCount = workers.filter(w => !w.lastCheckIn).length
@@ -63,6 +77,14 @@ export function ForemanDashboardScreen() {
         <Text style={[s.hName, { color: colors.text }]}>{user?.name}</Text>
         <Text style={[s.hObject, { color: colors.textSecondary }]}>Esta Construction</Text>
       </View>
+
+      {stale && (
+        <View style={[s.offlineBanner, { backgroundColor: '#FFF7ED', borderColor: palette.warning }]}>
+          <Text style={{ color: palette.warning, fontSize: 12, textAlign: 'center' }}>
+            📵 Offline — Soňky göçürilen maglumat görkezilýär
+          </Text>
+        </View>
+      )}
 
       {error ? (
         <View style={[s.errorBox, { backgroundColor: palette.dangerLight }]}>
@@ -110,6 +132,7 @@ const s = StyleSheet.create({
   hSub: { fontSize: 12 },
   hName: { fontSize: 20, fontWeight: '800', marginTop: 2 },
   hObject: { fontSize: 13 },
+  offlineBanner: { borderRadius: 10, borderWidth: 1, padding: 10 },
   errorBox: { borderRadius: 10, padding: 12 },
   statsRow: { flexDirection: 'row', gap: 8 },
   card: { borderRadius: 16, borderWidth: 1, padding: 16 },

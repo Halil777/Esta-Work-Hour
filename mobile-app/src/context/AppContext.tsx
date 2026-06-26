@@ -4,6 +4,7 @@ import type { AuthUser, Language, Theme, AttendanceRecord, OvertimeRequest, Sync
 import { dark, light } from '../theme/colors'
 import { getT } from '../i18n/translations'
 import { setToken, foremanApi, type MobileWorker } from '../api'
+import { registerPushToken, savePushTokenToServer } from '../notifications'
 
 interface AppState {
   user: AuthUser | null
@@ -68,6 +69,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setToken(tk)
     AsyncStorage.setItem(KEYS.user, JSON.stringify(u))
     AsyncStorage.setItem(KEYS.token, tk)
+    // Register push notifications after login
+    registerPushToken().then(pushToken => {
+      if (pushToken) savePushTokenToServer(pushToken)
+    })
   }, [])
 
   const logout = useCallback(() => {

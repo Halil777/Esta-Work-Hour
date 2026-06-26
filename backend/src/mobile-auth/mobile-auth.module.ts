@@ -4,7 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { MobileCredential } from './mobile-credential.entity';
 import { Worker } from '../workers/worker.entity';
 import { MobileAuthService } from './mobile-auth.service';
-import { MobileAuthController } from './mobile-auth.controller';
+import { MobileAuthController, MobilePushController } from './mobile-auth.controller';
 import { JwtGuard } from './jwt.guard';
 
 import { JWT_SECRET } from './jwt-constants';
@@ -18,7 +18,7 @@ import { JWT_SECRET } from './jwt-constants';
       signOptions: { expiresIn: '30d' },
     }),
   ],
-  controllers: [MobileAuthController],
+  controllers: [MobileAuthController, MobilePushController],
   providers: [MobileAuthService, JwtGuard],
   exports: [MobileAuthService, JwtGuard, JwtModule],
 })

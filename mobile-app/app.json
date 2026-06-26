@@ -37,7 +37,15 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-camera"
+      "expo-camera",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#6366F1",
+          "sounds": []
+        }
+      ]
     ]
   }
 }

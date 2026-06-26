@@ -116,8 +116,22 @@ function WorkerModal({ initial, onClose, onSave, t }: {
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [photoUrl, setPhotoUrl] = useState<string | null>(initial?.photoUrl ?? null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const set = (k: keyof WorkerForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(p => ({ ...p, [k]: e.target.value }));
+
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !initial) return;
+    setPhotoUploading(true);
+    try {
+      const res = await workersApi.uploadPhoto(initial.id, file);
+      setPhotoUrl(res.photoUrl);
+    } catch { /* ignore */ }
+    finally { setPhotoUploading(false); }
+  };
 
   const handleSubmit = async () => {
     if (!form.name.trim()) { setError("İşçi ady hökman"); return; }
@@ -138,6 +152,40 @@ function WorkerModal({ initial, onClose, onSave, t }: {
           {error && (
             <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 12px", background: "var(--danger-light)", borderRadius: 6, marginBottom: 10, color: "var(--danger)", fontSize: 13 }}>
               <AlertCircle size={14} /> {error}
+            </div>
+          )}
+          {initial && (
+            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
+              <div style={{
+                width: 64, height: 64, borderRadius: "50%", overflow: "hidden",
+                background: "var(--border)", flexShrink: 0,
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                {photoUrl
+                  ? <img src={photoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  : <span style={{ fontSize: 24, color: "var(--text-muted)" }}>👤</span>
+                }
+              </div>
+              <div>
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: "none" }}
+                  onChange={handlePhotoChange}
+                />
+                <button
+                  className="btn btn--secondary btn--sm"
+                  onClick={() => photoInputRef.current?.click()}
+                  disabled={photoUploading}
+                  style={{ fontSize: 12 }}
+                >
+                  {photoUploading ? "Ýüklenýär..." : "Surat ýükle"}
+                </button>
+                {photoUrl && (
+                  <div style={{ fontSize: 11, color: "var(--success)", marginTop: 4 }}>✓ Surat bar</div>
+                )}
+              </div>
             </div>
           )}
           <div className="form-grid">
@@ -653,31 +701,45 @@ export function WorkersPage() {
                     <tr key={w.id}>
                       <td className="td-mono" style={{ fontSize: 11 }}>{w.workerId}</td>
 
-                      {/* İşçi: ady + wezipesi + NFC + extra saat */}
+                      {/* İşçi: surat + ady + wezipesi + NFC + extra saat */}
                       <td>
-                        <div
-                          style={{ fontWeight: 600, fontSize: 13, cursor: "pointer", color: "var(--primary)" }}
-                          onClick={() => navigate(`/workers/${w.id}`)}
-                        >
-                          {w.name}
-                        </div>
-                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 1 }}>
-                          {w.profession || "—"}
-                        </div>
-                        {(w.nfcCardUid || extraSaat > 0) && (
-                          <div style={{ display: "flex", gap: 4, marginTop: 3 }}>
-                            {w.nfcCardUid && (
-                              <span title={w.nfcCardUid} style={{ fontSize: 10, color: "#10B981", display: "inline-flex", alignItems: "center", gap: 2 }}>
-                                📡 NFC
-                              </span>
-                            )}
-                            {extraSaat > 0 && (
-                              <span className="badge badge--warning" style={{ fontSize: 10 }}>
-                                +{extraSaat}h
-                              </span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <div style={{
+                            width: 30, height: 30, borderRadius: "50%", overflow: "hidden",
+                            background: "var(--border)", flexShrink: 0,
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                          }}>
+                            {w.photoUrl
+                              ? <img src={w.photoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                              : <span style={{ fontSize: 13, color: "var(--text-muted)" }}>👤</span>
+                            }
+                          </div>
+                          <div>
+                            <div
+                              style={{ fontWeight: 600, fontSize: 13, cursor: "pointer", color: "var(--primary)" }}
+                              onClick={() => navigate(`/workers/${w.id}`)}
+                            >
+                              {w.name}
+                            </div>
+                            <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 1 }}>
+                              {w.profession || "—"}
+                            </div>
+                            {(w.nfcCardUid || extraSaat > 0) && (
+                              <div style={{ display: "flex", gap: 4, marginTop: 3 }}>
+                                {w.nfcCardUid && (
+                                  <span title={w.nfcCardUid} style={{ fontSize: 10, color: "#10B981", display: "inline-flex", alignItems: "center", gap: 2 }}>
+                                    📡 NFC
+                                  </span>
+                                )}
+                                {extraSaat > 0 && (
+                                  <span className="badge badge--warning" style={{ fontSize: 10 }}>
+                                    +{extraSaat}h
+                                  </span>
+                                )}
+                              </div>
                             )}
                           </div>
-                        )}
+                        </div>
                       </td>
 
                       {/* Giriş / Çykyş */}

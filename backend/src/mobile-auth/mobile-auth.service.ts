@@ -87,4 +87,9 @@ export class MobileAuthService {
     }
     return { success: true };
   }
+
+  async savePushToken(workerEntityId: string, pushToken: string) {
+    await this.workerRepo.update(workerEntityId, { pushToken });
+    return { success: true };
+  }
 }

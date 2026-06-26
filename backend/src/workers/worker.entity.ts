@@ -84,6 +84,12 @@ export class Worker {
   @Column({ type: 'boolean', default: false })
   isStaff: boolean;
 
+  @Column({ type: 'varchar', nullable: true, default: null })
+  photoUrl: string | null;
+
+  @Column({ type: 'varchar', nullable: true, default: null })
+  pushToken: string | null;
+
   @Column({ type: 'timestamp', nullable: true, default: null })
   terminatedAt: Date | null;
 

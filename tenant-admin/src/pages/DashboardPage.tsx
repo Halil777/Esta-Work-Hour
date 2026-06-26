@@ -1,4 +1,4 @@
-import { Users, UserCheck, UserX, Clock, ChevronRight, AlertTriangle } from 'lucide-react'
+import { Users, UserCheck, UserX, Clock, ChevronRight, AlertTriangle, FileDown } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from '../i18n/useTranslation'
@@ -40,6 +40,24 @@ const actionLabels: Record<string, string> = {
 const entityLabels: Record<string, string> = {
   Worker: 'Işçi',
   Foreman: 'Foremen',
+}
+
+function downloadDailyPdf(date: string) {
+  const token = localStorage.getItem('adminJwt') ?? ''
+  const a = document.createElement('a')
+  a.href = `/api/reports/daily?date=${date}`
+  // Fetch with auth header then create blob URL
+  fetch(`/api/reports/daily?date=${date}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+    .then(r => r.blob())
+    .then(blob => {
+      const url = URL.createObjectURL(blob)
+      a.href = url
+      a.download = `daily-report-${date}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    })
 }
 
 export function DashboardPage() {
@@ -115,6 +133,12 @@ export function DashboardPage() {
 
   return (
     <>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+        <button className="btn btn--ghost btn--sm" onClick={() => downloadDailyPdf(today)}
+          style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <FileDown size={14} /> PDF hasabat
+        </button>
+      </div>
       {lateArrivals.length > 0 && (
         <div style={{
           background: 'var(--warning-light, #FFF7ED)', border: '1px solid var(--warning, #F59E0B)',

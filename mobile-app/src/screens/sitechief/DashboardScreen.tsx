@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { View, Text, ScrollView, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native'
+import { View, Text, ScrollView, StyleSheet, ActivityIndicator, RefreshControl, Alert } from 'react-native'
 import { useApp } from '../../context/AppContext'
 import { StatCard } from '../../components/StatCard'
 import { siteChiefApi, type ExtraHoursRequest } from '../../api'
@@ -19,7 +19,9 @@ export function SiteChiefDashboardScreen() {
     try {
       const data = await siteChiefApi.incomingRequests()
       setRequests(data)
-    } catch {} finally {
+    } catch (e: any) {
+      Alert.alert('Ýalňyşlyk', e?.message ?? 'Maglumat ýüklemek başartmady')
+    } finally {
       setLoading(false); setRefreshing(false)
     }
   }
