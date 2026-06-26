@@ -1,6 +1,6 @@
 import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { JWT_SECRET } from './mobile-auth.module';
+import { JWT_SECRET } from './jwt-constants';
 
 @Injectable()
 export class JwtGuard implements CanActivate {

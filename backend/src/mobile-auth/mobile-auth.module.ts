@@ -7,7 +7,7 @@ import { MobileAuthService } from './mobile-auth.service';
 import { MobileAuthController } from './mobile-auth.controller';
 import { JwtGuard } from './jwt.guard';
 
-export const JWT_SECRET = process.env.JWT_SECRET || 'workhour-mobile-secret-2025';
+import { JWT_SECRET } from './jwt-constants';
 
 @Global()
 @Module({
