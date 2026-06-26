@@ -8,6 +8,7 @@ import { IsNull, In, Repository } from 'typeorm';
 import { Worker, MobileRole } from '../workers/worker.entity';
 import { AttendanceEvent } from '../attendance-events/attendance-event.entity';
 import { JwtGuard } from '../mobile-auth/jwt.guard';
+import { APP_TZ, todayLocal, yesterdayLocal } from '../common/date-utils';
 
 @Controller('mobile/foreman')
 @UseGuards(JwtGuard)
@@ -30,23 +31,14 @@ export class MobileForemanController {
     if (workers.length === 0) return [];
 
     const workerIds = workers.map(w => w.workerId).filter(Boolean);
-    const now = new Date();
-    const localHour = now.getHours();
-    let workDate: string;
-    if (localHour >= 7) {
-      workDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    } else {
-      const yesterday = new Date(now);
-      yesterday.setDate(yesterday.getDate() - 1);
-      workDate = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
-    }
+    const workDate = new Date().getHours() >= 7 ? todayLocal() : yesterdayLocal();
 
     const events: { employeeNumber: string; eventType: string; eventTime: string }[] =
       await this.attendanceRepo.query(
         `SELECT "employeeNumber", "eventType", "eventTime"
          FROM attendance_events
          WHERE "employeeNumber" = ANY($1)
-           AND DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE 'Asia/Ashgabat') = $2
+           AND DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE '${APP_TZ}') = $2
          ORDER BY "employeeNumber", "eventTime" ASC`,
         [workerIds, workDate],
       );

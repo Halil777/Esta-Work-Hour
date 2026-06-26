@@ -1,6 +1,6 @@
 import {
   Controller, Get, Post, Patch, Delete,
-  Param, Body, Query, UploadedFile, UseInterceptors,
+  Param, Body, Query, UploadedFile, UseInterceptors, UseGuards,
   BadRequestException, Res, StreamableFile, Headers,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -8,8 +8,10 @@ import { memoryStorage } from 'multer';
 import { WorkersService } from './workers.service';
 import { CreateWorkerDto } from './dto/create-worker.dto';
 import { UpdateWorkerDto } from './dto/update-worker.dto';
+import { AdminGuard } from '../common/admin.guard';
 import type { Response } from 'express';
 
+@UseGuards(AdminGuard)
 @Controller('workers')
 export class WorkersController {
   constructor(private readonly service: WorkersService) {}

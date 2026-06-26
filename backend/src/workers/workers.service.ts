@@ -8,6 +8,7 @@ import { Foreman } from '../foremans/foreman.entity';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { CreateWorkerDto } from './dto/create-worker.dto';
 import { UpdateWorkerDto } from './dto/update-worker.dto';
+import { APP_TZ, todayLocal, yesterdayLocal } from '../common/date-utils';
 
 type WorkStats = { totalMs: number; firstIn: number | null; lastOut: number | null };
 
@@ -96,34 +97,19 @@ export class WorkersService {
         `SELECT "employeeNumber", "eventType", "eventTime"
          FROM attendance_events
          WHERE "employeeNumber" = ANY($1)
-           AND DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE 'Asia/Ashgabat') >= $2
-           AND DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE 'Asia/Ashgabat') <= $3
+           AND DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE '${APP_TZ}') >= $2
+           AND DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE '${APP_TZ}') <= $3
          ORDER BY "employeeNumber", "eventTime" ASC`,
         [workerIds, startDate, endDate],
       );
     } else {
       // Current work day: today if local hour >= 07:00, else yesterday
-      const now = new Date();
-      let workDate: string;
-      const localHour = now.getHours();
-      const y = now.getFullYear();
-      const m = String(now.getMonth() + 1).padStart(2, '0');
-      const d = String(now.getDate()).padStart(2, '0');
-      if (localHour >= 7) {
-        workDate = `${y}-${m}-${d}`;
-      } else {
-        const yesterday = new Date(now);
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yy = yesterday.getFullYear();
-        const ym = String(yesterday.getMonth() + 1).padStart(2, '0');
-        const yd = String(yesterday.getDate()).padStart(2, '0');
-        workDate = `${yy}-${ym}-${yd}`;
-      }
+      const workDate = new Date().getHours() >= 7 ? todayLocal() : yesterdayLocal();
       allRecentEvents = await this.attendanceRepo.query(
         `SELECT "employeeNumber", "eventType", "eventTime"
          FROM attendance_events
          WHERE "employeeNumber" = ANY($1)
-           AND DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE 'Asia/Ashgabat') = $2
+           AND DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE '${APP_TZ}') = $2
          ORDER BY "employeeNumber", "eventTime" ASC`,
         [workerIds, workDate],
       );

@@ -1,4 +1,4 @@
-const BASE = '/api';
+import { apiFetch } from './http';
 
 export type MobileRole = 'worker' | 'foreman' | 'site_chief' | 'section_chief';
 
@@ -37,14 +37,7 @@ export type MobileCredential = {
 export type CreateWorkerPayload = Omit<WorkerApi, 'id' | 'lastCheckIn' | 'lastCheckOut' | 'todayHoursMs'>;
 export type UpdateWorkerPayload = Partial<Omit<WorkerApi, 'id' | 'lastCheckIn' | 'lastCheckOut' | 'todayHoursMs'>>;
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, init);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message ?? `Request failed: ${res.status}`);
-  }
-  return res.json();
-}
+const request = apiFetch;
 
 export const workersApi = {
   list: (params?: {
@@ -99,7 +92,7 @@ export const workersApi = {
 
   exportExcel: () => {
     const a = document.createElement('a');
-    a.href = `${BASE}/workers/export`;
+    a.href = `/api/workers/export`;
     a.download = '';
     a.click();
   },

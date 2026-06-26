@@ -1,4 +1,4 @@
-const BASE = '/api';
+import { apiFetch as request } from './http';
 
 export type ExtraHoursItem = {
   id: string;
@@ -22,15 +22,6 @@ export type ExtraHoursRequest = {
   actionAt: string | null;
   items: ExtraHoursItem[];
 };
-
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, init);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message ?? `Request failed: ${res.status}`);
-  }
-  return res.json();
-}
 
 export const extraHoursApi = {
   list: (params?: { status?: string; limit?: number }) => {

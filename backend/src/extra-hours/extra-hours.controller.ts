@@ -3,6 +3,7 @@ import {
 } from '@nestjs/common';
 import { ExtraHoursService } from './extra-hours.service';
 import { JwtGuard } from '../mobile-auth/jwt.guard';
+import { AdminGuard } from '../common/admin.guard';
 import { IsString, IsArray, IsNumber, IsOptional, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -84,7 +85,7 @@ export class SiteChiefExtraRequestsController {
   }
 }
 
-// Admin endpoints (no JWT guard — admin panel uses existing auth)
+@UseGuards(AdminGuard)
 @Controller('extra-hours')
 export class AdminExtraHoursController {
   constructor(private readonly service: ExtraHoursService) {}

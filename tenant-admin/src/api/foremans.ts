@@ -1,4 +1,4 @@
-const BASE = '/api';
+import { apiFetch } from './http';
 
 export interface ForemanWorker {
   id: string;
@@ -30,11 +30,7 @@ export interface ForemanDetail {
 export interface CreateForemanPayload { name: string; phone?: string; workerId?: string }
 export interface UpdateForemanPayload { name?: string; phone?: string | null; workerId?: string | null }
 
-async function req<T>(path: string, init?: RequestInit): Promise<T> {
-  const r = await fetch(`${BASE}${path}`, init);
-  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message ?? `Error ${r.status}`); }
-  return r.json();
-}
+const req = apiFetch;
 
 const h = (admin?: string): HeadersInit => ({
   'Content-Type': 'application/json',

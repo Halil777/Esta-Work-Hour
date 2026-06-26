@@ -1,9 +1,4 @@
-const BASE = '/api';
-async function req<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, init);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
-}
+import { apiFetch as req } from './http';
 
 export type ShiftSetting = { id: string; shiftType: 'day' | 'night'; startTime: string; graceMinutes: number };
 

@@ -1,4 +1,4 @@
-const BASE = '/api';
+import { apiFetch } from './http';
 
 export interface AttendanceEventRecord {
   id: string;
@@ -23,11 +23,7 @@ export interface DailySummaryRecord {
   totalMs: number;
 }
 
-async function request<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`);
-  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-  return res.json();
-}
+const request = apiFetch;
 
 export const attendanceEventsApi = {
   list: (params?: { date?: string; limit?: number }): Promise<AttendanceEventRecord[]> => {

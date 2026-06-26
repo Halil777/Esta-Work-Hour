@@ -1,13 +1,15 @@
 import {
   Controller, Get, Post, Patch, Delete,
-  Param, Body, Headers, UploadedFile, UseInterceptors, BadRequestException,
+  Param, Body, Headers, UploadedFile, UseInterceptors, BadRequestException, UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { ForemanService } from './foremans.service';
 import { CreateForemanDto } from './dto/create-foreman.dto';
 import { UpdateForemanDto } from './dto/update-foreman.dto';
+import { AdminGuard } from '../common/admin.guard';
 
+@UseGuards(AdminGuard)
 @Controller('foremans')
 export class ForemanController {
   constructor(private readonly service: ForemanService) {}

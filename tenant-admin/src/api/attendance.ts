@@ -1,10 +1,4 @@
-const BASE = '/api';
-
-async function request<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`);
-  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-  return res.json();
-}
+import { apiFetch as request } from './http';
 
 export type DaySummary = {
   date: string;

@@ -1,4 +1,4 @@
-const BASE = '/api';
+import { apiFetch } from './http';
 
 export interface AuditLogRecord {
   id: string;
@@ -13,8 +13,5 @@ export interface AuditLogRecord {
 
 export const auditLogApi = {
   list: (limit = 500): Promise<AuditLogRecord[]> =>
-    fetch(`${BASE}/audit-logs?limit=${limit}`).then(r => {
-      if (!r.ok) throw new Error(`Request failed: ${r.status}`);
-      return r.json();
-    }),
+    apiFetch(`/audit-logs?limit=${limit}`),
 };

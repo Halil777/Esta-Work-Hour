@@ -5,14 +5,7 @@ import * as XLSX from 'xlsx';
 import { AttendanceEvent, EventType } from './attendance-event.entity';
 import { Worker } from '../workers/worker.entity';
 import { SyncEventsDto } from './dto/sync-events.dto';
-
-// Ashgabat is UTC+5
-function todayAshgabat(): string {
-  const d = new Date(Date.now() + 5 * 60 * 60 * 1000);
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
-}
-
-const TZ = 'Asia/Ashgabat';
+import { APP_TZ, todayLocal, currentLocalMinutes } from '../common/date-utils';
 
 @Injectable()
 export class AttendanceEventsService {
@@ -66,7 +59,7 @@ export class AttendanceEventsService {
       .take(limit);
 
     if (date) {
-      qb.where(`DATE(to_timestamp(ae.eventTime / 1000.0) AT TIME ZONE '${TZ}') = :date`, { date });
+      qb.where(`DATE(to_timestamp(ae.eventTime / 1000.0) AT TIME ZONE '${APP_TZ}') = :date`, { date });
     }
 
     const events = await qb.getMany();
@@ -91,7 +84,7 @@ export class AttendanceEventsService {
       await this.repo.query(
         `SELECT "employeeNumber", "eventType", "eventTime"
          FROM attendance_events
-         WHERE DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE '${TZ}') = $1
+         WHERE DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE '${APP_TZ}') = $1
          ORDER BY "employeeNumber", "eventTime" ASC`,
         [targetDate],
       );
@@ -160,17 +153,17 @@ export class AttendanceEventsService {
 
     if (startDate) {
       params.push(startDate);
-      dateFilter += ` AND DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE '${TZ}') >= $${params.length}`;
+      dateFilter += ` AND DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE '${APP_TZ}') >= $${params.length}`;
     }
     if (endDate) {
       params.push(endDate);
-      dateFilter += ` AND DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE '${TZ}') <= $${params.length}`;
+      dateFilter += ` AND DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE '${APP_TZ}') <= $${params.length}`;
     }
 
     const events: { eventType: string; eventTime: string; date: string }[] =
       await this.repo.query(
         `SELECT "eventType", "eventTime",
-                DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE '${TZ}')::text as date
+                DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE '${APP_TZ}')::text as date
          FROM attendance_events
          WHERE "employeeNumber" = $1${dateFilter}
          ORDER BY "eventTime" ASC`,
@@ -251,9 +244,8 @@ export class AttendanceEventsService {
    * isStaff filter: 'staff' | 'workers' | undefined (all)
    */
   async getLateArrivals(foremanWorkerEntityId?: string, staffFilter?: 'staff' | 'workers') {
-    const today = todayAshgabat();
-    const ashgabatNow = new Date(Date.now() + 5 * 60 * 60 * 1000);
-    const currentMinutes = ashgabatNow.getUTCHours() * 60 + ashgabatNow.getUTCMinutes();
+    const today = todayLocal();
+    const currentMinutes = currentLocalMinutes();
 
     // Get shift settings directly via raw SQL
     const shiftSettings: { shiftType: string; startTime: string; graceMinutes: number }[] =
@@ -282,7 +274,7 @@ export class AttendanceEventsService {
     const checkedIn: { employeeNumber: string }[] = await this.repo.query(
       `SELECT DISTINCT "employeeNumber"
        FROM attendance_events
-       WHERE DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE '${TZ}') = $1
+       WHERE DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE '${APP_TZ}') = $1
          AND "eventType" = 'CHECK_IN'`,
       [today],
     );
@@ -370,7 +362,7 @@ export class AttendanceEventsService {
    * If foremanWorkerEntityId is provided, only that foreman's workers are returned.
    */
   async getMissingCheckouts(foremanWorkerEntityId?: string) {
-    const today = todayAshgabat();
+    const today = todayLocal();
     const cutoffMs = Date.now() - 14 * 60 * 60 * 1000;
 
     // Last event per worker today (DISTINCT ON keeps the latest row)
@@ -378,7 +370,7 @@ export class AttendanceEventsService {
       await this.repo.query(
         `SELECT DISTINCT ON ("employeeNumber") "employeeNumber", "eventType", "eventTime"
          FROM attendance_events
-         WHERE DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE '${TZ}') = $1
+         WHERE DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE '${APP_TZ}') = $1
          ORDER BY "employeeNumber", "eventTime" DESC`,
         [today],
       );
