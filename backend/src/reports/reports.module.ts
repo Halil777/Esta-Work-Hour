@@ -9,5 +9,6 @@ import { ReportsController } from './reports.controller';
   imports: [TypeOrmModule.forFeature([AttendanceEvent, Worker])],
   controllers: [ReportsController],
   providers: [ReportsService],
+  exports: [ReportsService],
 })
 export class ReportsModule {}

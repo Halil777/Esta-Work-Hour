@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ScheduleModule } from '@nestjs/schedule';
 import { Worker } from './workers/worker.entity';
 import { AttendanceEvent } from './attendance-events/attendance-event.entity';
 import { AuditLog } from './audit-log/audit-log.entity';
@@ -12,6 +13,7 @@ import { ExtraHoursRequestItem } from './extra-hours/extra-hours-request-item.en
 import { ShiftSetting } from './shift-settings/shift-setting.entity';
 import { AbsenceNote } from './absence-notes/absence-note.entity';
 import { AttendanceOverride } from './attendance-overrides/attendance-override.entity';
+import { ReportConfig } from './report-config/report-config.entity';
 import { WorkersModule } from './workers/workers.module';
 import { AttendanceEventsModule } from './attendance-events/attendance-events.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
@@ -25,10 +27,13 @@ import { AbsenceNotesModule } from './absence-notes/absence-notes.module';
 import { AttendanceOverridesModule } from './attendance-overrides/attendance-overrides.module';
 import { AdminAuthModule } from './admin-auth/admin-auth.module';
 import { ReportsModule } from './reports/reports.module';
+import { ReportConfigModule } from './report-config/report-config.module';
+import { ReportSchedulerModule } from './report-scheduler/report-scheduler.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (cfg: ConfigService) => ({
@@ -38,8 +43,11 @@ import { ReportsModule } from './reports/reports.module';
         username: cfg.get('DB_USERNAME', 'postgres'),
         password: cfg.get('DB_PASSWORD', 'postgres'),
         database: cfg.get('DB_NAME', 'workhour'),
-        entities: [Worker, AttendanceEvent, AuditLog, Foreman, Brigadir, MobileCredential, ExtraHoursRequest, ExtraHoursRequestItem, ShiftSetting, AbsenceNote, AttendanceOverride],
-        // synchronize: true is safe in dev; in production use 'npm run migration:run' instead
+        entities: [
+          Worker, AttendanceEvent, AuditLog, Foreman, Brigadir,
+          MobileCredential, ExtraHoursRequest, ExtraHoursRequestItem,
+          ShiftSetting, AbsenceNote, AttendanceOverride, ReportConfig,
+        ],
         synchronize: cfg.get('NODE_ENV', 'development') !== 'production',
       }),
     }),
@@ -56,6 +64,8 @@ import { ReportsModule } from './reports/reports.module';
     AttendanceOverridesModule,
     AdminAuthModule,
     ReportsModule,
+    ReportConfigModule,
+    ReportSchedulerModule,
   ],
 })
 export class AppModule {}

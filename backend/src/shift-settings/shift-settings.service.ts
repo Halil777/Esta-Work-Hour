@@ -4,8 +4,8 @@ import { Repository } from 'typeorm';
 import { ShiftSetting } from './shift-setting.entity';
 
 const DEFAULTS = {
-  day:   { startTime: '07:00', graceMinutes: 60 },
-  night: { startTime: '18:00', graceMinutes: 60 },
+  day:   { startTime: '07:00', endTime: '19:00', graceMinutes: 60 },
+  night: { startTime: '19:00', endTime: '07:00', graceMinutes: 60 },
 };
 
 @Injectable()
@@ -23,7 +23,7 @@ export class ShiftSettingsService {
       if (!map.has(type)) {
         const d = DEFAULTS[type];
         const s = await this.repo.save(
-          this.repo.create({ shiftType: type, startTime: d.startTime, graceMinutes: d.graceMinutes }),
+          this.repo.create({ shiftType: type, startTime: d.startTime, endTime: d.endTime, graceMinutes: d.graceMinutes }),
         );
         map.set(type, s);
       }
@@ -32,12 +32,18 @@ export class ShiftSettingsService {
     return [map.get('day')!, map.get('night')!];
   }
 
-  async update(shiftType: 'day' | 'night', startTime: string, graceMinutes: number): Promise<ShiftSetting> {
+  async update(
+    shiftType: 'day' | 'night',
+    startTime: string,
+    endTime: string,
+    graceMinutes: number,
+  ): Promise<ShiftSetting> {
     let setting = await this.repo.findOneBy({ shiftType });
     if (!setting) {
       setting = this.repo.create({ shiftType });
     }
     setting.startTime = startTime;
+    setting.endTime = endTime;
     setting.graceMinutes = graceMinutes;
     return this.repo.save(setting);
   }

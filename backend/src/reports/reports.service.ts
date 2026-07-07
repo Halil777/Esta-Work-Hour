@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const PdfPrinter = require('pdfmake');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const XLSX = require('xlsx');
 import { AttendanceEvent } from '../attendance-events/attendance-event.entity';
 import { Worker } from '../workers/worker.entity';
 import { APP_TZ } from '../common/date-utils';
@@ -20,6 +22,17 @@ function fmtTime(ms: number | null): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
+type Row = {
+  name: string;
+  workerId: string;
+  profession: string;
+  brigade: string;
+  shift: string;
+  checkIn: number | null;
+  checkOut: number | null;
+  totalMs: number;
+};
+
 @Injectable()
 export class ReportsService {
   constructor(
@@ -29,7 +42,7 @@ export class ReportsService {
     private readonly workerRepo: Repository<Worker>,
   ) {}
 
-  async generateDailyPdf(date: string): Promise<Buffer> {
+  private async buildRows(date: string): Promise<Row[]> {
     const events: { employeeNumber: string; eventType: string; eventTime: string }[] =
       await this.eventRepo.query(
         `SELECT "employeeNumber", "eventType", "eventTime"
@@ -45,10 +58,7 @@ export class ReportsService {
       : [];
     const workerMap = new Map(workers.map(w => [w.workerId, w]));
 
-    // Compute sessions per worker
-    type Row = { name: string; workerId: string; profession: string; brigade: string; checkIn: number | null; checkOut: number | null; totalMs: number };
     const rows: Row[] = [];
-
     const byWorker = new Map<string, { eventType: string; eventTime: number }[]>();
     for (const ev of events) {
       const arr = byWorker.get(ev.employeeNumber) ?? [];
@@ -76,6 +86,7 @@ export class ReportsService {
         workerId: empNum,
         profession: w?.profession ?? '—',
         brigade: w?.brigadeName ?? '—',
+        shift: w?.shift ?? '—',
         checkIn: firstIn,
         checkOut: lastOut,
         totalMs,
@@ -83,14 +94,60 @@ export class ReportsService {
     }
     rows.sort((a, b) => a.name.localeCompare(b.name));
 
-    // All active workers not in events = absent
+    // Absent workers
     const allActive = await this.workerRepo.find({ where: { status: 'Active' as any } });
     const presentSet = new Set(byWorker.keys());
     for (const w of allActive) {
       if (w.workerId && !presentSet.has(w.workerId)) {
-        rows.push({ name: w.name, workerId: w.workerId, profession: w.profession, brigade: w.brigadeName ?? '—', checkIn: null, checkOut: null, totalMs: 0 });
+        rows.push({
+          name: w.name,
+          workerId: w.workerId,
+          profession: w.profession,
+          brigade: w.brigadeName ?? '—',
+          shift: w.shift ?? '—',
+          checkIn: null,
+          checkOut: null,
+          totalMs: 0,
+        });
       }
     }
+
+    return rows;
+  }
+
+  async generateDailyXlsx(date: string): Promise<Buffer> {
+    const rows = await this.buildRows(date);
+
+    const header = ['#', 'İşçi adı', 'Sicil No', 'Görev', 'Ekip', 'Shift', 'Giriş', 'Çykyş', 'Jemi sag', 'Status'];
+    const data = rows.map((r, i) => [
+      i + 1,
+      r.name,
+      r.workerId,
+      r.profession,
+      r.brigade,
+      r.shift === 'day' ? 'Gündiz' : r.shift === 'night' ? 'Gije' : '—',
+      fmtTime(r.checkIn),
+      fmtTime(r.checkOut),
+      fmtMs(r.totalMs),
+      r.checkIn ? 'Geldi' : 'Gelmedi',
+    ]);
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
+
+    // Column widths
+    ws['!cols'] = [
+      { wch: 4 }, { wch: 28 }, { wch: 10 }, { wch: 18 },
+      { wch: 16 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 12 }, { wch: 10 },
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Hasabat');
+    const buf: Buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    return Buffer.from(buf);
+  }
+
+  async generateDailyPdf(date: string): Promise<Buffer> {
+    const rows = await this.buildRows(date);
 
     const fonts = {
       Roboto: {

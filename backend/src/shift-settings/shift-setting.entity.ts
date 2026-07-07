@@ -11,6 +11,9 @@ export class ShiftSetting {
   @Column({ type: 'varchar', default: '07:00' })
   startTime: string; // HH:mm
 
+  @Column({ type: 'varchar', default: '19:00' })
+  endTime: string; // HH:mm
+
   @Column({ type: 'int', default: 60 })
   graceMinutes: number;
 
