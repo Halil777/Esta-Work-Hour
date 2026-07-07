@@ -3,6 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import * as nodemailer from 'nodemailer';
 import { ReportConfigService } from '../report-config/report-config.service';
 import { ReportsService } from '../reports/reports.service';
+import { ReportType } from '../report-config/report-config.entity';
 import { yesterdayLocal, todayLocal } from '../common/date-utils';
 
 @Injectable()
@@ -34,26 +35,18 @@ export class ReportSchedulerService {
     for (const schedule of schedules) {
       if (!schedule.enabled) continue;
       if (schedule.time !== currentTime) continue;
-      if (schedule.lastSentDate === today) continue; // already sent today
+      if (schedule.lastSentDate === today) continue;
 
       try {
-        // Report date: yesterday's attendance data
         const reportDate = yesterdayLocal();
-        const xlsx = await this.reportsService.generateDailyXlsx(reportDate);
+        const reportType: ReportType = schedule.reportType ?? 'daily_all';
+        const { xlsx, html } = await this.reportsService.generateReport(reportDate, reportType, false);
 
         await this.transporter.sendMail({
           from: `"Esta WorkForce" <${process.env.MAIL_USER}>`,
           to: emails.join(', '),
-          subject: `Esta WorkForce — Günlük Hasabat (${reportDate})`,
-          html: `
-            <div style="font-family:sans-serif;max-width:500px">
-              <h2 style="color:#1e3a5f">Esta WorkForce Günlük Hasabat</h2>
-              <p>Sene: <strong>${reportDate}</strong></p>
-              <p>Ektäki Excel faýlda ähli işçileriň gelmegi/gelmändigi baradaky maglumat bar.</p>
-              <hr/>
-              <p style="color:#888;font-size:12px">Bu habar awtomatik iberildi — Esta WorkForce Ulgamy</p>
-            </div>
-          `,
+          subject: `Esta WorkForce — ${schedule.label} (${reportDate})`,
+          html,
           attachments: [
             {
               filename: `hasabat-${reportDate}.xlsx`,
@@ -64,34 +57,27 @@ export class ReportSchedulerService {
         });
 
         await this.reportConfigService.updateScheduleLastSent(schedule.id, today);
-        this.logger.log(`Report sent for ${reportDate} to ${emails.join(', ')}`);
+        this.logger.log(`Report [${reportType}] sent for ${reportDate} to ${emails.join(', ')}`);
       } catch (err) {
         this.logger.error(`Failed to send report for schedule ${schedule.id}: ${err}`);
       }
     }
   }
 
-  /** Manually trigger report send (for testing from controller) */
-  async sendNow(date?: string): Promise<void> {
-    const reportDate = date ?? yesterdayLocal();
+  /** Manually trigger report send from admin panel */
+  async sendNow(date?: string, reportType: ReportType = 'daily_all'): Promise<void> {
+    // Manual sends use today's date by default (for testing current-day scans)
+    const reportDate = date ?? todayLocal();
     const { emails } = await this.reportConfigService.getConfig();
     if (emails.length === 0) throw new Error('No recipient emails configured');
 
-    const xlsx = await this.reportsService.generateDailyXlsx(reportDate);
+    const { xlsx, html } = await this.reportsService.generateReport(reportDate, reportType, true);
 
     await this.transporter.sendMail({
       from: `"Esta WorkForce" <${process.env.MAIL_USER}>`,
       to: emails.join(', '),
       subject: `Esta WorkForce — Günlük Hasabat (${reportDate})`,
-      html: `
-        <div style="font-family:sans-serif;max-width:500px">
-          <h2 style="color:#1e3a5f">Esta WorkForce Günlük Hasabat</h2>
-          <p>Sene: <strong>${reportDate}</strong></p>
-          <p>Ektäki Excel faýlda ähli işçileriň gelmegi/gelmändigi baradaky maglumat bar.</p>
-          <hr/>
-          <p style="color:#888;font-size:12px">Bu habar El bilen iberildi — Esta WorkForce Ulgamy</p>
-        </div>
-      `,
+      html,
       attachments: [
         {
           filename: `hasabat-${reportDate}.xlsx`,

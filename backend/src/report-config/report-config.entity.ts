@@ -1,10 +1,19 @@
 import { Entity, PrimaryGeneratedColumn, Column, UpdateDateColumn } from 'typeorm';
 
+export type ReportType =
+  | 'daily_all'
+  | 'daily_staff'
+  | 'daily_shift_day'
+  | 'daily_shift_night'
+  | 'daily_attended'
+  | 'daily_absent';
+
 export interface ReportScheduleItem {
   id: string;
   label: string;
-  time: string;       // HH:MM in server local time (Asia/Ashgabat)
+  time: string;         // HH:MM in server local time (Asia/Ashgabat)
   enabled: boolean;
+  reportType: ReportType;
   lastSentDate: string | null; // YYYY-MM-DD, set after sending
 }
 

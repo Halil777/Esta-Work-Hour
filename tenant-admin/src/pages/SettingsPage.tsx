@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from '../i18n/useTranslation'
 import { useUiPreferences } from '../app/providers/useUiPreferences'
 import { shiftSettingsApi } from '../api/shiftSettings'
-import { reportConfigApi, type ReportScheduleItem } from '../api/reportConfig'
+import { reportConfigApi, REPORT_TYPE_LABELS, type ReportScheduleItem, type ReportType } from '../api/reportConfig'
 import type { Language } from '../types/tenant'
 
 const LANGS: Array<{ key: Language; label: string }> = [
@@ -181,6 +181,7 @@ function ReportEmailsCard() {
       label: 'Günlük hasabat',
       time: '08:00',
       enabled: true,
+      reportType: 'daily_all',
       lastSentDate: null,
     }
     setSchedules(prev => [...prev, newItem])
@@ -198,7 +199,9 @@ function ReportEmailsCard() {
     setSending(true)
     setSendMsg('')
     try {
-      await reportConfigApi.sendNow()
+      // Pass today's date so manual test sends use current-day scan data
+      const today = new Date().toISOString().split('T')[0]
+      await reportConfigApi.sendNow(today, 'daily_all')
       setSendMsg('✓ Hasabat iberildi!')
     } catch {
       setSendMsg('✗ Iberilmedi — email sazlamalaryny barla')
@@ -306,6 +309,15 @@ function ReportEmailsCard() {
                       style={{ flex: 1, fontSize: 12 }}
                       placeholder="Hasabat ady"
                     />
+                    <select
+                      value={sch.reportType ?? 'daily_all'}
+                      onChange={e => updateSchedule(idx, { reportType: e.target.value as ReportType })}
+                      style={{ fontSize: 11, padding: '3px 6px' }}
+                    >
+                      {(Object.entries(REPORT_TYPE_LABELS) as [ReportType, string][]).map(([key, label]) => (
+                        <option key={key} value={key}>{label}</option>
+                      ))}
+                    </select>
                     <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                       <input
                         type="checkbox"
