@@ -12,7 +12,7 @@ function getPageTitle(pathname: string, t: ReturnType<typeof import('../../i18n/
     '/attendance': t.nav.attendance,
     '/overtime': t.nav.overtime,
     '/absence': t.nav.absence,
-    '/reports': t.nav.reports,
+    '/reports': 'İş Sagat Hasabaty',
     '/sync-center': t.nav.syncCenter,
     '/settings': t.nav.settings,
   }

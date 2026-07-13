@@ -17,6 +17,13 @@ export interface ReportScheduleItem {
   lastSentDate: string | null; // YYYY-MM-DD, set after sending
 }
 
+export interface MonthlySchedule {
+  enabled: boolean;
+  time: string;              // HH:MM — fires on 1st day of each month
+  emails: string[];          // separate recipients for monthly report
+  lastSentMonth: string | null; // YYYY-MM of the month when send was triggered
+}
+
 @Entity('report_config')
 export class ReportConfig {
   @PrimaryGeneratedColumn()
@@ -27,6 +34,12 @@ export class ReportConfig {
 
   @Column({ type: 'text', default: '[]' })
   schedulesJson: string; // JSON ReportScheduleItem[]
+
+  @Column({
+    type: 'text',
+    default: '{"enabled":false,"time":"08:00","emails":[],"lastSentMonth":null}',
+  })
+  monthlyScheduleJson: string; // JSON MonthlySchedule
 
   @UpdateDateColumn()
   updatedAt: Date;

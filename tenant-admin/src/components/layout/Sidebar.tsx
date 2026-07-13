@@ -4,6 +4,7 @@ import {
   Building2, LayoutDashboard, Users, Layers, Clock,
   Settings, LogOut,
   ScanLine, History, WifiOff, ShieldCheck, HardHat, UserMinus, AlarmClock,
+  FileSpreadsheet,
 } from 'lucide-react'
 import { useUiPreferences } from '../../app/providers/useUiPreferences'
 import { useTranslation } from '../../i18n/useTranslation'
@@ -23,6 +24,7 @@ export function Sidebar() {
     { path: '/terminated-workers', icon: UserMinus, label: 'İşden Bosadylanlar' },
     { path: '/absent-today', icon: WifiOff, label: 'Skan etmedikler' },
     { path: '/late-arrivals', icon: AlarmClock, label: 'Gijä galan işçiler' },
+    { path: '/reports', icon: FileSpreadsheet, label: 'İş Sagat Hasabaty' },
     { path: '/nfc-events', icon: ScanLine, label: t.nav.nfcEvents },
     { path: '/history', icon: History, label: t.nav.history },
     { path: '/settings', icon: Settings, label: t.nav.settings },

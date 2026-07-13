@@ -23,6 +23,8 @@ export class ReportSchedulerService {
     private readonly reportsService: ReportsService,
   ) {}
 
+  // ─── Daily scheduled send ────────────────────────────────────────────────────
+
   @Cron(CronExpression.EVERY_MINUTE)
   async checkAndSend() {
     const now = new Date();
@@ -57,16 +59,73 @@ export class ReportSchedulerService {
         });
 
         await this.reportConfigService.updateScheduleLastSent(schedule.id, today);
-        this.logger.log(`Report [${reportType}] sent for ${reportDate} to ${emails.join(', ')}`);
+        this.logger.log(`Daily report [${reportType}] sent for ${reportDate} → ${emails.join(', ')}`);
       } catch (err) {
-        this.logger.error(`Failed to send report for schedule ${schedule.id}: ${err}`);
+        this.logger.error(`Failed to send daily report for schedule ${schedule.id}: ${err}`);
       }
     }
   }
 
-  /** Manually trigger report send from admin panel */
+  // ─── Monthly auto-send (1st of each month) ───────────────────────────────────
+
+  @Cron(CronExpression.EVERY_MINUTE)
+  async checkAndSendMonthly() {
+    const now = new Date();
+    if (now.getDate() !== 1) return; // only fire on 1st of month
+
+    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    // triggerMonth = YYYY-MM of TODAY (i.e., the month we are in when we trigger)
+    const triggerMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    const { monthlySchedule, emails: defaultEmails } = await this.reportConfigService.getConfig();
+    if (!monthlySchedule.enabled) return;
+    if (monthlySchedule.time !== currentTime) return;
+    if (monthlySchedule.lastSentMonth === triggerMonth) return; // already sent this month
+
+    // Previous month date range
+    const prevFirst = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevLast  = new Date(now.getFullYear(), now.getMonth(), 0);
+    const startDate = prevFirst.toISOString().split('T')[0];
+    const endDate   = prevLast.toISOString().split('T')[0];
+
+    const recipients = monthlySchedule.emails.length > 0
+      ? monthlySchedule.emails
+      : defaultEmails;
+
+    if (recipients.length === 0) {
+      this.logger.warn('Monthly report: no recipient emails configured, skipping');
+      return;
+    }
+
+    try {
+      const { xlsx, html, subject } = await this.reportsService.generateRangeReport(
+        startDate, endDate, undefined, true,
+      );
+
+      await this.transporter.sendMail({
+        from: `"Esta WorkForce" <${process.env.MAIL_USER}>`,
+        to: recipients.join(', '),
+        subject,
+        html,
+        attachments: [
+          {
+            filename: `ayylik-hasabat-${startDate}-${endDate}.xlsx`,
+            content: xlsx,
+            contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          },
+        ],
+      });
+
+      await this.reportConfigService.updateMonthlyLastSent(triggerMonth);
+      this.logger.log(`Monthly report sent for ${startDate}..${endDate} → ${recipients.join(', ')}`);
+    } catch (err) {
+      this.logger.error(`Monthly report failed: ${err}`);
+    }
+  }
+
+  // ─── Manual trigger: daily ────────────────────────────────────────────────────
+
   async sendNow(date?: string, reportType: ReportType = 'daily_all'): Promise<void> {
-    // Manual sends use today's date by default (for testing current-day scans)
     const reportDate = date ?? todayLocal();
     const { emails } = await this.reportConfigService.getConfig();
     if (emails.length === 0) throw new Error('No recipient emails configured');
@@ -86,5 +145,38 @@ export class ReportSchedulerService {
         },
       ],
     });
+  }
+
+  // ─── Manual trigger: range ────────────────────────────────────────────────────
+
+  async sendRange(
+    startDate: string,
+    endDate: string,
+    workerIds?: string[],
+    customEmails?: string[],
+  ): Promise<void> {
+    const { emails: configEmails } = await this.reportConfigService.getConfig();
+    const recipients = customEmails && customEmails.length > 0 ? customEmails : configEmails;
+    if (recipients.length === 0) throw new Error('No recipient emails configured');
+
+    const { xlsx, html, subject } = await this.reportsService.generateRangeReport(
+      startDate, endDate, workerIds, false,
+    );
+
+    await this.transporter.sendMail({
+      from: `"Esta WorkForce" <${process.env.MAIL_USER}>`,
+      to: recipients.join(', '),
+      subject,
+      html,
+      attachments: [
+        {
+          filename: `is-sagatlary-${startDate}-${endDate}.xlsx`,
+          content: xlsx,
+          contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        },
+      ],
+    });
+
+    this.logger.log(`Range report sent [${startDate}..${endDate}] → ${recipients.join(', ')}`);
   }
 }
