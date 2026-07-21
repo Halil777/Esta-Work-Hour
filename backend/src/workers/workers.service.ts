@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ILike, Not } from 'typeorm';
+import { Repository, ILike, Not, In } from 'typeorm';
 import * as XLSX from 'xlsx';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -8,11 +8,35 @@ import { Worker, WorkerStatus, QrStatus, MobileRole } from './worker.entity';
 import { AttendanceEvent } from '../attendance-events/attendance-event.entity';
 import { Foreman } from '../foremans/foreman.entity';
 import { AuditLogService } from '../audit-log/audit-log.service';
+import { WorkerLifecycleService } from '../worker-lifecycle/worker-lifecycle.service';
+import { WorkerLifecycleSource } from '../worker-lifecycle/worker-lifecycle-event.entity';
 import { CreateWorkerDto } from './dto/create-worker.dto';
 import { UpdateWorkerDto } from './dto/update-worker.dto';
+import { TerminateWorkerDto } from './dto/terminate-worker.dto';
 import { APP_TZ, todayLocal, yesterdayLocal } from '../common/date-utils';
 
 type WorkStats = { totalMs: number; firstIn: number | null; lastOut: number | null };
+type ParsedWorkerImportRow = {
+  rowNumber: number;
+  workerId: string;
+  name: string;
+  profession: string;
+  brigadeName: string;
+  mesaiSistemi: string;
+  phone: string;
+  hireDate: string;
+  isSectionChief: boolean;
+  isForeman: boolean;
+  fields: Record<string, any>;
+};
+
+const ACTIVE_WORKER_STATUSES = [
+  WorkerStatus.Active,
+  WorkerStatus.Inactive,
+  WorkerStatus.Suspended,
+  WorkerStatus.Transferred,
+];
+const IMPORT_PREVIEW_SAMPLE_LIMIT = 12;
 
 function computeWorkStats(events: { eventType: string; eventTime: number }[]): WorkStats {
   let totalMs = 0;
@@ -46,6 +70,7 @@ export class WorkersService {
     @InjectRepository(Foreman)
     private readonly foremanRepo: Repository<Foreman>,
     private readonly auditLog: AuditLogService,
+    private readonly workerLifecycle: WorkerLifecycleService,
   ) {}
 
   async findAll(params: {
@@ -148,17 +173,33 @@ export class WorkersService {
   }
 
   async findOne(id: string) {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
+      throw new BadRequestException('Invalid worker id');
+    }
     const worker = await this.repo.findOneBy({ id });
     if (!worker) throw new NotFoundException(`Worker ${id} not found`);
     return worker;
   }
 
-  async create(dto: CreateWorkerDto) {
+  async create(dto: CreateWorkerDto, changedBy = 'Admin') {
+    const sanitized: any = { ...dto };
+    if (sanitized.workerId === '') delete sanitized.workerId;
+    if (sanitized.hireDate === '') sanitized.hireDate = null;
+    if (sanitized.phone === '') sanitized.phone = null;
+    if (sanitized.brigadirId === '') sanitized.brigadirId = null;
+    if (sanitized.foremanId === '') sanitized.foremanId = null;
+    if (sanitized.nfcCardUid === '') sanitized.nfcCardUid = null;
+    if (sanitized.shift === '') sanitized.shift = null;
+    if (sanitized.terminationDate === '') sanitized.terminationDate = null;
+    if (sanitized.terminationReason === '') sanitized.terminationReason = null;
+    if (sanitized.terminationNote === '') sanitized.terminationNote = null;
+
     const count = await this.repo.count();
-    const workerId = dto.workerId ?? `EST-${String(count + 1).padStart(3, '0')}`;
-    const worker = this.repo.create({ ...dto, workerId });
-    const saved = await this.repo.save(worker);
-    await this.auditLog.log('Worker', saved.id, 'CREATE', 'Admin', null, saved);
+    const workerId = sanitized.workerId?.trim() || `EST-${String(count + 1).padStart(3, '0')}`;
+    const worker = this.repo.create({ ...sanitized, workerId }) as unknown as Worker;
+    const saved = (await this.repo.save(worker)) as Worker;
+    await this.auditLog.log('Worker', saved.id, 'CREATE', changedBy, null, saved);
+    await this.workerLifecycle.recordCreated(saved, changedBy, WorkerLifecycleSource.Manual);
     return saved;
   }
 
@@ -173,16 +214,66 @@ export class WorkersService {
     if (sanitized.foremanId === '') sanitized.foremanId = null;
     if (sanitized.nfcCardUid === '') sanitized.nfcCardUid = null;
     if (sanitized.shift === '') sanitized.shift = null;
+    if (sanitized.terminationDate === '') sanitized.terminationDate = null;
+    if (sanitized.terminationReason === '') sanitized.terminationReason = null;
+    if (sanitized.terminationNote === '') sanitized.terminationNote = null;
     Object.assign(worker, sanitized);
     const saved = await this.repo.save(worker);
     await this.auditLog.log('Worker', id, 'UPDATE', changedBy, before, saved);
+    if (before.status !== WorkerStatus.Terminated && saved.status === WorkerStatus.Terminated) {
+      if (!saved.terminatedAt) {
+        saved.terminatedAt = new Date();
+      }
+      if (!saved.terminationDate) saved.terminationDate = this.dateOnly(saved.terminatedAt ?? new Date());
+      await this.repo.save(saved);
+      await this.workerLifecycle.recordTerminated(
+        saved,
+        changedBy,
+        WorkerLifecycleSource.Manual,
+        this.terminationLifecycleNote(saved),
+      );
+    }
+    if (before.status === WorkerStatus.Terminated && saved.status !== WorkerStatus.Terminated) {
+      saved.terminatedAt = null;
+      saved.terminationDate = null;
+      saved.terminationReason = null;
+      saved.terminationNote = null;
+      await this.repo.save(saved);
+      await this.workerLifecycle.recordRestored(saved, changedBy, WorkerLifecycleSource.Manual);
+    }
     return saved;
   }
 
   async remove(id: string, changedBy = 'Admin') {
+    return this.terminateWorker(id, { reason: 'Admin tarapyndan işden çykaryldy' }, changedBy);
+  }
+
+  async terminateWorker(id: string, dto: TerminateWorkerDto = {}, changedBy = 'Admin') {
     const worker = await this.findOne(id);
-    await this.auditLog.log('Worker', id, 'DELETE', changedBy, worker, null);
-    return this.repo.remove(worker);
+    return this.markWorkerTerminated(worker, dto, changedBy, WorkerLifecycleSource.Manual);
+  }
+
+  private async markWorkerTerminated(
+    worker: Worker,
+    dto: TerminateWorkerDto,
+    changedBy: string,
+    source: WorkerLifecycleSource,
+  ) {
+    const before = { ...worker };
+    worker.status = WorkerStatus.Terminated;
+    worker.terminationDate = dto.terminationDate?.trim() || this.dateOnly();
+    worker.terminationReason = dto.reason?.trim() || null;
+    worker.terminationNote = dto.note?.trim() || null;
+    worker.terminatedAt = new Date();
+    const saved = await this.repo.save(worker);
+    await this.auditLog.log('Worker', saved.id, 'TERMINATE', changedBy, before, saved);
+    await this.workerLifecycle.recordTerminated(
+      saved,
+      changedBy,
+      source,
+      this.terminationLifecycleNote(saved),
+    );
+    return saved;
   }
 
   async uploadPhoto(id: string, file: Express.Multer.File): Promise<{ photoUrl: string }> {
@@ -244,147 +335,269 @@ export class WorkersService {
     return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
   }
 
-  async importFromExcel(buffer: Buffer) {
-    const workbook = XLSX.read(buffer, { type: 'buffer' });
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+  async previewImportFromExcel(buffer: Buffer) {
+    const parsedRows = this.parseWorkerImportRows(buffer);
+    const excelWorkerIds = new Set(parsedRows.map(r => r.workerId).filter(Boolean));
+    const existingByWorkerId = await this.findExistingByWorkerId([...excelWorkerIds]);
+
+    const samples = {
+      created: [] as any[],
+      updated: [] as any[],
+      restored: [] as any[],
+      terminated: [] as any[],
+      duplicates: [] as string[],
+    };
+    const counts = {
+      created: 0,
+      updated: 0,
+      restored: 0,
+      terminated: 0,
+      duplicateWorkerIds: 0,
+    };
+
+    const seen = new Set<string>();
+    const duplicates = new Set<string>();
+    for (const row of parsedRows) {
+      if (!row.workerId) continue;
+      if (seen.has(row.workerId)) duplicates.add(row.workerId);
+      seen.add(row.workerId);
+    }
+    counts.duplicateWorkerIds = duplicates.size;
+    samples.duplicates = [...duplicates].slice(0, IMPORT_PREVIEW_SAMPLE_LIMIT);
+
+    for (const row of parsedRows) {
+      const existing = row.workerId ? existingByWorkerId.get(row.workerId) : undefined;
+      const item = this.importPreviewItem(row, existing);
+      if (!existing) {
+        counts.created++;
+        if (samples.created.length < IMPORT_PREVIEW_SAMPLE_LIMIT) samples.created.push(item);
+      } else if (existing.status === WorkerStatus.Terminated) {
+        counts.restored++;
+        if (samples.restored.length < IMPORT_PREVIEW_SAMPLE_LIMIT) samples.restored.push(item);
+      } else {
+        counts.updated++;
+        if (samples.updated.length < IMPORT_PREVIEW_SAMPLE_LIMIT) samples.updated.push(item);
+      }
+    }
+
+    if (excelWorkerIds.size > 0) {
+      const activeWorkers = await this.repo.find({
+        where: ACTIVE_WORKER_STATUSES.map(status => ({ status })),
+      });
+      for (const worker of activeWorkers) {
+        if (worker.workerId && !excelWorkerIds.has(worker.workerId)) {
+          counts.terminated++;
+          if (samples.terminated.length < IMPORT_PREVIEW_SAMPLE_LIMIT) {
+            samples.terminated.push(this.workerPreviewItem(worker));
+          }
+        }
+      }
+    }
+
+    return {
+      totalRows: parsedRows.length,
+      rowsWithWorkerId: excelWorkerIds.size,
+      counts,
+      samples,
+    };
+  }
+
+  async importFromExcel(buffer: Buffer, changedBy = 'Admin') {
+    const parsedRows = this.parseWorkerImportRows(buffer);
 
     const created: Worker[] = [];
     const updated: Worker[] = [];
     const excelWorkerIds = new Set<string>();
+    let restored = 0;
 
-    for (const row of rows) {
-      // Support both Excel format (Sicil No / İnsan Adı) and legacy format
-      const name = String(
-        row['İnsan Adı'] || row['name'] || row['Name'] || row['ФИО'] ||
-        `${row['Фамилия'] || ''} ${row['Имя'] || ''}`.trim()
-      ).trim();
-      if (!name) continue;
-
-      const workerId = String(
-        row['Sicil No'] || row['workerId'] || row['Worker ID'] ||
-        row['Табельный номер'] || row['Таб. номер'] || row['ID'] || ''
-      ).trim();
-
-      const profession = String(
-        row['Görev'] || row['profession'] || row['Профессия'] || ''
-      ).trim();
-
-      const brigadeName = String(
-        row['EKIP'] || row['brigadeName'] || row['Brigade'] || row['Бригада'] || ''
-      ).trim();
-
-      const mesaiSistemi = String(
-        row['Mesai Sistemi'] || row['mesaiSistemi'] || 'Saatlik'
-      ).trim();
-
-      const brigadeId = String(row['brigadeId'] || row['Brigade ID'] || '').trim();
-      const phone = String(row['phone'] || row['Phone'] || row['Телефон'] || '').trim();
-      const hireDate = String(row['hireDate'] || row['Hire Date'] || row['Дата найма'] || '').trim();
-
-      // Detect section chiefs: profession ends with SEFI / ŞEFI / ŞEFİ
-      const profUpper = profession.toUpperCase().replace('İ', 'I').replace('Ş', 'S');
-      const isSectionChief = profUpper.endsWith('SEFI') || profUpper.endsWith('SEF');
-
-      // Detect foreman: profession contains FORMENI
-      const isForeman = profession.toUpperCase().includes('FORMENI');
-
-      const autoRole = isSectionChief
-        ? MobileRole.SectionChief
-        : isForeman
-          ? MobileRole.Foreman
-          : undefined;
-
-      const fields: any = {
-        name,
-        profession: profession || 'DUZ ISCI',
-        brigadeId: brigadeId || '',
-        brigadeName: brigadeName || '',
-        phone: phone || undefined,
-        hireDate: hireDate || undefined,
-        mesaiSistemi: mesaiSistemi || 'Saatlik',
-        ...(autoRole ? { mobileRole: autoRole } : {}),
-      };
-
+    for (const row of parsedRows) {
       let savedWorker: Worker;
 
-      if (workerId) {
-        excelWorkerIds.add(workerId);
-        const exists = await this.repo.findOneBy({ workerId });
+      if (row.workerId) {
+        excelWorkerIds.add(row.workerId);
+        const exists = await this.repo.findOneBy({ workerId: row.workerId });
         if (exists) {
-          Object.assign(exists, fields);
-          // Restore if previously terminated
-          if (exists.status === WorkerStatus.Terminated) {
+          const wasTerminated = exists.status === WorkerStatus.Terminated;
+          Object.assign(exists, row.fields);
+          if (wasTerminated) {
             exists.status = WorkerStatus.Active;
             exists.terminatedAt = null;
+            exists.terminationDate = null;
+            exists.terminationReason = null;
+            exists.terminationNote = null;
           }
           savedWorker = (await this.repo.save(exists)) as unknown as Worker;
           updated.push(savedWorker);
+          if (wasTerminated) {
+            await this.workerLifecycle.recordRestored(savedWorker, changedBy, WorkerLifecycleSource.ExcelImport);
+            restored++;
+          }
         } else {
           const worker = this.repo.create({
-            ...fields,
-            workerId,
+            ...row.fields,
+            workerId: row.workerId,
             status: WorkerStatus.Active,
             qrStatus: QrStatus.Active,
           });
           savedWorker = (await this.repo.save(worker)) as unknown as Worker;
           created.push(savedWorker);
+          await this.workerLifecycle.recordCreated(savedWorker, changedBy, WorkerLifecycleSource.ExcelImport);
         }
       } else {
         const count = await this.repo.count();
         const finalId = `EST-${String(count + 1).padStart(3, '0')}`;
         const worker = this.repo.create({
-          ...fields,
+          ...row.fields,
           workerId: finalId,
           status: WorkerStatus.Active,
           qrStatus: QrStatus.Active,
         });
         savedWorker = (await this.repo.save(worker)) as unknown as Worker;
         created.push(savedWorker);
+        await this.workerLifecycle.recordCreated(savedWorker, changedBy, WorkerLifecycleSource.ExcelImport);
       }
 
-      // Auto-create foreman if Görev contains FORMENI (but not section chiefs)
-      if (!isSectionChief && profession.toUpperCase().includes('FORMENI')) {
-        const existingForeman = await this.foremanRepo.findOneBy({ workerId: savedWorker.id });
-        if (!existingForeman) {
-          const byName = await this.foremanRepo.findOneBy({ name });
-          if (!byName) {
-            const foreman = this.foremanRepo.create({
-              name,
-              phone: phone || null,
-              workerId: savedWorker.id,
-            });
-            const savedForeman = await this.foremanRepo.save(foreman);
-            savedWorker.foremanId = savedForeman.id;
-            await this.repo.save(savedWorker);
-          }
-        }
-      }
+      await this.ensureImportedForeman(savedWorker, row);
     }
 
-    // Auto-terminate workers not present in the uploaded Excel
     let terminated = 0;
     if (excelWorkerIds.size > 0) {
       const activeWorkers = await this.repo.find({
-        where: [
-          { status: WorkerStatus.Active },
-          { status: WorkerStatus.Inactive },
-          { status: WorkerStatus.Suspended },
-          { status: WorkerStatus.Transferred },
-        ],
+        where: ACTIVE_WORKER_STATUSES.map(status => ({ status })),
       });
       const now = new Date();
       for (const w of activeWorkers) {
         if (w.workerId && !excelWorkerIds.has(w.workerId)) {
           w.status = WorkerStatus.Terminated;
           w.terminatedAt = now;
-          await this.repo.save(w);
+          w.terminationDate = this.dateOnly(now);
+          w.terminationReason = 'Excel sanawynda ýok';
+          w.terminationNote = 'Soňky import edilen Excel sanawynda bu işçi tapylmady.';
+          const saved = await this.repo.save(w);
+          await this.workerLifecycle.recordTerminated(
+            saved,
+            changedBy,
+            WorkerLifecycleSource.ExcelImport,
+            this.terminationLifecycleNote(saved),
+          );
           terminated++;
         }
       }
     }
 
-    return { imported: created.length, updated: updated.length, terminated };
+    return { imported: created.length, updated: updated.length, restored, terminated };
+  }
+
+  private parseWorkerImportRows(buffer: Buffer): ParsedWorkerImportRow[] {
+    const workbook = XLSX.read(buffer, { type: 'buffer' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+    const parsedRows: ParsedWorkerImportRow[] = [];
+
+    rows.forEach((row, idx) => {
+      const name = String(
+        row['İnsan Adı'] || row['name'] || row['Name'] || row['ФИО'] ||
+        `${row['Фамилия'] || ''} ${row['Имя'] || ''}`.trim(),
+      ).trim();
+      if (!name) return;
+
+      const workerId = String(
+        row['Sicil No'] || row['workerId'] || row['Worker ID'] ||
+        row['Табельный номер'] || row['Таб. номер'] || row['ID'] || '',
+      ).trim();
+      const profession = String(
+        row['Görev'] || row['profession'] || row['Профессия'] || '',
+      ).trim();
+      const brigadeName = String(
+        row['EKIP'] || row['brigadeName'] || row['Brigade'] || row['Бригада'] || '',
+      ).trim();
+      const mesaiSistemi = String(
+        row['Mesai Sistemi'] || row['mesaiSistemi'] || 'Saatlik',
+      ).trim();
+      const brigadeId = String(row['brigadeId'] || row['Brigade ID'] || '').trim();
+      const phone = String(row['phone'] || row['Phone'] || row['Телефон'] || '').trim();
+      const hireDate = String(row['hireDate'] || row['Hire Date'] || row['Дата найма'] || '').trim();
+
+      const profUpper = profession.toUpperCase().replace(/İ/g, 'I').replace(/Ş/g, 'S');
+      const isSectionChief = profUpper.endsWith('SEFI') || profUpper.endsWith('SEF');
+      const isForeman = profUpper.includes('FORMENI');
+      const autoRole = isSectionChief
+        ? MobileRole.SectionChief
+        : isForeman
+          ? MobileRole.Foreman
+          : undefined;
+
+      parsedRows.push({
+        rowNumber: idx + 2,
+        workerId,
+        name,
+        profession,
+        brigadeName,
+        mesaiSistemi,
+        phone,
+        hireDate,
+        isSectionChief,
+        isForeman,
+        fields: {
+          name,
+          profession: profession || 'DUZ ISCI',
+          brigadeId: brigadeId || '',
+          brigadeName: brigadeName || '',
+          phone: phone || undefined,
+          hireDate: hireDate || undefined,
+          mesaiSistemi: mesaiSistemi || 'Saatlik',
+          ...(autoRole ? { mobileRole: autoRole } : {}),
+        },
+      });
+    });
+
+    return parsedRows;
+  }
+
+  private async findExistingByWorkerId(workerIds: string[]) {
+    if (workerIds.length === 0) return new Map<string, Worker>();
+    const existing = await this.repo.find({ where: { workerId: In(workerIds) } });
+    return new Map(existing.map(worker => [worker.workerId, worker]));
+  }
+
+  private importPreviewItem(row: ParsedWorkerImportRow, existing?: Worker) {
+    return {
+      rowNumber: row.rowNumber,
+      workerId: row.workerId || 'AUTO',
+      name: row.name,
+      profession: row.profession || 'DUZ ISCI',
+      brigadeName: row.brigadeName,
+      mesaiSistemi: row.mesaiSistemi || 'Saatlik',
+      currentStatus: existing?.status ?? null,
+    };
+  }
+
+  private workerPreviewItem(worker: Worker) {
+    return {
+      workerId: worker.workerId,
+      name: worker.name,
+      profession: worker.profession || '',
+      brigadeName: worker.brigadeName || '',
+      mesaiSistemi: worker.mesaiSistemi || 'Saatlik',
+      currentStatus: worker.status,
+    };
+  }
+
+  private async ensureImportedForeman(worker: Worker, row: ParsedWorkerImportRow) {
+    if (row.isSectionChief || !row.isForeman) return;
+    const existingForeman = await this.foremanRepo.findOneBy({ workerId: worker.id });
+    if (existingForeman) return;
+    const byName = await this.foremanRepo.findOneBy({ name: row.name });
+    if (byName) return;
+
+    const foreman = this.foremanRepo.create({
+      name: row.name,
+      phone: row.phone || null,
+      workerId: worker.id,
+    });
+    const savedForeman = await this.foremanRepo.save(foreman);
+    worker.foremanId = savedForeman.id;
+    await this.repo.save(worker);
   }
 
   async importCardNumbers(buffer: Buffer) {
@@ -436,8 +649,25 @@ export class WorkersService {
     const before = { ...worker };
     worker.status = WorkerStatus.Active;
     worker.terminatedAt = null;
+    worker.terminationDate = null;
+    worker.terminationReason = null;
+    worker.terminationNote = null;
     const saved = await this.repo.save(worker);
     await this.auditLog.log('Worker', id, 'UPDATE', changedBy, before, saved);
+    await this.workerLifecycle.recordRestored(saved, changedBy, WorkerLifecycleSource.Manual);
     return saved;
+  }
+
+  private dateOnly(date = new Date()): string {
+    return date.toISOString().split('T')[0];
+  }
+
+  private terminationLifecycleNote(worker: Worker): string | null {
+    const parts = [
+      worker.terminationDate ? `Soňky iş güni: ${worker.terminationDate}` : '',
+      worker.terminationReason ? `Sebäp: ${worker.terminationReason}` : '',
+      worker.terminationNote ? `Bellik: ${worker.terminationNote}` : '',
+    ].filter(Boolean);
+    return parts.length > 0 ? parts.join(' | ') : null;
   }
 }

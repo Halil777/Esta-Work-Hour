@@ -93,6 +93,15 @@ export class Worker {
   @Column({ type: 'timestamp', nullable: true, default: null })
   terminatedAt: Date | null;
 
+  @Column({ type: 'date', nullable: true, default: null })
+  terminationDate: string | null;
+
+  @Column({ type: 'varchar', nullable: true, default: null })
+  terminationReason: string | null;
+
+  @Column({ type: 'text', nullable: true, default: null })
+  terminationNote: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

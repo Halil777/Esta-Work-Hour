@@ -8,6 +8,7 @@ import { memoryStorage } from 'multer';
 import { WorkersService } from './workers.service';
 import { CreateWorkerDto } from './dto/create-worker.dto';
 import { UpdateWorkerDto } from './dto/update-worker.dto';
+import { TerminateWorkerDto } from './dto/terminate-worker.dto';
 import { AdminJwtGuard } from '../admin-auth/admin-auth.guard';
 import type { Response } from 'express';
 
@@ -15,6 +16,17 @@ import type { Response } from 'express';
 @Controller('workers')
 export class WorkersController {
   constructor(private readonly service: WorkersService) {}
+
+  private assertExcelFile(file: Express.Multer.File) {
+    if (!file) throw new BadRequestException('No file uploaded');
+    const allowed = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel',
+    ];
+    if (!allowed.includes(file.mimetype) && !file.originalname.match(/\.(xlsx|xls)$/i)) {
+      throw new BadRequestException('Only .xlsx or .xls files are allowed');
+    }
+  }
 
   @Get()
   findAll(
@@ -61,16 +73,19 @@ export class WorkersController {
 
   @Post('import/excel')
   @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
-  async importExcel(@UploadedFile() file: Express.Multer.File) {
-    if (!file) throw new BadRequestException('No file uploaded');
-    const allowed = [
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'application/vnd.ms-excel',
-    ];
-    if (!allowed.includes(file.mimetype) && !file.originalname.match(/\.(xlsx|xls)$/i)) {
-      throw new BadRequestException('Only .xlsx or .xls files are allowed');
-    }
-    return this.service.importFromExcel(file.buffer);
+  async importExcel(
+    @UploadedFile() file: Express.Multer.File,
+    @Headers('x-admin-name') adminName?: string,
+  ) {
+    this.assertExcelFile(file);
+    return this.service.importFromExcel(file.buffer, adminName || 'Admin');
+  }
+
+  @Post('import/excel/preview')
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
+  async previewImportExcel(@UploadedFile() file: Express.Multer.File) {
+    this.assertExcelFile(file);
+    return this.service.previewImportFromExcel(file.buffer);
   }
 
   @Post('import/cards')
@@ -101,8 +116,11 @@ export class WorkersController {
   }
 
   @Post()
-  create(@Body() dto: CreateWorkerDto) {
-    return this.service.create(dto);
+  create(
+    @Body() dto: CreateWorkerDto,
+    @Headers('x-admin-name') adminName?: string,
+  ) {
+    return this.service.create(dto, adminName || 'Admin');
   }
 
   @Patch(':id/restore')
@@ -111,6 +129,15 @@ export class WorkersController {
     @Headers('x-admin-name') adminName?: string,
   ) {
     return this.service.restoreWorker(id, adminName || 'Admin');
+  }
+
+  @Patch(':id/terminate')
+  terminate(
+    @Param('id') id: string,
+    @Body() dto: TerminateWorkerDto,
+    @Headers('x-admin-name') adminName?: string,
+  ) {
+    return this.service.terminateWorker(id, dto, adminName || 'Admin');
   }
 
   @Patch(':id')

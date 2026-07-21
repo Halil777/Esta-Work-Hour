@@ -16,6 +16,9 @@ import { ExtraHoursRequestItem } from './extra-hours/extra-hours-request-item.en
 import { ShiftSetting } from './shift-settings/shift-setting.entity';
 import { AbsenceNote } from './absence-notes/absence-note.entity';
 import { AttendanceOverride } from './attendance-overrides/attendance-override.entity';
+import { ReportConfig } from './report-config/report-config.entity';
+import { WorkerLifecycleEvent } from './worker-lifecycle/worker-lifecycle-event.entity';
+import { WorkerLifecycleReport } from './worker-lifecycle/worker-lifecycle-report.entity';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -27,7 +30,8 @@ export const AppDataSource = new DataSource({
   entities: [
     Worker, AttendanceEvent, AuditLog, Foreman, Brigadir,
     MobileCredential, ExtraHoursRequest, ExtraHoursRequestItem,
-    ShiftSetting, AbsenceNote, AttendanceOverride,
+    ShiftSetting, AbsenceNote, AttendanceOverride, ReportConfig,
+    WorkerLifecycleEvent, WorkerLifecycleReport,
   ],
   migrations: ['src/migrations/*.ts'],
   synchronize: false,

@@ -1,4 +1,4 @@
-import { Users, UserCheck, UserX, Clock, ChevronRight, AlertTriangle, FileDown } from 'lucide-react'
+import { Users, UserCheck, UserX, Clock, ChevronRight, AlertTriangle, FileDown, Gauge, CalendarDays, Activity } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from '../i18n/useTranslation'
@@ -6,6 +6,7 @@ import { workersApi } from '../api/workers'
 import { extraHoursApi } from '../api/extraHours'
 import { auditLogApi } from '../api/auditLog'
 import { attendanceApi } from '../api/attendance'
+import { apiFetch } from '../api/http'
 
 function StatCard({ value, label, sub, icon, color, bg, onClick }: {
   value: string | number; label: string; sub?: string
@@ -100,7 +101,7 @@ export function DashboardPage() {
 
   const { data: lateData } = useQuery({
     queryKey: ['late-arrivals', 'all'],
-    queryFn: () => fetch('/api/attendance/late-arrivals').then(r => r.json()),
+    queryFn: () => apiFetch<{ workers: any[] }>('/attendance/late-arrivals'),
     staleTime: 60_000,
     refetchInterval: 5 * 60_000,
   })
@@ -110,6 +111,13 @@ export function DashboardPage() {
   const absentToday = workers.filter(w => !w.lastCheckIn).length
   const totalWorkers = workers.length
   const pendingOTCount = pendingOT.length + seenOT.length
+  const attendanceRate = totalWorkers > 0 ? Math.round((presentToday / totalWorkers) * 100) : 0
+  const riskCount = lateArrivals.length + missingCheckouts.length + pendingOTCount
+  const todayLabel = new Date().toLocaleDateString('tr-TR', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  })
 
   // Brigade breakdown from workers
   const brigadeMap = new Map<string, { name: string; total: number; present: number }>()
@@ -133,33 +141,40 @@ export function DashboardPage() {
 
   return (
     <>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-        <button className="btn btn--ghost btn--sm" onClick={() => downloadDailyPdf(today)}
-          style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <FileDown size={14} /> PDF hasabat
-        </button>
+      <div className="ops-strip">
+        <div className="ops-strip__main">
+          <div className="ops-strip__icon"><Gauge size={18} /></div>
+          <div style={{ minWidth: 0 }}>
+            <div className="ops-strip__title">Bugünkü operasion ýagdaý</div>
+            <div className="ops-strip__meta">
+              {attendanceRate}% gatnaşyk · {presentToday}/{totalWorkers} işçi geldi · {riskCount} açyk mesele
+            </div>
+          </div>
+        </div>
+        <div className="ops-strip__side">
+          <span className="ops-pill"><CalendarDays size={13} />{todayLabel}</span>
+          <span className="ops-pill"><Activity size={13} />{riskCount === 0 ? 'Arassa' : `${riskCount} mesele`}</span>
+          <button className="btn btn--secondary btn--sm" onClick={() => downloadDailyPdf(today)}>
+            <FileDown size={14} /> PDF hasabat
+          </button>
+        </div>
       </div>
+
       {lateArrivals.length > 0 && (
-        <div style={{
-          background: 'var(--warning-light, #FFF7ED)', border: '1px solid var(--warning, #F59E0B)',
-          borderRadius: 10, padding: '10px 16px', marginBottom: 10,
-          display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
-        }} onClick={() => navigate('/late-arrivals')}>
-          <AlertTriangle size={15} style={{ color: 'var(--warning, #F59E0B)', flexShrink: 0 }} />
-          <span style={{ color: 'var(--warning, #F59E0B)', fontWeight: 600, fontSize: 13 }}>
-            {lateArrivals.length} işçi iş başlangyjyna çenli gelmedi
-          </span>
-          <span style={{ fontSize: 12, color: 'var(--warning, #F59E0B)', marginLeft: 'auto' }}>Görkezmek →</span>
+        <div className="alert-row alert-row--warning" onClick={() => navigate('/late-arrivals')}>
+          <AlertTriangle size={16} style={{ flexShrink: 0 }} />
+          <div className="alert-row__body">
+            <span className="alert-row__title">{lateArrivals.length} işçi iş başlangyjyna çenli gelmedi</span>
+            <span className="alert-row__sub">Foreman ýa staff boýunça derrew barla</span>
+          </div>
+          <ChevronRight size={15} />
         </div>
       )}
       {missingCheckouts.length > 0 && (
-        <div style={{
-          background: 'var(--danger-light)', border: '1px solid var(--danger)', borderRadius: 10,
-          padding: '12px 16px', marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 8,
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <AlertTriangle size={16} style={{ color: 'var(--danger)', flexShrink: 0 }} />
-            <strong style={{ color: 'var(--danger)', fontSize: 14 }}>
+        <div className="alert-row alert-row--danger" style={{ alignItems: 'flex-start', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
+            <AlertTriangle size={16} style={{ flexShrink: 0 }} />
+            <strong style={{ fontSize: 14, flex: 1 }}>
               {missingCheckouts.length} işçi çykyş belgisi ýok (14+ sagat işde)
             </strong>
           </div>
@@ -168,11 +183,7 @@ export function DashboardPage() {
               <div
                 key={w.workerEntityId}
                 onClick={() => navigate(`/workers/${w.workerEntityId}`)}
-                style={{
-                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
-                  background: 'var(--card)', border: '1px solid var(--danger)',
-                  borderRadius: 8, padding: '5px 10px', fontSize: 12,
-                }}
+                className="alert-token"
               >
                 <span style={{ fontWeight: 600, color: 'var(--text)' }}>{w.workerName}</span>
                 <span style={{ color: 'var(--text-muted)' }}>·</span>
@@ -256,7 +267,7 @@ export function DashboardPage() {
           <div className="card">
             <div className="card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <h3>Garaşylýan Goşmaça Sagat</h3>
-              <button className="btn btn-ghost btn-sm" onClick={() => navigate('/overtime')} style={{ fontSize: 12 }}>
+              <button className="btn btn--ghost btn--sm" onClick={() => navigate('/overtime')} style={{ fontSize: 12 }}>
                 Hemmesi →
               </button>
             </div>

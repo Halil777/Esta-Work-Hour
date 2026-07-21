@@ -14,20 +14,20 @@ export function Sidebar() {
   const { t } = useTranslation()
   const navigate = useNavigate()
 
-  const navItems: { path: string; icon: React.ElementType; label: string; badge?: number }[] = [
-    { path: '/dashboard', icon: LayoutDashboard, label: t.nav.dashboard },
-    { path: '/workers', icon: Users, label: t.nav.workers },
-    { path: '/brigades', icon: Layers, label: t.nav.brigades },
-    { path: '/overtime', icon: Clock, label: t.nav.overtime },
-    { path: '/site-chiefs', icon: ShieldCheck, label: 'Site Chiefs' },
-    { path: '/section-chiefs', icon: HardHat, label: 'Bölüm Başlyklary' },
-    { path: '/terminated-workers', icon: UserMinus, label: 'İşden Bosadylanlar' },
-    { path: '/absent-today', icon: WifiOff, label: 'Skan etmedikler' },
-    { path: '/late-arrivals', icon: AlarmClock, label: 'Gijä galan işçiler' },
-    { path: '/reports', icon: FileSpreadsheet, label: 'İş Sagat Hasabaty' },
-    { path: '/nfc-events', icon: ScanLine, label: t.nav.nfcEvents },
-    { path: '/history', icon: History, label: t.nav.history },
-    { path: '/settings', icon: Settings, label: t.nav.settings },
+  const navItems: { path: string; icon: React.ElementType; label: string; section: string; badge?: number }[] = [
+    { path: '/dashboard', icon: LayoutDashboard, label: t.nav.dashboard, section: 'Overview' },
+    { path: '/workers', icon: Users, label: t.nav.workers, section: 'Workforce' },
+    { path: '/brigades', icon: Layers, label: t.nav.brigades, section: 'Workforce' },
+    { path: '/site-chiefs', icon: ShieldCheck, label: 'Site Chiefs', section: 'Workforce' },
+    { path: '/section-chiefs', icon: HardHat, label: 'Bölüm Başlyklary', section: 'Workforce' },
+    { path: '/terminated-workers', icon: UserMinus, label: 'İşden Bosadylanlar', section: 'Workforce' },
+    { path: '/absent-today', icon: WifiOff, label: 'Skan etmedikler', section: 'Attendance' },
+    { path: '/late-arrivals', icon: AlarmClock, label: 'Gijä galan işçiler', section: 'Attendance' },
+    { path: '/nfc-events', icon: ScanLine, label: t.nav.nfcEvents, section: 'Attendance' },
+    { path: '/overtime', icon: Clock, label: t.nav.overtime, section: 'Approvals' },
+    { path: '/reports', icon: FileSpreadsheet, label: 'İş Sagat Hasabaty', section: 'Reports' },
+    { path: '/history', icon: History, label: t.nav.history, section: 'System' },
+    { path: '/settings', icon: Settings, label: t.nav.settings, section: 'System' },
   ]
 
   const handleLogout = () => {
@@ -50,19 +50,24 @@ export function Sidebar() {
       </div>
 
       <nav className="sidebar-nav">
-        {navItems.map(item => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
-          >
-            <item.icon size={16} />
-            <span style={{ flex: 1 }}>{item.label}</span>
-            {item.badge !== undefined && (
-              <span className="nav-badge">{item.badge}</span>
-            )}
-          </NavLink>
-        ))}
+        {navItems.map((item, index) => {
+          const showSection = index === 0 || navItems[index - 1].section !== item.section
+          return (
+            <React.Fragment key={item.path}>
+              {showSection && <div className="sidebar-section-label">{item.section}</div>}
+              <NavLink
+                to={item.path}
+                className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
+              >
+                <item.icon size={16} />
+                <span style={{ flex: 1 }}>{item.label}</span>
+                {item.badge !== undefined && (
+                  <span className="nav-badge">{item.badge}</span>
+                )}
+              </NavLink>
+            </React.Fragment>
+          )
+        })}
       </nav>
 
       <div className="sidebar-footer">

@@ -9,13 +9,18 @@ function getPageTitle(pathname: string, t: ReturnType<typeof import('../../i18n/
     '/dashboard': t.nav.dashboard,
     '/workers': t.nav.workers,
     '/brigades': t.nav.brigades,
-    '/attendance': t.nav.attendance,
     '/overtime': t.nav.overtime,
-    '/absence': t.nav.absence,
+    '/nfc-events': t.nav.nfcEvents,
+    '/history': t.nav.history,
+    '/absent-today': 'Skan etmedikler',
+    '/late-arrivals': 'Gijä galan işçiler',
+    '/site-chiefs': 'Site Chiefs',
+    '/section-chiefs': 'Bölüm Başlyklary',
+    '/terminated-workers': 'İşden Bosadylanlar',
     '/reports': 'İş Sagat Hasabaty',
-    '/sync-center': t.nav.syncCenter,
     '/settings': t.nav.settings,
   }
+  if (pathname.startsWith('/workers/')) return 'İşçi profili'
   return map[pathname] ?? 'Tenant Admin'
 }
 

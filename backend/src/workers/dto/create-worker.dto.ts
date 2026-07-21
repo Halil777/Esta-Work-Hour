@@ -1,5 +1,5 @@
-import { IsString, IsOptional, IsEnum } from 'class-validator';
-import { WorkerStatus, QrStatus } from '../worker.entity';
+import { IsBoolean, IsEnum, IsNumber, IsOptional, IsString } from 'class-validator';
+import { WorkerStatus, QrStatus, MobileRole } from '../worker.entity';
 
 export class CreateWorkerDto {
   @IsOptional()
@@ -52,4 +52,40 @@ export class CreateWorkerDto {
   @IsOptional()
   @IsString()
   foremanId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  brigadirId?: string | null;
+
+  @IsOptional()
+  @IsEnum(MobileRole)
+  mobileRole?: MobileRole;
+
+  @IsOptional()
+  @IsNumber()
+  extraSaat?: number;
+
+  @IsOptional()
+  @IsString()
+  nfcCardUid?: string | null;
+
+  @IsOptional()
+  @IsString()
+  shift?: 'day' | 'night' | null;
+
+  @IsOptional()
+  @IsBoolean()
+  isStaff?: boolean;
+
+  @IsOptional()
+  @IsString()
+  terminationDate?: string | null;
+
+  @IsOptional()
+  @IsString()
+  terminationReason?: string | null;
+
+  @IsOptional()
+  @IsString()
+  terminationNote?: string | null;
 }

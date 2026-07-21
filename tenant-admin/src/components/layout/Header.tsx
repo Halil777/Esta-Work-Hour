@@ -13,13 +13,19 @@ const LANGS: { key: Language; label: string }[] = [
 ]
 
 export function Header({ title }: Props) {
-  const { theme, language, toggleTheme, setLanguage, logout } = useUiPreferences()
+  const { theme, language, user, toggleTheme, setLanguage, logout } = useUiPreferences()
   const { t } = useTranslation()
   const navigate = useNavigate()
 
   return (
     <header className="header">
-      <h2 className="header-title">{title}</h2>
+      <div className="header-context">
+        <div style={{ minWidth: 0 }}>
+          <h2 className="header-title">{title}</h2>
+          <span className="page-kicker">{user?.objectName ?? 'Esta Construction'}</span>
+        </div>
+        <span className="header-live">Live</span>
+      </div>
       <div className="header-actions">
         <div className="lang-switcher">
           {LANGS.map(l => (

@@ -67,22 +67,23 @@ export function TerminatedWorkersPage() {
                   <th>Görev</th>
                   <th>Ekip</th>
                   <th>İşden Aýrylan Senesi</th>
+                  <th>Sebäp</th>
                   <th>Hereketler</th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading ? (
-                  <tr><td colSpan={6}><div className="empty-state"><p>Ýüklenýär…</p></div></td></tr>
+                  <tr><td colSpan={7}><div className="empty-state"><p>Ýüklenýär…</p></div></td></tr>
                 ) : workers.length === 0 ? (
                   <tr>
-                    <td colSpan={6}>
+                    <td colSpan={7}>
                       <div className="empty-state">
                         <UserX size={32} color="var(--text-muted)" />
                         <p>İşden bosadylan işçi ýok</p>
                       </div>
                     </td>
                   </tr>
-                ) : workers.map((w: WorkerApi & { terminatedAt?: string }) => (
+                ) : workers.map((w: WorkerApi) => (
                   <tr key={w.id}>
                     <td className="td-mono">{w.workerId}</td>
                     <td className="fw-600">{w.name}</td>
@@ -90,9 +91,10 @@ export function TerminatedWorkersPage() {
                     <td className="td-muted" style={{ fontSize: 12 }}>{w.brigadeName || '—'}</td>
                     <td>
                       <span style={{ fontSize: 12, color: 'var(--danger)' }}>
-                        {fmtDate((w as any).terminatedAt)}
+                        {fmtDate(w.terminationDate ?? w.terminatedAt)}
                       </span>
                     </td>
+                    <td className="td-muted" style={{ fontSize: 12 }}>{w.terminationReason || '—'}</td>
                     <td>
                       <button
                         className="btn btn--secondary btn--sm"

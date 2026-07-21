@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEnum, IsNumber } from 'class-validator';
+import { IsBoolean, IsString, IsOptional, IsEnum, IsNumber } from 'class-validator';
 import { WorkerStatus, QrStatus, MobileRole } from '../worker.entity';
 
 export class UpdateWorkerDto {
@@ -71,5 +71,18 @@ export class UpdateWorkerDto {
   shift?: 'day' | 'night' | null;
 
   @IsOptional()
+  @IsBoolean()
   isStaff?: boolean;
+
+  @IsOptional()
+  @IsString()
+  terminationDate?: string | null;
+
+  @IsOptional()
+  @IsString()
+  terminationReason?: string | null;
+
+  @IsOptional()
+  @IsString()
+  terminationNote?: string | null;
 }

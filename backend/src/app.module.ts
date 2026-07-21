@@ -14,6 +14,8 @@ import { ShiftSetting } from './shift-settings/shift-setting.entity';
 import { AbsenceNote } from './absence-notes/absence-note.entity';
 import { AttendanceOverride } from './attendance-overrides/attendance-override.entity';
 import { ReportConfig } from './report-config/report-config.entity';
+import { WorkerLifecycleEvent } from './worker-lifecycle/worker-lifecycle-event.entity';
+import { WorkerLifecycleReport } from './worker-lifecycle/worker-lifecycle-report.entity';
 import { WorkersModule } from './workers/workers.module';
 import { AttendanceEventsModule } from './attendance-events/attendance-events.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
@@ -29,6 +31,7 @@ import { AdminAuthModule } from './admin-auth/admin-auth.module';
 import { ReportsModule } from './reports/reports.module';
 import { ReportConfigModule } from './report-config/report-config.module';
 import { ReportSchedulerModule } from './report-scheduler/report-scheduler.module';
+import { WorkerLifecycleModule } from './worker-lifecycle/worker-lifecycle.module';
 
 @Module({
   imports: [
@@ -47,6 +50,7 @@ import { ReportSchedulerModule } from './report-scheduler/report-scheduler.modul
           Worker, AttendanceEvent, AuditLog, Foreman, Brigadir,
           MobileCredential, ExtraHoursRequest, ExtraHoursRequestItem,
           ShiftSetting, AbsenceNote, AttendanceOverride, ReportConfig,
+          WorkerLifecycleEvent, WorkerLifecycleReport,
         ],
         synchronize: cfg.get('NODE_ENV', 'development') !== 'production',
       }),
@@ -66,6 +70,7 @@ import { ReportSchedulerModule } from './report-scheduler/report-scheduler.modul
     ReportsModule,
     ReportConfigModule,
     ReportSchedulerModule,
+    WorkerLifecycleModule,
   ],
 })
 export class AppModule {}
