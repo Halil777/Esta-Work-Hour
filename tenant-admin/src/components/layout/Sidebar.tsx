@@ -40,12 +40,21 @@ export function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
-        <div className="sidebar-logo-icon">
-          <Building2 size={14} color="#fff" />
-        </div>
+        {user?.logoUrl ? (
+          <img
+            src={user.logoUrl}
+            alt={user.name}
+            style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'contain', background: '#fff', flexShrink: 0 }}
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+          />
+        ) : (
+          <div className="sidebar-logo-icon">
+            <Building2 size={14} color="#fff" />
+          </div>
+        )}
         <div className="sidebar-logo-text">
-          <div className="company">Esta Construction</div>
-          <div className="object-name">{user?.objectName ?? 'Kazan Object'}</div>
+          <div className="company">{user?.name ?? 'Tenant Admin'}</div>
+          <div className="object-name">{user?.objectName ?? 'Admin Panel'}</div>
         </div>
       </div>
 

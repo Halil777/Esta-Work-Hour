@@ -1,6 +1,7 @@
 import { Module, Global } from '@nestjs/common';
 import { AdminAuthController } from './admin-auth.controller';
 import { AdminJwtGuard } from './admin-auth.guard';
+import { TenantsModule } from '../tenants/tenants.module';
 
 /**
  * Global module: AdminJwtGuard is available in all other modules without re-importing.
@@ -8,6 +9,7 @@ import { AdminJwtGuard } from './admin-auth.guard';
  */
 @Global()
 @Module({
+  imports: [TenantsModule],
   controllers: [AdminAuthController],
   providers: [AdminJwtGuard],
   exports: [AdminJwtGuard],

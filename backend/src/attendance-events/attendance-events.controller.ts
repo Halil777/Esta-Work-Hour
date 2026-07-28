@@ -17,16 +17,17 @@ export class AttendanceEventsController {
   @UseGuards(AdminJwtGuard)
   @Get('events')
   findAll(
+    @Req() req: any,
     @Query('date') date?: string,
     @Query('limit') limit?: string,
   ) {
-    return this.service.findAll(date, limit ? Number(limit) : 500);
+    return this.service.findAll(date, limit ? Number(limit) : 500, req.adminUser?.tenantId);
   }
 
   @UseGuards(AdminJwtGuard)
   @Get('daily-summary')
-  getDailySummary(@Query('date') date?: string) {
-    return this.service.getDailySummary(date);
+  getDailySummary(@Req() req: any, @Query('date') date?: string) {
+    return this.service.getDailySummary(date, req.adminUser?.tenantId);
   }
 
   @UseGuards(AdminJwtGuard)

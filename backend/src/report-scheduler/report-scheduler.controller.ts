@@ -1,4 +1,4 @@
-import { Controller, Post, Query, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, Query, Body, UseGuards, Req } from '@nestjs/common';
 import { ReportSchedulerService } from './report-scheduler.service';
 import { AdminJwtGuard } from '../admin-auth/admin-auth.guard';
 import { ReportType } from '../report-config/report-config.entity';
@@ -11,16 +11,18 @@ export class ReportSchedulerController {
   /** Manually send daily report */
   @Post('send-now')
   async sendNow(
+    @Req() req: any,
     @Query('date') date?: string,
     @Query('reportType') reportType?: string,
   ) {
-    await this.service.sendNow(date, (reportType as ReportType) ?? 'daily_all');
+    await this.service.sendNow(date, (reportType as ReportType) ?? 'daily_all', req.adminUser?.tenantId);
     return { ok: true, message: 'Günlük hasabat iberildi' };
   }
 
   /** Manually send range (date-range + optional worker filter) */
   @Post('send-range')
   async sendRange(
+    @Req() req: any,
     @Body('startDate') startDate: string,
     @Body('endDate') endDate: string,
     @Body('workerIds') workerIds?: string[],
@@ -29,7 +31,7 @@ export class ReportSchedulerController {
     if (!startDate || !endDate) {
       throw new Error('startDate and endDate are required');
     }
-    await this.service.sendRange(startDate, endDate, workerIds, customEmails);
+    await this.service.sendRange(startDate, endDate, workerIds, customEmails, req.adminUser?.tenantId);
     return { ok: true, message: `Hasabat iberildi (${startDate} — ${endDate})` };
   }
 }

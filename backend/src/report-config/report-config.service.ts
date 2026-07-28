@@ -17,21 +17,27 @@ export class ReportConfigService {
     private readonly repo: Repository<ReportConfig>,
   ) {}
 
-  private async getSingleton(): Promise<ReportConfig> {
-    let config = await this.repo.findOneBy({ id: 1 });
+  private async getSingleton(tenantId?: string): Promise<ReportConfig> {
+    // Look up by tenantId (null for legacy global singleton)
+    const where: any = tenantId ? { tenantId } : { tenantId: null as any };
+    let config = await this.repo.findOne({ where });
     if (!config) {
-      config = this.repo.create({ id: 1, emailsJson: '[]', schedulesJson: '[]' });
+      config = this.repo.create({
+        tenantId: tenantId ?? null,
+        emailsJson: '[]',
+        schedulesJson: '[]',
+      });
       await this.repo.save(config);
     }
     return config;
   }
 
-  async getConfig(): Promise<{
+  async getConfig(tenantId?: string): Promise<{
     emails: string[];
     schedules: ReportScheduleItem[];
     monthlySchedule: MonthlySchedule;
   }> {
-    const cfg = await this.getSingleton();
+    const cfg = await this.getSingleton(tenantId);
     return {
       emails: JSON.parse(cfg.emailsJson),
       schedules: JSON.parse(cfg.schedulesJson),
@@ -41,20 +47,20 @@ export class ReportConfigService {
     };
   }
 
-  async updateEmails(emails: string[]): Promise<void> {
-    const cfg = await this.getSingleton();
+  async updateEmails(emails: string[], tenantId?: string): Promise<void> {
+    const cfg = await this.getSingleton(tenantId);
     cfg.emailsJson = JSON.stringify(emails);
     await this.repo.save(cfg);
   }
 
-  async updateSchedules(schedules: ReportScheduleItem[]): Promise<void> {
-    const cfg = await this.getSingleton();
+  async updateSchedules(schedules: ReportScheduleItem[], tenantId?: string): Promise<void> {
+    const cfg = await this.getSingleton(tenantId);
     cfg.schedulesJson = JSON.stringify(schedules);
     await this.repo.save(cfg);
   }
 
-  async updateScheduleLastSent(scheduleId: string, date: string): Promise<void> {
-    const cfg = await this.getSingleton();
+  async updateScheduleLastSent(scheduleId: string, date: string, tenantId?: string): Promise<void> {
+    const cfg = await this.getSingleton(tenantId);
     const schedules: ReportScheduleItem[] = JSON.parse(cfg.schedulesJson);
     const idx = schedules.findIndex(s => s.id === scheduleId);
     if (idx !== -1) {
@@ -64,8 +70,8 @@ export class ReportConfigService {
     }
   }
 
-  async updateMonthlyLastSent(triggerMonth: string): Promise<void> {
-    const cfg = await this.getSingleton();
+  async updateMonthlyLastSent(triggerMonth: string, tenantId?: string): Promise<void> {
+    const cfg = await this.getSingleton(tenantId);
     const monthly: MonthlySchedule = cfg.monthlyScheduleJson
       ? JSON.parse(cfg.monthlyScheduleJson)
       : { ...DEFAULT_MONTHLY };
@@ -78,8 +84,9 @@ export class ReportConfigService {
     emails: string[],
     schedules: ReportScheduleItem[],
     monthlySchedule?: MonthlySchedule,
+    tenantId?: string,
   ): Promise<void> {
-    const cfg = await this.getSingleton();
+    const cfg = await this.getSingleton(tenantId);
     cfg.emailsJson = JSON.stringify(emails);
     cfg.schedulesJson = JSON.stringify(schedules);
     if (monthlySchedule !== undefined) {
@@ -93,5 +100,10 @@ export class ReportConfigService {
       });
     }
     await this.repo.save(cfg);
+  }
+
+  // Returns all configs (for scheduler that processes all tenants)
+  async getAllConfigs(): Promise<ReportConfig[]> {
+    return this.repo.find();
   }
 }

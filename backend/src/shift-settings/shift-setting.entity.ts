@@ -1,11 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, UpdateDateColumn, Index } from 'typeorm';
 
 @Entity('shift_settings')
+@Index(['tenantId', 'shiftType'], { unique: true, where: '"tenantId" IS NOT NULL' })
 export class ShiftSetting {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar', unique: true })
+  @Column({ type: 'varchar' })
   shiftType: 'day' | 'night';
 
   @Column({ type: 'varchar', default: '07:00' })
@@ -16,6 +17,9 @@ export class ShiftSetting {
 
   @Column({ type: 'int', default: 60 })
   graceMinutes: number;
+
+  @Column({ type: 'uuid', nullable: true, default: null })
+  tenantId: string | null;
 
   @UpdateDateColumn()
   updatedAt: Date;

@@ -43,8 +43,8 @@ export function LoginPage() {
         <div className="login-logo">
           <div className="login-logo-icon"><Building2 size={20} /></div>
           <div>
-            <h1 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>Tenant Admin</h1>
-            <p style={{ fontSize: 11, margin: 0, marginTop: 2, color: 'var(--text-muted)' }}>Esta Construction Platform</p>
+            <h1 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>Admin Panel</h1>
+            <p style={{ fontSize: 11, margin: 0, marginTop: 2, color: 'var(--text-muted)' }}>WorkHour Platform</p>
           </div>
         </div>
 

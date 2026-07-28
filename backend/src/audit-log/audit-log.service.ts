@@ -10,7 +10,7 @@ export class AuditLogService {
     private readonly repo: Repository<AuditLog>,
   ) {}
 
-  log(entityType: string, entityId: string, action: string, changedBy: string, before?: any, after?: any) {
+  log(entityType: string, entityId: string, action: string, changedBy: string, before?: any, after?: any, tenantId?: string) {
     const entry = this.repo.create({
       entityType,
       entityId,
@@ -18,11 +18,16 @@ export class AuditLogService {
       changedBy,
       before: before ?? null,
       after: after ?? null,
+      tenantId: tenantId ?? null,
     });
     return this.repo.save(entry);
   }
 
-  findAll(limit = 200) {
-    return this.repo.find({ order: { changedAt: 'DESC' }, take: limit });
+  findAll(limit = 200, tenantId?: string) {
+    return this.repo.find({
+      where: tenantId ? { tenantId } : {},
+      order: { changedAt: 'DESC' },
+      take: limit,
+    });
   }
 }

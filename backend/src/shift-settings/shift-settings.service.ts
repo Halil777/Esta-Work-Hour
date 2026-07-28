@@ -15,15 +15,22 @@ export class ShiftSettingsService {
     private readonly repo: Repository<ShiftSetting>,
   ) {}
 
-  async getAll(): Promise<ShiftSetting[]> {
-    const existing = await this.repo.find();
+  async getAll(tenantId?: string): Promise<ShiftSetting[]> {
+    const where = tenantId ? { tenantId } : {};
+    const existing = await this.repo.find({ where });
     const map = new Map(existing.map(s => [s.shiftType, s]));
 
     for (const type of ['day', 'night'] as const) {
       if (!map.has(type)) {
         const d = DEFAULTS[type];
         const s = await this.repo.save(
-          this.repo.create({ shiftType: type, startTime: d.startTime, endTime: d.endTime, graceMinutes: d.graceMinutes }),
+          this.repo.create({
+            shiftType: type,
+            startTime: d.startTime,
+            endTime: d.endTime,
+            graceMinutes: d.graceMinutes,
+            tenantId: tenantId ?? null,
+          }),
         );
         map.set(type, s);
       }
@@ -37,10 +44,12 @@ export class ShiftSettingsService {
     startTime: string,
     endTime: string,
     graceMinutes: number,
+    tenantId?: string,
   ): Promise<ShiftSetting> {
-    let setting = await this.repo.findOneBy({ shiftType });
+    const where: any = { shiftType, ...(tenantId ? { tenantId } : {}) };
+    let setting = await this.repo.findOne({ where });
     if (!setting) {
-      setting = this.repo.create({ shiftType });
+      setting = this.repo.create({ shiftType, tenantId: tenantId ?? null });
     }
     setting.startTime = startTime;
     setting.endTime = endTime;

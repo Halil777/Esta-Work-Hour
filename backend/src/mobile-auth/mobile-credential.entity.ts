@@ -20,6 +20,9 @@ export class MobileCredential {
   @Column({ default: true })
   isActive: boolean;
 
+  @Column({ type: 'uuid', nullable: true, default: null })
+  tenantId: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 }

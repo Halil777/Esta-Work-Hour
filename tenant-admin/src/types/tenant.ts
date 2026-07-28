@@ -9,4 +9,5 @@ export type AuthUser = {
   role: 'ObjectAdmin' | 'SiteChief' | 'HR' | 'Foreman' | 'Timekeeper'
   objectName: string
   objectId: string
+  logoUrl?: string | null
 }

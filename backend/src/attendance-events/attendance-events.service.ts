@@ -68,7 +68,15 @@ export class AttendanceEventsService {
     return { synced, failed, results };
   }
 
-  async findAll(date?: string, limit = 500) {
+  async findAll(date?: string, limit = 500, tenantId?: string) {
+    // If tenantId is set, get tenant's workerIds first to filter events
+    let tenantWorkerIds: string[] | undefined;
+    if (tenantId) {
+      const tenantWorkers = await this.workerRepo.find({ where: { tenantId }, select: ['workerId'] });
+      tenantWorkerIds = tenantWorkers.map(w => w.workerId);
+      if (tenantWorkerIds.length === 0) return [];
+    }
+
     const qb = this.repo.createQueryBuilder('ae')
       .orderBy('ae.eventTime', 'DESC')
       .take(limit);
@@ -76,12 +84,18 @@ export class AttendanceEventsService {
     if (date) {
       qb.where(`DATE(to_timestamp(ae.eventTime / 1000.0) AT TIME ZONE '${APP_TZ}') = :date`, { date });
     }
+    if (tenantWorkerIds) {
+      const clause = `ae.employeeNumber = ANY(:ids)`;
+      date
+        ? qb.andWhere(clause, { ids: tenantWorkerIds })
+        : qb.where(clause, { ids: tenantWorkerIds });
+    }
 
     const events = await qb.getMany();
     const employeeNumbers = [...new Set(events.map(e => e.employeeNumber).filter(Boolean))];
 
     const workers = employeeNumbers.length > 0
-      ? await this.workerRepo.find({ where: { workerId: In(employeeNumbers) } })
+      ? await this.workerRepo.find({ where: employeeNumbers.map(workerId => ({ workerId, ...(tenantId ? { tenantId } : {}) })) })
       : [];
     const workerMap = new Map(workers.map(w => [w.workerId, w.name]));
 
@@ -91,7 +105,7 @@ export class AttendanceEventsService {
     }));
   }
 
-  async getDailySummary(date?: string) {
+  async getDailySummary(date?: string, tenantId?: string) {
     const now = new Date();
     const targetDate = date || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
@@ -106,7 +120,7 @@ export class AttendanceEventsService {
 
     const employeeNumbers = [...new Set(events.map(e => e.employeeNumber).filter(Boolean))];
     const workers = employeeNumbers.length > 0
-      ? await this.workerRepo.find({ where: { workerId: In(employeeNumbers) } })
+      ? await this.workerRepo.find({ where: employeeNumbers.map(workerId => ({ workerId, ...(tenantId ? { tenantId } : {}) })) })
       : [];
     const workerMap = new Map(workers.map(w => [w.workerId, w.name]));
 

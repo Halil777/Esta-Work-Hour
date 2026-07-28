@@ -23,6 +23,9 @@ export class AuditLog {
   @Column({ type: 'jsonb', nullable: true })
   after: any;
 
+  @Column({ type: 'uuid', nullable: true, default: null })
+  tenantId: string | null;
+
   @CreateDateColumn()
   changedAt: Date;
 }

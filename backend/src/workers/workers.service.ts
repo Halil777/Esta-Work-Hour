@@ -83,8 +83,9 @@ export class WorkersService {
     startDate?: string;
     endDate?: string;
     noScan?: boolean;
+    tenantId?: string;
   } = {}) {
-    const { search, brigadeId, status, foremanId, mobileRole, mesaiSistemi, startDate, endDate, noScan } = params;
+    const { search, brigadeId, status, foremanId, mobileRole, mesaiSistemi, startDate, endDate, noScan, tenantId } = params;
     const where: any[] = [];
     const statusFilter = status && status !== 'all' ? (status as WorkerStatus) : undefined;
     const brigadeFilter = brigadeId && brigadeId !== 'all' ? brigadeId : undefined;
@@ -100,6 +101,7 @@ export class WorkersService {
       ...(foremanFilter ? { foremanId: foremanFilter } : {}),
       ...(mobileRoleFilter ? { mobileRole: mobileRoleFilter } : {}),
       ...(mesaiFilter ? { mesaiSistemi: mesaiFilter } : {}),
+      ...(tenantId ? { tenantId } : {}),
     };
 
     if (search) {
@@ -181,7 +183,7 @@ export class WorkersService {
     return worker;
   }
 
-  async create(dto: CreateWorkerDto, changedBy = 'Admin') {
+  async create(dto: CreateWorkerDto, tenantId?: string, changedBy = 'Admin') {
     const sanitized: any = { ...dto };
     if (sanitized.workerId === '') delete sanitized.workerId;
     if (sanitized.hireDate === '') sanitized.hireDate = null;
@@ -194,9 +196,9 @@ export class WorkersService {
     if (sanitized.terminationReason === '') sanitized.terminationReason = null;
     if (sanitized.terminationNote === '') sanitized.terminationNote = null;
 
-    const count = await this.repo.count();
+    const count = await this.repo.count({ where: tenantId ? { tenantId } : {} });
     const workerId = sanitized.workerId?.trim() || `EST-${String(count + 1).padStart(3, '0')}`;
-    const worker = this.repo.create({ ...sanitized, workerId }) as unknown as Worker;
+    const worker = this.repo.create({ ...sanitized, workerId, tenantId: tenantId || null }) as unknown as Worker;
     const saved = (await this.repo.save(worker)) as Worker;
     await this.auditLog.log('Worker', saved.id, 'CREATE', changedBy, null, saved);
     await this.workerLifecycle.recordCreated(saved, changedBy, WorkerLifecycleSource.Manual);
@@ -295,8 +297,8 @@ export class WorkersService {
     return { photoUrl };
   }
 
-  async exportToExcel(): Promise<Buffer> {
-    const workers = await this.findAll({}) as any[];
+  async exportToExcel(tenantId?: string): Promise<Buffer> {
+    const workers = await this.findAll({ tenantId }) as any[];
 
     const fmtTime = (ts: number | null) => {
       if (!ts) return '';
@@ -335,10 +337,10 @@ export class WorkersService {
     return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
   }
 
-  async previewImportFromExcel(buffer: Buffer) {
+  async previewImportFromExcel(buffer: Buffer, tenantId?: string) {
     const parsedRows = this.parseWorkerImportRows(buffer);
     const excelWorkerIds = new Set(parsedRows.map(r => r.workerId).filter(Boolean));
-    const existingByWorkerId = await this.findExistingByWorkerId([...excelWorkerIds]);
+    const existingByWorkerId = await this.findExistingByWorkerId([...excelWorkerIds], tenantId);
 
     const samples = {
       created: [] as any[],
@@ -382,7 +384,7 @@ export class WorkersService {
 
     if (excelWorkerIds.size > 0) {
       const activeWorkers = await this.repo.find({
-        where: ACTIVE_WORKER_STATUSES.map(status => ({ status })),
+        where: ACTIVE_WORKER_STATUSES.map(status => ({ status, ...(tenantId ? { tenantId } : {}) })),
       });
       for (const worker of activeWorkers) {
         if (worker.workerId && !excelWorkerIds.has(worker.workerId)) {
@@ -402,7 +404,7 @@ export class WorkersService {
     };
   }
 
-  async importFromExcel(buffer: Buffer, changedBy = 'Admin') {
+  async importFromExcel(buffer: Buffer, tenantId?: string, changedBy = 'Admin') {
     const parsedRows = this.parseWorkerImportRows(buffer);
 
     const created: Worker[] = [];
@@ -415,7 +417,10 @@ export class WorkersService {
 
       if (row.workerId) {
         excelWorkerIds.add(row.workerId);
-        const exists = await this.repo.findOneBy({ workerId: row.workerId });
+        const exists = await this.repo.findOneBy({
+          workerId: row.workerId,
+          ...(tenantId ? { tenantId } : {}),
+        });
         if (exists) {
           const wasTerminated = exists.status === WorkerStatus.Terminated;
           Object.assign(exists, row.fields);
@@ -438,32 +443,34 @@ export class WorkersService {
             workerId: row.workerId,
             status: WorkerStatus.Active,
             qrStatus: QrStatus.Active,
+            tenantId: tenantId || null,
           });
           savedWorker = (await this.repo.save(worker)) as unknown as Worker;
           created.push(savedWorker);
           await this.workerLifecycle.recordCreated(savedWorker, changedBy, WorkerLifecycleSource.ExcelImport);
         }
       } else {
-        const count = await this.repo.count();
+        const count = await this.repo.count({ where: tenantId ? { tenantId } : {} });
         const finalId = `EST-${String(count + 1).padStart(3, '0')}`;
         const worker = this.repo.create({
           ...row.fields,
           workerId: finalId,
           status: WorkerStatus.Active,
           qrStatus: QrStatus.Active,
+          tenantId: tenantId || null,
         });
         savedWorker = (await this.repo.save(worker)) as unknown as Worker;
         created.push(savedWorker);
         await this.workerLifecycle.recordCreated(savedWorker, changedBy, WorkerLifecycleSource.ExcelImport);
       }
 
-      await this.ensureImportedForeman(savedWorker, row);
+      await this.ensureImportedForeman(savedWorker, row, tenantId);
     }
 
     let terminated = 0;
     if (excelWorkerIds.size > 0) {
       const activeWorkers = await this.repo.find({
-        where: ACTIVE_WORKER_STATUSES.map(status => ({ status })),
+        where: ACTIVE_WORKER_STATUSES.map(status => ({ status, ...(tenantId ? { tenantId } : {}) })),
       });
       const now = new Date();
       for (const w of activeWorkers) {
@@ -554,9 +561,11 @@ export class WorkersService {
     return parsedRows;
   }
 
-  private async findExistingByWorkerId(workerIds: string[]) {
+  private async findExistingByWorkerId(workerIds: string[], tenantId?: string) {
     if (workerIds.length === 0) return new Map<string, Worker>();
-    const existing = await this.repo.find({ where: { workerId: In(workerIds) } });
+    const existing = await this.repo.find({
+      where: workerIds.map(workerId => ({ workerId, ...(tenantId ? { tenantId } : {}) })),
+    });
     return new Map(existing.map(worker => [worker.workerId, worker]));
   }
 
@@ -583,17 +592,24 @@ export class WorkersService {
     };
   }
 
-  private async ensureImportedForeman(worker: Worker, row: ParsedWorkerImportRow) {
+  private async ensureImportedForeman(worker: Worker, row: ParsedWorkerImportRow, tenantId?: string) {
     if (row.isSectionChief || !row.isForeman) return;
-    const existingForeman = await this.foremanRepo.findOneBy({ workerId: worker.id });
+    const existingForeman = await this.foremanRepo.findOneBy({
+      workerId: worker.id,
+      ...(tenantId ? { tenantId } : {}),
+    });
     if (existingForeman) return;
-    const byName = await this.foremanRepo.findOneBy({ name: row.name });
+    const byName = await this.foremanRepo.findOneBy({
+      name: row.name,
+      ...(tenantId ? { tenantId } : {}),
+    });
     if (byName) return;
 
     const foreman = this.foremanRepo.create({
       name: row.name,
       phone: row.phone || null,
       workerId: worker.id,
+      tenantId: tenantId || null,
     });
     const savedForeman = await this.foremanRepo.save(foreman);
     worker.foremanId = savedForeman.id;
@@ -633,13 +649,14 @@ export class WorkersService {
     return { linked, notFound };
   }
 
-  async findTerminated(search?: string) {
+  async findTerminated(search?: string, tenantId?: string) {
+    const tenantFilter = tenantId ? { tenantId } : {};
     const where: any[] = [];
     if (search) {
-      where.push({ status: WorkerStatus.Terminated, name: ILike(`%${search}%`) });
-      where.push({ status: WorkerStatus.Terminated, workerId: ILike(`%${search}%`) });
+      where.push({ status: WorkerStatus.Terminated, name: ILike(`%${search}%`), ...tenantFilter });
+      where.push({ status: WorkerStatus.Terminated, workerId: ILike(`%${search}%`), ...tenantFilter });
     } else {
-      where.push({ status: WorkerStatus.Terminated });
+      where.push({ status: WorkerStatus.Terminated, ...tenantFilter });
     }
     return this.repo.find({ where, order: { terminatedAt: 'DESC' } });
   }

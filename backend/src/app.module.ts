@@ -16,6 +16,7 @@ import { AttendanceOverride } from './attendance-overrides/attendance-override.e
 import { ReportConfig } from './report-config/report-config.entity';
 import { WorkerLifecycleEvent } from './worker-lifecycle/worker-lifecycle-event.entity';
 import { WorkerLifecycleReport } from './worker-lifecycle/worker-lifecycle-report.entity';
+import { Tenant } from './tenants/tenant.entity';
 import { WorkersModule } from './workers/workers.module';
 import { AttendanceEventsModule } from './attendance-events/attendance-events.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
@@ -32,6 +33,8 @@ import { ReportsModule } from './reports/reports.module';
 import { ReportConfigModule } from './report-config/report-config.module';
 import { ReportSchedulerModule } from './report-scheduler/report-scheduler.module';
 import { WorkerLifecycleModule } from './worker-lifecycle/worker-lifecycle.module';
+import { TenantsModule } from './tenants/tenants.module';
+import { SuperAdminAuthModule } from './super-admin-auth/super-admin-auth.module';
 
 @Module({
   imports: [
@@ -50,11 +53,13 @@ import { WorkerLifecycleModule } from './worker-lifecycle/worker-lifecycle.modul
           Worker, AttendanceEvent, AuditLog, Foreman, Brigadir,
           MobileCredential, ExtraHoursRequest, ExtraHoursRequestItem,
           ShiftSetting, AbsenceNote, AttendanceOverride, ReportConfig,
-          WorkerLifecycleEvent, WorkerLifecycleReport,
+          WorkerLifecycleEvent, WorkerLifecycleReport, Tenant,
         ],
         synchronize: cfg.get('NODE_ENV', 'development') !== 'production',
       }),
     }),
+    TenantsModule,
+    SuperAdminAuthModule,
     WorkersModule,
     AttendanceEventsModule,
     AuditLogModule,

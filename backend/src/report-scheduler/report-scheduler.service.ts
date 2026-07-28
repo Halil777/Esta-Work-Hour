@@ -125,12 +125,12 @@ export class ReportSchedulerService {
 
   // ─── Manual trigger: daily ────────────────────────────────────────────────────
 
-  async sendNow(date?: string, reportType: ReportType = 'daily_all'): Promise<void> {
+  async sendNow(date?: string, reportType: ReportType = 'daily_all', tenantId?: string): Promise<void> {
     const reportDate = date ?? todayLocal();
-    const { emails } = await this.reportConfigService.getConfig();
+    const { emails } = await this.reportConfigService.getConfig(tenantId);
     if (emails.length === 0) throw new Error('No recipient emails configured');
 
-    const { xlsx, html } = await this.reportsService.generateReport(reportDate, reportType, true);
+    const { xlsx, html } = await this.reportsService.generateReport(reportDate, reportType, true, tenantId);
 
     await this.transporter.sendMail({
       from: `"Esta WorkForce" <${process.env.MAIL_USER}>`,
@@ -154,13 +154,14 @@ export class ReportSchedulerService {
     endDate: string,
     workerIds?: string[],
     customEmails?: string[],
+    tenantId?: string,
   ): Promise<void> {
-    const { emails: configEmails } = await this.reportConfigService.getConfig();
+    const { emails: configEmails } = await this.reportConfigService.getConfig(tenantId);
     const recipients = customEmails && customEmails.length > 0 ? customEmails : configEmails;
     if (recipients.length === 0) throw new Error('No recipient emails configured');
 
     const { xlsx, html, subject } = await this.reportsService.generateRangeReport(
-      startDate, endDate, workerIds, false,
+      startDate, endDate, workerIds, false, tenantId,
     );
 
     await this.transporter.sendMail({

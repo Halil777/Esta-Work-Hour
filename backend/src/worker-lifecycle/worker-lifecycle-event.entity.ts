@@ -59,6 +59,9 @@ export class WorkerLifecycleEvent {
   @Column({ type: 'varchar', nullable: true })
   reportBatchId: string | null;
 
+  @Column({ type: 'uuid', nullable: true, default: null })
+  tenantId: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 }

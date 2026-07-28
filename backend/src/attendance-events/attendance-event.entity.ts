@@ -31,6 +31,9 @@ export class AttendanceEvent {
   @Column({ nullable: true })
   mobileLocalId: number;
 
+  @Column({ type: 'uuid', nullable: true, default: null })
+  tenantId: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 }

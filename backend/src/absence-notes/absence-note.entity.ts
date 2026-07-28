@@ -27,6 +27,9 @@ export class AbsenceNote {
   @Column({ type: 'varchar', default: '' })
   createdByName: string;
 
+  @Column({ type: 'uuid', nullable: true, default: null })
+  tenantId: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

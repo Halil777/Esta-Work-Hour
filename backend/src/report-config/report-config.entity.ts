@@ -27,7 +27,10 @@ export interface MonthlySchedule {
 @Entity('report_config')
 export class ReportConfig {
   @PrimaryGeneratedColumn()
-  id: number; // always 1 (singleton row)
+  id: number;
+
+  @Column({ type: 'uuid', nullable: true, default: null })
+  tenantId: string | null; // null = global (legacy singleton), uuid = per-tenant
 
   @Column({ type: 'text', default: '[]' })
   emailsJson: string; // JSON string[]

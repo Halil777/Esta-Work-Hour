@@ -10,7 +10,7 @@ export function Sidebar() {
 
   const navItems = [
     { path: '/dashboard', icon: LayoutDashboard, label: t.nav.dashboard },
-    { path: '/objects', icon: Building2, label: t.nav.objects },
+    { path: '/tenants', icon: Building2, label: 'Tenantlar' },
     { path: '/workforce', icon: Users, label: t.nav.workforce },
     { path: '/roles', icon: ShieldCheck, label: t.nav.roles },
     { path: '/qr-control', icon: ScanLine, label: t.nav.qrControl },
@@ -33,7 +33,7 @@ export function Sidebar() {
           <Globe size={14} color="#fff" />
         </div>
         <div className="sidebar-logo-text">
-          <div className="company">Esta Construction</div>
+          <div className="company">WorkHour</div>
           <div className="portal-name">Super Admin Portal</div>
         </div>
       </div>

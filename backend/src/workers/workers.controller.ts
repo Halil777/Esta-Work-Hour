@@ -1,7 +1,7 @@
 import {
   Controller, Get, Post, Patch, Delete,
   Param, Body, Query, UploadedFile, UseInterceptors, UseGuards,
-  BadRequestException, Res, StreamableFile, Headers,
+  BadRequestException, Res, StreamableFile, Headers, Req,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -30,6 +30,7 @@ export class WorkersController {
 
   @Get()
   findAll(
+    @Req() req: any,
     @Query('search') search?: string,
     @Query('brigadeId') brigadeId?: string,
     @Query('status') status?: string,
@@ -50,14 +51,18 @@ export class WorkersController {
       startDate,
       endDate,
       noScan: noScan === 'true',
+      tenantId: req.adminUser?.tenantId,
     });
   }
 
   // ── Static routes MUST come before :id routes ──────────────────────────────
 
   @Get('export')
-  async exportExcel(@Res({ passthrough: true }) res: Response): Promise<StreamableFile> {
-    const buffer = await this.service.exportToExcel();
+  async exportExcel(
+    @Req() req: any,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const buffer = await this.service.exportToExcel(req.adminUser?.tenantId);
     const date = new Date().toISOString().split('T')[0];
     res.set({
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -67,25 +72,26 @@ export class WorkersController {
   }
 
   @Get('terminated')
-  findTerminated(@Query('search') search?: string) {
-    return this.service.findTerminated(search);
+  findTerminated(@Req() req: any, @Query('search') search?: string) {
+    return this.service.findTerminated(search, req.adminUser?.tenantId);
   }
 
   @Post('import/excel')
   @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
   async importExcel(
+    @Req() req: any,
     @UploadedFile() file: Express.Multer.File,
     @Headers('x-admin-name') adminName?: string,
   ) {
     this.assertExcelFile(file);
-    return this.service.importFromExcel(file.buffer, adminName || 'Admin');
+    return this.service.importFromExcel(file.buffer, req.adminUser?.tenantId, adminName || 'Admin');
   }
 
   @Post('import/excel/preview')
   @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
-  async previewImportExcel(@UploadedFile() file: Express.Multer.File) {
+  async previewImportExcel(@Req() req: any, @UploadedFile() file: Express.Multer.File) {
     this.assertExcelFile(file);
-    return this.service.previewImportFromExcel(file.buffer);
+    return this.service.previewImportFromExcel(file.buffer, req.adminUser?.tenantId);
   }
 
   @Post('import/cards')
@@ -117,10 +123,11 @@ export class WorkersController {
 
   @Post()
   create(
+    @Req() req: any,
     @Body() dto: CreateWorkerDto,
     @Headers('x-admin-name') adminName?: string,
   ) {
-    return this.service.create(dto, adminName || 'Admin');
+    return this.service.create(dto, req.adminUser?.tenantId, adminName || 'Admin');
   }
 
   @Patch(':id/restore')

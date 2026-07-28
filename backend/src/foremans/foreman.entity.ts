@@ -14,6 +14,9 @@ export class Foreman {
   @Column({ type: 'varchar', nullable: true })
   workerId: string | null;
 
+  @Column({ type: 'uuid', nullable: true, default: null })
+  tenantId: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

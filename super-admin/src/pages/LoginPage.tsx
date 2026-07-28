@@ -2,13 +2,8 @@ import { useState } from 'react'
 import { Eye, EyeOff, Sun, Moon, Globe } from 'lucide-react'
 import { useUiPreferences } from '../app/providers/useUiPreferences'
 import { Navigate } from 'react-router-dom'
-import type { AuthUser, Language } from '../types/admin'
-
-const DEMO_USERS: Array<{ username: string; password: string } & AuthUser> = [
-  { username: 'admin', password: 'admin123', role: 'SuperAdmin', name: 'Alexander Ivanov', email: 'admin@esta.build' },
-  { username: 'hr', password: 'hr123', role: 'CentralHR', name: 'Elena Smirnova', email: 'hr@esta.build' },
-  { username: 'auditor', password: 'audit123', role: 'Auditor', name: 'Maria Kuznetsova', email: 'audit@esta.build' },
-]
+import { superAdminApi } from '../api/superAdminApi'
+import type { Language } from '../types/admin'
 
 export function LoginPage() {
   const { user, login, theme, toggleTheme, language, setLanguage } = useUiPreferences()
@@ -20,19 +15,19 @@ export function LoginPage() {
 
   if (user) return <Navigate to="/dashboard" replace />
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
-    setTimeout(() => {
-      const found = DEMO_USERS.find(u => u.username === username && u.password === password)
-      if (found) {
-        login({ name: found.name, role: found.role, email: found.email ?? undefined })
-      } else {
-        setError('Invalid credentials. Try admin / admin123')
-      }
+    try {
+      const { token, user: authUser } = await superAdminApi.login(username, password)
+      localStorage.setItem('superAdminJwt', token)
+      login({ name: authUser.name, role: authUser.role })
+    } catch (err: any) {
+      setError(err.message || 'Ýalňyş username ýa-da parol')
+    } finally {
       setLoading(false)
-    }, 600)
+    }
   }
 
   const LANGS: { code: Language; label: string }[] = [
@@ -67,7 +62,7 @@ export function LoginPage() {
           }}>
             <Globe size={22} color="#fff" />
           </div>
-          <div className="login-brand__name">Esta Construction</div>
+          <div className="login-brand__name">WorkHour</div>
           <div className="login-brand__sub">Super Admin Portal</div>
         </div>
 
@@ -79,7 +74,7 @@ export function LoginPage() {
               type="text"
               value={username}
               onChange={e => setUsername(e.target.value)}
-              placeholder="admin"
+              placeholder="superadmin"
               autoComplete="username"
               required
             />
@@ -124,23 +119,9 @@ export function LoginPage() {
             disabled={loading}
             style={{ marginTop: 4, justifyContent: 'center' }}
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? 'Girýär...' : 'Gir'}
           </button>
         </form>
-
-        <div style={{
-          marginTop: 16, padding: '10px 12px',
-          background: 'var(--bg-surface-2)', borderRadius: 8,
-          border: '1px solid var(--border)',
-        }}>
-          <div className="text-xs text-muted" style={{ marginBottom: 6, fontWeight: 600 }}>Demo credentials</div>
-          {DEMO_USERS.map(u => (
-            <div key={u.username} className="text-xs text-muted" style={{ marginBottom: 2 }}>
-              <span className="fw-600" style={{ color: 'var(--text)' }}>{u.username}</span> / {u.password}
-              <span style={{ marginLeft: 6, color: 'var(--primary)' }}>({u.role})</span>
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   )

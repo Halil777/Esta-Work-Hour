@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 
 export enum MobileRole {
   Worker = 'worker',
@@ -23,11 +23,12 @@ export enum QrStatus {
 }
 
 @Entity('workers')
+@Index(['tenantId', 'workerId'], { unique: true, where: '"tenantId" IS NOT NULL' })
 export class Worker {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ unique: true })
+  @Column()
   workerId: string;
 
   @Column()
@@ -101,6 +102,9 @@ export class Worker {
 
   @Column({ type: 'text', nullable: true, default: null })
   terminationNote: string | null;
+
+  @Column({ type: 'uuid', nullable: true, default: null })
+  tenantId: string | null;
 
   @CreateDateColumn()
   createdAt: Date;

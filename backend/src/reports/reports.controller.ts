@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, Res, UseGuards, Req } from '@nestjs/common';
 import type { Response } from 'express';
 import { ReportsService } from './reports.service';
 import { AdminJwtGuard } from '../admin-auth/admin-auth.guard';
@@ -11,11 +11,12 @@ export class ReportsController {
   /** Daily PDF download */
   @Get('daily')
   async dailyPdf(
+    @Req() req: any,
     @Query('date') date: string,
     @Res() res: Response,
   ) {
     const target = date || new Date().toISOString().split('T')[0];
-    const buf = await this.service.generateDailyPdf(target);
+    const buf = await this.service.generateDailyPdf(target, req.adminUser?.tenantId);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="daily-report-${target}.pdf"`);
     res.send(buf);
@@ -27,6 +28,7 @@ export class ReportsController {
    */
   @Get('range-xlsx')
   async rangeXlsx(
+    @Req() req: any,
     @Query('startDate') startDate: string,
     @Query('endDate') endDate: string,
     @Query('workerIds') workerIdsParam: string,
@@ -38,7 +40,7 @@ export class ReportsController {
       ? workerIdsParam.split(',').map(s => s.trim()).filter(Boolean)
       : undefined;
 
-    const { xlsx } = await this.service.generateRangeReport(sd, ed, workerIds, false);
+    const { xlsx } = await this.service.generateRangeReport(sd, ed, workerIds, false, req.adminUser?.tenantId);
     const filename = `is-sagatlary-${sd}-${ed}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -51,6 +53,7 @@ export class ReportsController {
    */
   @Get('range-data')
   async rangeData(
+    @Req() req: any,
     @Query('startDate') startDate: string,
     @Query('endDate') endDate: string,
     @Query('workerIds') workerIdsParam: string,
@@ -60,6 +63,6 @@ export class ReportsController {
     const workerIds = workerIdsParam
       ? workerIdsParam.split(',').map(s => s.trim()).filter(Boolean)
       : undefined;
-    return this.service.getRangeData(sd, ed, workerIds);
+    return this.service.getRangeData(sd, ed, workerIds, req.adminUser?.tenantId);
   }
 }

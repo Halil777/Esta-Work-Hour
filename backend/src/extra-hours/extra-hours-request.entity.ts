@@ -50,6 +50,9 @@ export class ExtraHoursRequest {
   @Column({ type: 'timestamp', nullable: true })
   actionAt: Date | null;
 
+  @Column({ type: 'uuid', nullable: true, default: null })
+  tenantId: string | null;
+
   @OneToMany(() => ExtraHoursRequestItem, item => item.request, {
     cascade: true,
     eager: true,

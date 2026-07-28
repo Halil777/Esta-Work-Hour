@@ -18,12 +18,16 @@ export class ForemanService {
     private readonly auditLog: AuditLogService,
   ) {}
 
-  async findAll() {
-    const foremans = await this.repo.find({ order: { createdAt: 'DESC' } });
+  async findAll(tenantId?: string) {
+    const foremans = await this.repo.find({
+      where: tenantId ? { tenantId } : {},
+      order: { createdAt: 'DESC' },
+    });
 
+    const tenantFilter = tenantId ? `AND "tenantId" = '${tenantId}'` : '';
     const directCounts: { foremanId: string; count: string }[] =
       await this.workerRepo.query(
-        `SELECT "foremanId", COUNT(*) as count FROM workers WHERE "foremanId" IS NOT NULL GROUP BY "foremanId"`,
+        `SELECT "foremanId", COUNT(*) as count FROM workers WHERE "foremanId" IS NOT NULL ${tenantFilter} GROUP BY "foremanId"`,
       );
     const dcMap = new Map(directCounts.map(r => [r.foremanId, Number(r.count)]));
 
@@ -33,11 +37,11 @@ export class ForemanService {
     }));
   }
 
-  async findOneWithWorkers(id: string) {
-    const foreman = await this.repo.findOneBy({ id });
+  async findOneWithWorkers(id: string, tenantId?: string) {
+    const foreman = await this.repo.findOneBy({ id, ...(tenantId ? { tenantId } : {}) });
     if (!foreman) throw new NotFoundException(`Foreman ${id} not found`);
     const workers = await this.workerRepo.find({
-      where: { foremanId: id },
+      where: { foremanId: id, ...(tenantId ? { tenantId } : {}) },
       order: { name: 'ASC' },
     });
     return { ...foreman, workers };
@@ -49,8 +53,8 @@ export class ForemanService {
     return f;
   }
 
-  async create(dto: CreateForemanDto, changedBy = 'Admin') {
-    const foreman = this.repo.create(dto);
+  async create(dto: CreateForemanDto, tenantId?: string, changedBy = 'Admin') {
+    const foreman = this.repo.create({ ...dto, tenantId: tenantId || null });
     const saved = await this.repo.save(foreman);
     await this.auditLog.log('Foreman', saved.id, 'CREATE', changedBy, null, saved);
     return saved;
@@ -101,7 +105,7 @@ export class ForemanService {
     return saved;
   }
 
-  async importFromExcel(buffer: Buffer, changedBy = 'Admin') {
+  async importFromExcel(buffer: Buffer, tenantId?: string, changedBy = 'Admin') {
     const workbook = XLSX.read(buffer, { type: 'buffer' });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
@@ -111,7 +115,7 @@ export class ForemanService {
       if (!name) continue;
       const phone = String(row['phone'] || row['Phone'] || row['Телефон'] || '').trim() || null;
       const workerId = String(row['workerId'] || row['Worker ID'] || '').trim() || null;
-      const foreman = this.repo.create({ name, phone, workerId });
+      const foreman = this.repo.create({ name, phone, workerId, tenantId: tenantId || null });
       const saved = await this.repo.save(foreman);
       await this.auditLog.log('Foreman', saved.id, 'CREATE', changedBy, null, saved);
       imported++;

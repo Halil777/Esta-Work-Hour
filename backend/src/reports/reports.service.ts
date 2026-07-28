@@ -83,7 +83,7 @@ export class ReportsService {
   //  DAILY REPORT  (existing logic, unchanged)
   // ════════════════════════════════════════════════════════════════════════════
 
-  private async buildRows(date: string, reportType: ReportType = 'daily_all'): Promise<Row[]> {
+  private async buildRows(date: string, reportType: ReportType = 'daily_all', tenantId?: string): Promise<Row[]> {
     const events: { employeeNumber: string; eventType: string; eventTime: string }[] =
       await this.eventRepo.query(
         `SELECT "employeeNumber", "eventType", "eventTime"
@@ -95,7 +95,7 @@ export class ReportsService {
 
     const empNums = [...new Set(events.map(e => e.employeeNumber).filter(Boolean))];
     const attendedWorkers = empNums.length > 0
-      ? await this.workerRepo.find({ where: { workerId: In(empNums) } })
+      ? await this.workerRepo.find({ where: empNums.map(workerId => ({ workerId, ...(tenantId ? { tenantId } : {}) })) })
       : [];
     const workerMap = new Map(attendedWorkers.map(w => [w.workerId, w]));
 
@@ -141,7 +141,7 @@ export class ReportsService {
     }
     rows.sort((a, b) => a.name.localeCompare(b.name));
 
-    const allActive = await this.workerRepo.find({ where: { status: 'Active' as any } });
+    const allActive = await this.workerRepo.find({ where: { status: 'Active' as any, ...(tenantId ? { tenantId } : {}) } });
     for (const w of allActive) {
       if (!presentEntityIds.has(w.id)) {
         rows.push({
@@ -170,8 +170,9 @@ export class ReportsService {
     date: string,
     reportType: ReportType = 'daily_all',
     isManual = false,
+    tenantId?: string,
   ): Promise<{ xlsx: Buffer; html: string }> {
-    const rows = await this.buildRows(date, reportType);
+    const rows = await this.buildRows(date, reportType, tenantId);
     const xlsx = await this.buildXlsx(date, reportType, rows);
     const html = this.buildEmailHtml(date, reportType, rows, isManual);
     return { xlsx, html };
@@ -362,6 +363,7 @@ export class ReportsService {
     startDate: string,
     endDate: string,
     workerIds?: string[],
+    tenantId?: string,
   ): Promise<{
     rows: RangeRow[];
     startDate: string;
@@ -370,7 +372,7 @@ export class ReportsService {
     totalMs: number;
     daysInRange: number;
   }> {
-    const rows = await this.buildRangeRows(startDate, endDate, workerIds);
+    const rows = await this.buildRangeRows(startDate, endDate, workerIds, tenantId);
     const daysInRange = this.daysBetween(startDate, endDate);
     const totalMs = rows.reduce((s, r) => s + r.totalMs, 0);
     return { rows, startDate, endDate, totalWorkers: rows.length, totalMs, daysInRange };
@@ -381,8 +383,9 @@ export class ReportsService {
     endDate: string,
     workerIds?: string[],
     isMonthly = false,
+    tenantId?: string,
   ): Promise<{ xlsx: Buffer; html: string; subject: string }> {
-    const rows = await this.buildRangeRows(startDate, endDate, workerIds);
+    const rows = await this.buildRangeRows(startDate, endDate, workerIds, tenantId);
     const xlsx = await this.buildRangeXlsx(startDate, endDate, rows, isMonthly);
     const html = this.buildRangeEmailHtml(startDate, endDate, rows, isMonthly);
 
@@ -404,6 +407,7 @@ export class ReportsService {
     startDate: string,
     endDate: string,
     filterWorkerIds?: string[],
+    tenantId?: string,
   ): Promise<RangeRow[]> {
     // Fetch all events in the date range
     const events: { employeeNumber: string; eventType: string; eventTime: string }[] =
@@ -418,7 +422,7 @@ export class ReportsService {
     // Load worker info
     const empNums = [...new Set(events.map(e => e.employeeNumber).filter(Boolean))];
     const workers = empNums.length > 0
-      ? await this.workerRepo.find({ where: { workerId: In(empNums) } })
+      ? await this.workerRepo.find({ where: empNums.map(workerId => ({ workerId, ...(tenantId ? { tenantId } : {}) })) })
       : [];
     const workerMap = new Map(workers.map(w => [w.workerId, w]));
 
@@ -477,7 +481,7 @@ export class ReportsService {
       const present = new Set(rows.map(r => r.workerId));
       const missing = filterWorkerIds.filter(id => !present.has(id));
       if (missing.length > 0) {
-        const missingWorkers = await this.workerRepo.find({ where: { workerId: In(missing) } });
+        const missingWorkers = await this.workerRepo.find({ where: missing.map(workerId => ({ workerId, ...(tenantId ? { tenantId } : {}) })) });
         for (const w of missingWorkers) {
           rows.push({
             workerId: w.workerId,
@@ -713,8 +717,8 @@ export class ReportsService {
   //  PDF (existing)
   // ════════════════════════════════════════════════════════════════════════════
 
-  async generateDailyPdf(date: string): Promise<Buffer> {
-    const rows = await this.buildRows(date, 'daily_all');
+  async generateDailyPdf(date: string, tenantId?: string): Promise<Buffer> {
+    const rows = await this.buildRows(date, 'daily_all', tenantId);
 
     const fonts = {
       Roboto: {

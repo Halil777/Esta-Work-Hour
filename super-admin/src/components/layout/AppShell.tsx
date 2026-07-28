@@ -7,6 +7,7 @@ import { getTranslation } from '../../i18n/translations'
 function getTitle(pathname: string, t: ReturnType<typeof getTranslation>) {
   const map: Record<string, string> = {
     '/dashboard': t.nav.dashboard,
+    '/tenants': 'Tenantlar',
     '/objects': t.nav.objects,
     '/workforce': t.nav.workforce,
     '/roles': t.nav.roles,

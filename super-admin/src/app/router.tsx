@@ -6,6 +6,9 @@ import { LoginPage } from '../pages/LoginPage'
 const DashboardPage = lazy(() =>
   import('../pages/DashboardPage').then((module) => ({ default: module.DashboardPage })),
 )
+const TenantsPage = lazy(() =>
+  import('../pages/TenantsPage').then((module) => ({ default: module.TenantsPage })),
+)
 const ObjectsPage = lazy(() =>
   import('../pages/ObjectsPage').then((module) => ({ default: module.ObjectsPage })),
 )
@@ -40,6 +43,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="/dashboard" replace /> },
       { path: 'dashboard', element: withSuspense(<DashboardPage />) },
+      { path: 'tenants', element: withSuspense(<TenantsPage />) },
       { path: 'objects', element: withSuspense(<ObjectsPage />) },
       { path: 'workforce', element: withSuspense(<WorkforcePage />) },
       { path: 'roles', element: withSuspense(<RolesPage />) },

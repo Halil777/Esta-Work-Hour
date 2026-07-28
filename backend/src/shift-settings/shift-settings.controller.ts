@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Put, Param, Body, UseGuards, Req } from '@nestjs/common';
 import { ShiftSettingsService } from './shift-settings.service';
 import { AdminJwtGuard } from '../admin-auth/admin-auth.guard';
 
@@ -16,11 +16,12 @@ export class ShiftSettingsController {
   @UseGuards(AdminJwtGuard)
   @Put(':shiftType')
   update(
+    @Req() req: any,
     @Param('shiftType') shiftType: 'day' | 'night',
     @Body('startTime') startTime: string,
     @Body('endTime') endTime: string,
     @Body('graceMinutes') graceMinutes: number,
   ) {
-    return this.service.update(shiftType, startTime, endTime ?? '', Number(graceMinutes));
+    return this.service.update(shiftType, startTime, endTime ?? '', Number(graceMinutes), req.adminUser?.tenantId);
   }
 }
