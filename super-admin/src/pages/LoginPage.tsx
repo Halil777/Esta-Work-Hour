@@ -3,7 +3,7 @@ import { Eye, EyeOff, Sun, Moon, Globe } from 'lucide-react'
 import { useUiPreferences } from '../app/providers/useUiPreferences'
 import { Navigate } from 'react-router-dom'
 import { superAdminApi } from '../api/superAdminApi'
-import type { Language } from '../types/admin'
+import type { Language, AuthUser } from '../types/admin'
 
 export function LoginPage() {
   const { user, login, theme, toggleTheme, language, setLanguage } = useUiPreferences()
@@ -22,7 +22,7 @@ export function LoginPage() {
     try {
       const { token, user: authUser } = await superAdminApi.login(username, password)
       localStorage.setItem('superAdminJwt', token)
-      login({ name: authUser.name, role: authUser.role })
+      login({ name: authUser.name, role: authUser.role as AuthUser['role'] })
     } catch (err: any) {
       setError(err.message || 'Ýalňyş username ýa-da parol')
     } finally {
