@@ -3,6 +3,7 @@ import { ShieldCheck } from 'lucide-react'
 import { extraHoursApi } from '../api/extraHours'
 import { Badge } from '../components/ui/Badge'
 import { RoleWorkersPage } from '../components/workers/RoleWorkersPage'
+import { useTranslation } from '../i18n/useTranslation'
 
 type SiteChiefStats = {
   total: number
@@ -13,6 +14,7 @@ type SiteChiefStats = {
 }
 
 export function SiteChiefsPage() {
+  const { t } = useTranslation()
   const { data: extraRequests = [] } = useQuery({
     queryKey: ['extra-hours', 'all'],
     queryFn: () => extraHoursApi.list(),
@@ -37,22 +39,22 @@ export function SiteChiefsPage() {
   return (
     <RoleWorkersPage
       role="site_chief"
-      title="Site Chiefs"
+      title={t.siteChiefsPage.title}
       icon={<ShieldCheck size={20} />}
       countVariant="info"
       emptyIcon={<ShieldCheck size={40} />}
-      emptyText="Site Chief ýok. Workers sahypasynda mobileRole = site_chief belli ediň."
+      emptyText={t.siteChiefsPage.emptyText}
       columns={[
         {
-          header: 'Işçi',
+          header: t.siteChiefsPage.colWorker,
           render: worker => <div style={{ fontWeight: 600 }}>{worker.name}</div>,
         },
         {
-          header: 'Sicil No',
+          header: t.siteChiefsPage.colRegNo,
           render: worker => <code className="td-mono">{worker.workerId}</code>,
         },
         {
-          header: 'Görev',
+          header: t.siteChiefsPage.colPosition,
           render: worker => (
             <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
               {worker.profession || '-'}
@@ -60,32 +62,32 @@ export function SiteChiefsPage() {
           ),
         },
         {
-          header: 'Jemi sorag',
+          header: t.siteChiefsPage.colTotal,
           render: worker => <span style={{ fontWeight: 700 }}>{statsMap.get(worker.id)?.total ?? 0}</span>,
         },
         {
-          header: 'Garaşylýar',
+          header: t.siteChiefsPage.colPending,
           render: worker => {
             const value = statsMap.get(worker.id)?.pending ?? 0
             return value > 0 ? <Badge variant="warning">{value}</Badge> : <span className="td-muted">-</span>
           },
         },
         {
-          header: 'Tassyklandy',
+          header: t.siteChiefsPage.colApproved,
           render: worker => {
             const value = statsMap.get(worker.id)?.approved ?? 0
             return value > 0 ? <Badge variant="success">{value}</Badge> : <span className="td-muted">-</span>
           },
         },
         {
-          header: 'Ret edildi',
+          header: t.siteChiefsPage.colRejected,
           render: worker => {
             const value = statsMap.get(worker.id)?.rejected ?? 0
             return value > 0 ? <Badge variant="danger">{value}</Badge> : <span className="td-muted">-</span>
           },
         },
         {
-          header: 'Tassykl. sagat',
+          header: t.siteChiefsPage.colApprovedHrs,
           render: worker => {
             const value = statsMap.get(worker.id)?.totalHrs ?? 0
             return value > 0

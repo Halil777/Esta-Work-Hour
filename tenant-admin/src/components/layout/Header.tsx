@@ -50,7 +50,7 @@ export function Header({ title }: Props) {
 
         <button
           className="icon-btn"
-          title="Çykış"
+          title={t.common.logout}
           onClick={() => { logout(); navigate('/login', { replace: true }) }}
         >
           <LogOut size={16} />

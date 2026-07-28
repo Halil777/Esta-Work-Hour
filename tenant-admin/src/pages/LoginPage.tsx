@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { Building2, Eye, EyeOff, Sun, Moon } from 'lucide-react'
 import { useUiPreferences } from '../app/providers/useUiPreferences'
 import { adminAuthApi } from '../api/adminAuth'
+import { useTranslation } from '../i18n/useTranslation'
 
 export function LoginPage() {
+  const { t } = useTranslation()
   const { login, theme, toggleTheme } = useUiPreferences()
   const navigate = useNavigate()
   const [username, setUsername] = useState('')
@@ -14,7 +16,7 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false)
 
   const handleLogin = async () => {
-    if (!username || !password) { setError('Username we paroly giriziň'); return }
+    if (!username || !password) { setError(t.loginPage.errorRequired); return }
     setLoading(true)
     setError('')
     try {
@@ -23,7 +25,7 @@ export function LoginPage() {
       login(user)
       navigate('/dashboard', { replace: true })
     } catch (e: any) {
-      setError(e.message ?? 'Giriş başartmady')
+      setError(e.message ?? t.loginPage.errorFailed)
     } finally {
       setLoading(false)
     }
@@ -50,7 +52,7 @@ export function LoginPage() {
 
         <div className="login-form">
           <div className="form-row">
-            <label className="form-label">Username</label>
+            <label className="form-label">{t.loginPage.usernameLabel}</label>
             <input
               value={username}
               onChange={e => setUsername(e.target.value)}
@@ -60,7 +62,7 @@ export function LoginPage() {
             />
           </div>
           <div className="form-row">
-            <label className="form-label">Password</label>
+            <label className="form-label">{t.loginPage.passwordLabel}</label>
             <div style={{ position: 'relative' }}>
               <input
                 type={showPass ? 'text' : 'password'}
@@ -96,7 +98,7 @@ export function LoginPage() {
             onClick={handleLogin}
             disabled={loading}
           >
-            {loading ? 'Girýär…' : 'Giriş'}
+            {loading ? t.loginPage.loggingIn : t.loginPage.loginBtn}
           </button>
         </div>
       </div>

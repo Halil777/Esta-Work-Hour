@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { History, Edit2, Trash2, Plus, Search } from "lucide-react";
 import { auditLogApi } from "../api/auditLog";
+import { useTranslation } from "../i18n/useTranslation";
 
 const actionColor = (action: string) => {
   if (action === "CREATE") return "#10B981";
@@ -67,6 +68,7 @@ function DiffView({ before, after, action }: { before: any; after: any; action: 
 }
 
 export function HistoryPage() {
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [actionFilter, setActionFilter] = useState<"ALL" | "CREATE" | "UPDATE" | "DELETE">("ALL");
 
@@ -93,7 +95,7 @@ export function HistoryPage() {
     <>
       <div className="page-header">
         <h1 style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <History size={20} /> Üýtgeşme Taryhy
+          <History size={20} /> {t.historyPage.title}
         </h1>
       </div>
 
@@ -104,19 +106,19 @@ export function HistoryPage() {
               <Search size={14} />
               <input
                 className="search-input"
-                placeholder="Ady, kim ýa-da ID boýunça..."
+                placeholder={t.historyPage.searchPlaceholder}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
             <select className="filter-select" value={actionFilter} onChange={(e) => setActionFilter(e.target.value as any)}>
-              <option value="ALL">Ähli amallar</option>
-              <option value="CREATE">Goşuldy</option>
-              <option value="UPDATE">Üýtgedildi</option>
-              <option value="DELETE">Pozuldy</option>
+              <option value="ALL">{t.historyPage.allActions}</option>
+              <option value="CREATE">{t.historyPage.created}</option>
+              <option value="UPDATE">{t.historyPage.updated}</option>
+              <option value="DELETE">{t.historyPage.deleted}</option>
             </select>
           </div>
-          <span className="text-xs text-muted">{filtered.length} ýazgy</span>
+          <span className="text-xs text-muted">{filtered.length} {t.historyPage.records}</span>
         </div>
 
         <div className="card-body card-body--p0">
@@ -124,18 +126,18 @@ export function HistoryPage() {
             <table>
               <thead>
                 <tr>
-                  <th>Wagt</th>
-                  <th>Amal</th>
-                  <th>Işçi</th>
-                  <th>Kim tarapyndan</th>
-                  <th>Üýtgeşmeler</th>
+                  <th>{t.historyPage.colTime}</th>
+                  <th>{t.historyPage.colAction}</th>
+                  <th>{t.historyPage.colWorker}</th>
+                  <th>{t.historyPage.colBy}</th>
+                  <th>{t.historyPage.colChanges}</th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading ? (
-                  <tr><td colSpan={5}><div className="empty-state"><p>Ýüklenýär…</p></div></td></tr>
+                  <tr><td colSpan={5}><div className="empty-state"><p>{t.common.loading}</p></div></td></tr>
                 ) : filtered.length === 0 ? (
-                  <tr><td colSpan={5}><div className="empty-state"><History size={32} /><p>Maglumat ýok</p></div></td></tr>
+                  <tr><td colSpan={5}><div className="empty-state"><History size={32} /><p>{t.historyPage.noData}</p></div></td></tr>
                 ) : (
                   filtered.map((log) => (
                     <tr key={log.id}>
@@ -148,7 +150,7 @@ export function HistoryPage() {
                           background: `${actionColor(log.action)}20`,
                         }}>
                           {actionIcon(log.action)}
-                          {log.action === "CREATE" ? "Goşuldy" : log.action === "UPDATE" ? "Üýtgedildi" : "Pozuldy"}
+                          {log.action === "CREATE" ? t.historyPage.created : log.action === "UPDATE" ? t.historyPage.updated : t.historyPage.deleted}
                         </span>
                       </td>
                       <td style={{ fontSize: 13 }}>

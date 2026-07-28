@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { X } from 'lucide-react'
+import { useTranslation } from '../../i18n/useTranslation'
 
 type AppModalProps = {
   title: ReactNode
@@ -22,6 +23,7 @@ export function AppModal({
   bodyClassName = '',
   style,
 }: AppModalProps) {
+  const { t } = useTranslation()
   return (
     <div className="modal-overlay" onClick={event => { if (event.target === event.currentTarget) onClose() }}>
       <div
@@ -31,7 +33,7 @@ export function AppModal({
       >
         <div className="modal-header">
           <h3>{title}</h3>
-          <button className="btn btn--ghost btn--sm" type="button" onClick={onClose} aria-label="Ýap">
+          <button className="btn btn--ghost btn--sm" type="button" onClick={onClose} aria-label={t.common.close}>
             <X size={14} />
           </button>
         </div>

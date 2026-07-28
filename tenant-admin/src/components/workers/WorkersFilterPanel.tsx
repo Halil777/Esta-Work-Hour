@@ -2,7 +2,8 @@ import { Search, SlidersHorizontal, WifiOff, X } from 'lucide-react'
 import type { MobileRole } from '../../api/workers'
 import type { ForemanApi } from '../../api/foremans'
 import type { WorkerStatus } from '../../types/tenant'
-import { MOBILE_ROLES, ROLE_LABELS, WORKER_STATUSES } from '../../domain/workerMeta'
+import { MOBILE_ROLES, WORKER_STATUSES } from '../../domain/workerMeta'
+import { useTranslation } from '../../i18n/useTranslation'
 
 export type WorkerStatusFilter = WorkerStatus | 'all'
 export type WorkerRoleFilter = MobileRole | 'all'
@@ -66,10 +67,11 @@ export function WorkersFilterPanel({
   onApplyTodayNoScan,
   onApplyActiveWorkers,
 }: WorkersFilterPanelProps) {
+  const { t } = useTranslation()
   return (
     <div className="card-header filter-panel">
       <div className="filter-row">
-        <span className="ops-pill"><SlidersHorizontal size={13} />Filtr</span>
+        <span className="ops-pill"><SlidersHorizontal size={13} />{t.common.filter}</span>
         <div className="input-wrap">
           <Search size={14} />
           <input
@@ -80,17 +82,25 @@ export function WorkersFilterPanel({
           />
         </div>
         <select className="filter-select" value={foremanFilter} onChange={event => onForemanFilterChange(event.target.value)}>
-          <option value="all">Ähli foremen</option>
+          <option value="all">{t.workers.allForemenFilter}</option>
           {foremans.map(foreman => <option key={foreman.id} value={foreman.id}>{foreman.name}</option>)}
         </select>
         <select className="filter-select" value={roleFilter} onChange={event => onRoleFilterChange(event.target.value as WorkerRoleFilter)}>
-          <option value="all">Ähli rollar</option>
-          {MOBILE_ROLES.map(role => <option key={role} value={role}>{ROLE_LABELS[role]}</option>)}
+          <option value="all">{t.workers.allRoles}</option>
+          {MOBILE_ROLES.map(role => {
+            const roleLabel: Record<string, string> = {
+              worker: t.workers.roleWorker,
+              foreman: t.workers.roleForeman,
+              site_chief: t.workers.roleSiteChief,
+              section_chief: t.workers.roleSectionChief,
+            }
+            return <option key={role} value={role}>{roleLabel[role] ?? role}</option>
+          })}
         </select>
         <select className="filter-select" value={mesaiSistemi} onChange={event => onMesaiSistemiChange(event.target.value)}>
-          <option value="all">Ähli mesai</option>
-          <option value="Saatlik">Saatlik</option>
-          <option value="Aylık">Aylık</option>
+          <option value="all">{t.workers.allMesai}</option>
+          <option value="Saatlik">{t.workers.mesaiHourly}</option>
+          <option value="Aylık">{t.workers.mesaiMonthly}</option>
         </select>
         <select className="filter-select" value={statusFilter} onChange={event => onStatusFilterChange(event.target.value as WorkerStatusFilter)}>
           <option value="all">{allLabel}</option>
@@ -100,7 +110,7 @@ export function WorkersFilterPanel({
 
       <div className="filter-row">
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <label style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Sene:</label>
+          <label style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{t.workers.dateFilterLabel}</label>
           <input
             type="date"
             className="filter-select"
@@ -125,14 +135,14 @@ export function WorkersFilterPanel({
             style={{ width: 14, height: 14 }}
           />
           <WifiOff size={13} style={{ color: noScanFilter ? 'var(--danger)' : 'var(--text-muted)' }} />
-          <span style={{ color: noScanFilter ? 'var(--danger)' : 'var(--text-muted)' }}>NFC skan ýok</span>
+          <span style={{ color: noScanFilter ? 'var(--danger)' : 'var(--text-muted)' }}>{t.workers.noScanLabel}</span>
         </label>
         <div className="quick-filter-row">
           <button className={`quick-chip${statusFilter === 'Active' ? ' active' : ''}`} type="button" onClick={onApplyActiveWorkers}>
-            Aktiw
+            {t.workers.quickFilterActive}
           </button>
           <button className={`quick-chip${noScanFilter ? ' active' : ''}`} type="button" onClick={onApplyTodayNoScan}>
-            Şu gün skan ýok
+            {t.workers.quickFilterNoScan}
           </button>
           <button className={`quick-chip${roleFilter === 'foreman' ? ' active' : ''}`} type="button" onClick={() => onRoleFilterChange('foreman')}>
             Foremen
@@ -143,7 +153,7 @@ export function WorkersFilterPanel({
         </div>
         {hasActiveFilters && (
           <button className="btn btn--ghost btn--sm" type="button" onClick={onClearFilters} style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-            <X size={12} /> Filtr arassala ({activeFilterCount})
+            <X size={12} /> {t.workers.clearFilters} ({activeFilterCount})
           </button>
         )}
         <span className="text-xs text-muted" style={{ marginLeft: 'auto' }}>

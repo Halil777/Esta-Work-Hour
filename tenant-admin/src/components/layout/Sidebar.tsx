@@ -15,19 +15,19 @@ export function Sidebar() {
   const navigate = useNavigate()
 
   const navItems: { path: string; icon: React.ElementType; label: string; section: string; badge?: number }[] = [
-    { path: '/dashboard', icon: LayoutDashboard, label: t.nav.dashboard, section: 'Overview' },
-    { path: '/workers', icon: Users, label: t.nav.workers, section: 'Workforce' },
-    { path: '/brigades', icon: Layers, label: t.nav.brigades, section: 'Workforce' },
-    { path: '/site-chiefs', icon: ShieldCheck, label: 'Site Chiefs', section: 'Workforce' },
-    { path: '/section-chiefs', icon: HardHat, label: 'Bölüm Başlyklary', section: 'Workforce' },
-    { path: '/terminated-workers', icon: UserMinus, label: 'İşden Bosadylanlar', section: 'Workforce' },
-    { path: '/absent-today', icon: WifiOff, label: 'Skan etmedikler', section: 'Attendance' },
-    { path: '/late-arrivals', icon: AlarmClock, label: 'Gijä galan işçiler', section: 'Attendance' },
-    { path: '/nfc-events', icon: ScanLine, label: t.nav.nfcEvents, section: 'Attendance' },
-    { path: '/overtime', icon: Clock, label: t.nav.overtime, section: 'Approvals' },
-    { path: '/reports', icon: FileSpreadsheet, label: 'İş Sagat Hasabaty', section: 'Reports' },
-    { path: '/history', icon: History, label: t.nav.history, section: 'System' },
-    { path: '/settings', icon: Settings, label: t.nav.settings, section: 'System' },
+    { path: '/dashboard', icon: LayoutDashboard, label: t.nav.dashboard, section: t.sidebar.overview },
+    { path: '/workers', icon: Users, label: t.nav.workers, section: t.sidebar.workforce },
+    { path: '/brigades', icon: Layers, label: t.nav.brigades, section: t.sidebar.workforce },
+    { path: '/site-chiefs', icon: ShieldCheck, label: t.nav.siteChiefs, section: t.sidebar.workforce },
+    { path: '/section-chiefs', icon: HardHat, label: t.nav.sectionChiefs, section: t.sidebar.workforce },
+    { path: '/terminated-workers', icon: UserMinus, label: t.nav.terminatedWorkers, section: t.sidebar.workforce },
+    { path: '/absent-today', icon: WifiOff, label: t.nav.absent, section: t.sidebar.attendance },
+    { path: '/late-arrivals', icon: AlarmClock, label: t.nav.lateArrivals, section: t.sidebar.attendance },
+    { path: '/nfc-events', icon: ScanLine, label: t.nav.nfcEvents, section: t.sidebar.attendance },
+    { path: '/overtime', icon: Clock, label: t.nav.overtime, section: t.sidebar.approvals },
+    { path: '/reports', icon: FileSpreadsheet, label: t.nav.workHoursReport, section: t.sidebar.reports },
+    { path: '/history', icon: History, label: t.nav.history, section: t.sidebar.system },
+    { path: '/settings', icon: Settings, label: t.nav.settings, section: t.sidebar.system },
   ]
 
   const handleLogout = () => {

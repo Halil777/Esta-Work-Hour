@@ -145,17 +145,17 @@ export function WorkersPage() {
       <div className="page-header">
         <div style={{ flex: 1, minWidth: 220 }}>
           <h1>{t.workers.title}</h1>
-          <span className="page-kicker">Sanaw, NFC ýagdaýy, mobile giriş we işçi lifecycle bir ýerde</span>
+          <span className="page-kicker">{t.workers.workerDesc}</span>
         </div>
         <div className="page-actions">
           <button className="btn btn--secondary btn--sm" type="button" onClick={() => setShowImport(true)}>
             <Upload size={13} /> {t.common.import}
           </button>
           <button className="btn btn--secondary btn--sm" type="button" onClick={() => setShowCardImport(true)}>
-            <Upload size={13} /> Kart Import
+            <Upload size={13} /> {t.workers.kartImport}
           </button>
           <button className="btn btn--secondary btn--sm" type="button" onClick={() => setShowReportHistory(true)}>
-            <History size={13} /> Report history
+            <History size={13} /> {t.workers.reportHistory}
           </button>
           <button className="btn btn--secondary btn--sm" type="button" onClick={() => workersApi.exportExcel()}>
             <Download size={13} /> {t.common.export}

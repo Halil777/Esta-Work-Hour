@@ -5,6 +5,7 @@ import {
   User, UserCheck, AlertCircle, Search,
 } from 'lucide-react'
 import { useUiPreferences } from '../app/providers/useUiPreferences'
+import { useTranslation } from '../i18n/useTranslation'
 import { foremansApi, type ForemanApi } from '../api/foremans'
 import { workersApi, type WorkerApi } from '../api/workers'
 
@@ -18,14 +19,15 @@ function Err({ msg }: { msg: string }) {
 }
 
 function ConfirmModal({ msg, onConfirm, onClose }: { msg: string; onConfirm: () => void; onClose: () => void }) {
+  const { t } = useTranslation()
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box" style={{ maxWidth: 340 }} onClick={e => e.stopPropagation()}>
-        <div className="modal-header"><h3>Tassyklamak</h3><button className="btn btn--ghost btn--sm" onClick={onClose}><X size={14} /></button></div>
+        <div className="modal-header"><h3>{t.foreman.confirmTitle}</h3><button className="btn btn--ghost btn--sm" onClick={onClose}><X size={14} /></button></div>
         <div className="modal-body"><p style={{ fontSize: 14 }}>{msg}</p></div>
         <div className="modal-footer">
-          <button className="btn btn--secondary btn--sm" onClick={onClose}>Ýok</button>
-          <button className="btn btn--primary btn--sm" style={{ background: 'var(--danger)' }} onClick={() => { onConfirm(); onClose(); }}>Hawa</button>
+          <button className="btn btn--secondary btn--sm" onClick={onClose}>{t.common.no}</button>
+          <button className="btn btn--primary btn--sm" style={{ background: 'var(--danger)' }} onClick={() => { onConfirm(); onClose(); }}>{t.common.yes}</button>
         </div>
       </div>
     </div>
@@ -38,6 +40,7 @@ function ForemanModal({ initial, onClose, onSave }: {
   onClose: () => void
   onSave: (data: { name: string; phone: string; workerId: string }) => Promise<void>
 }) {
+  const { t } = useTranslation()
   const [name, setName] = useState(initial?.name ?? '')
   const [phone, setPhone] = useState(initial?.phone ?? '')
   const [mode, setMode] = useState<'manual' | 'worker'>('manual')
@@ -54,7 +57,7 @@ function ForemanModal({ initial, onClose, onSave }: {
   }
 
   const handleSave = async () => {
-    if (!name.trim()) { setErr('Ady zerur'); return }
+    if (!name.trim()) { setErr(t.common.name + ' ' + t.common.error); return }
     setSaving(true); setErr('')
     try { await onSave({ name: name.trim(), phone, workerId }); onClose() }
     catch (e: any) { setErr(e.message) }
@@ -65,7 +68,7 @@ function ForemanModal({ initial, onClose, onSave }: {
     <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="modal-box" style={{ maxWidth: 440 }}>
         <div className="modal-header">
-          <h3>{initial ? 'Formeni üýtget' : 'Täze Foremen'}</h3>
+          <h3>{initial ? t.foreman.edit : t.foreman.new}</h3>
           <button className="btn btn--ghost btn--sm" onClick={onClose}><X size={14} /></button>
         </div>
         <div className="modal-body">
@@ -73,32 +76,32 @@ function ForemanModal({ initial, onClose, onSave }: {
           <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
             {(['manual', 'worker'] as const).map(m => (
               <button key={m} className={`btn btn--sm ${mode === m ? 'btn--primary' : 'btn--secondary'}`} onClick={() => setMode(m)}>
-                {m === 'manual' ? 'Manuel giriş' : 'Işçilerden saýla'}
+                {m === 'manual' ? t.foreman.manualEntry : t.foreman.fromWorkers}
               </button>
             ))}
           </div>
           {mode === 'worker' && (
             <div className="form-row">
-              <label className="form-label">Işçi saýla</label>
+              <label className="form-label">{t.foreman.selectWorker}</label>
               <select onChange={e => handleWorkerPick(e.target.value)} defaultValue="">
-                <option value="">— Işçi saýla —</option>
+                <option value="">— {t.foreman.selectWorker} —</option>
                 {workers.map(w => <option key={w.id} value={w.id}>{w.name} ({w.workerId})</option>)}
               </select>
             </div>
           )}
           <div className="form-row">
-            <label className="form-label">Ady *</label>
-            <input value={name} onChange={e => setName(e.target.value)} placeholder="Foremen ady" />
+            <label className="form-label">{t.foreman.name} *</label>
+            <input value={name} onChange={e => setName(e.target.value)} placeholder={t.foreman.namePlaceholder} />
           </div>
           <div className="form-row">
-            <label className="form-label">Telefon</label>
+            <label className="form-label">{t.foreman.phone}</label>
             <input value={phone ?? ''} onChange={e => setPhone(e.target.value)} placeholder="+993 65 000000" />
           </div>
         </div>
         <div className="modal-footer">
-          <button className="btn btn--secondary btn--sm" onClick={onClose}>Ýatyr</button>
+          <button className="btn btn--secondary btn--sm" onClick={onClose}>{t.common.cancel}</button>
           <button className="btn btn--primary btn--sm" onClick={handleSave} disabled={saving}>
-            {saving ? 'Saklanýar…' : 'Sakla'}
+            {saving ? t.common.saving : t.common.save}
           </button>
         </div>
       </div>
@@ -113,6 +116,7 @@ function AssignWorkerModal({ foreman, onClose, onDone, adminName }: {
   onDone: () => void
   adminName: string
 }) {
+  const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState('')
@@ -154,7 +158,7 @@ function AssignWorkerModal({ foreman, onClose, onDone, adminName }: {
     <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="modal-box" style={{ maxWidth: 560 }}>
         <div className="modal-header">
-          <h3>Işçileri berkitmek — {foreman.name}</h3>
+          <h3>{t.foreman.assignTitle} — {foreman.name}</h3>
           <button className="btn btn--ghost btn--sm" onClick={onClose}><X size={14} /></button>
         </div>
         <div className="modal-body">
@@ -163,7 +167,7 @@ function AssignWorkerModal({ foreman, onClose, onDone, adminName }: {
           {(detail?.workers?.length ?? 0) > 0 && (
             <div style={{ marginBottom: 14 }}>
               <div className="text-xs text-muted fw-600" style={{ textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
-                Berkidilen işçiler ({detail!.workers.length})
+                {t.foreman.assignedSection} ({detail!.workers.length})
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 160, overflowY: 'auto' }}>
                 {detail!.workers.map(w => (
@@ -171,9 +175,9 @@ function AssignWorkerModal({ foreman, onClose, onDone, adminName }: {
                     <User size={13} color="#10B981" />
                     <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{w.name}</span>
                     <span className="td-muted" style={{ fontSize: 11 }}>{w.workerId} · {w.profession}</span>
-                    <span className={`badge badge--dot ${w.mesaiSistemi === 'Aylık' ? 'badge--info' : 'badge--success'}`} style={{ fontSize: 10 }}>{w.mesaiSistemi ?? 'Saatlik'}</span>
+                    <span className={`badge badge--dot ${w.mesaiSistemi === 'Aylık' ? 'badge--info' : 'badge--success'}`} style={{ fontSize: 10 }}>{(w.mesaiSistemi ?? 'Saatlik') === 'Aylık' ? t.workers.mesaiMonthly : t.workers.mesaiHourly}</span>
                     <button className="btn btn--ghost btn--sm" style={{ color: 'var(--danger)', padding: '2px 6px' }} disabled={loading}
-                      onClick={() => handleUnassign(w.id)} title="Aýyr"><X size={12} /></button>
+                      onClick={() => handleUnassign(w.id)} title={t.common.delete}><X size={12} /></button>
                   </div>
                 ))}
               </div>
@@ -181,10 +185,10 @@ function AssignWorkerModal({ foreman, onClose, onDone, adminName }: {
           )}
 
           <div>
-            <div className="text-xs text-muted fw-600" style={{ textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Işçi goş</div>
+            <div className="text-xs text-muted fw-600" style={{ textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>{t.foreman.addWorkerSection}</div>
             <div className="input-wrap" style={{ marginBottom: 8 }}>
               <Search size={13} />
-              <input className="search-input" placeholder="Ady ýa-da ID..." value={search} onChange={e => setSearch(e.target.value)} />
+              <input className="search-input" placeholder={t.foreman.workerSearchPlaceholder} value={search} onChange={e => setSearch(e.target.value)} />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3, maxHeight: 260, overflowY: 'auto' }}>
               {filtered.map(w => {
@@ -200,24 +204,24 @@ function AssignWorkerModal({ foreman, onClose, onDone, adminName }: {
                     <User size={13} color={isAssignedHere ? '#10B981' : 'var(--text-muted)'} />
                     <span style={{ flex: 1, fontSize: 13, fontWeight: isAssignedHere ? 600 : 400 }}>{w.name}</span>
                     <span className="td-muted" style={{ fontSize: 11 }}>{w.workerId} · {w.profession}</span>
-                    <span className={`badge badge--dot ${(w.mesaiSistemi ?? 'Saatlik') === 'Aylık' ? 'badge--info' : 'badge--success'}`} style={{ fontSize: 10 }}>{w.mesaiSistemi ?? 'Saatlik'}</span>
+                    <span className={`badge badge--dot ${(w.mesaiSistemi ?? 'Saatlik') === 'Aylık' ? 'badge--info' : 'badge--success'}`} style={{ fontSize: 10 }}>{(w.mesaiSistemi ?? 'Saatlik') === 'Aylık' ? t.workers.mesaiMonthly : t.workers.mesaiHourly}</span>
                     {isAssignedHere ? (
-                      <span style={{ fontSize: 11, color: '#10B981' }}>✓ berkidilen</span>
+                      <span style={{ fontSize: 11, color: '#10B981' }}>{t.foreman.assignedLabel}</span>
                     ) : isAssignedElsewhere ? (
-                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>başga formende</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{t.foreman.otherForemanLabel}</span>
                     ) : (
                       <button className="btn btn--primary btn--sm" style={{ padding: '2px 10px', fontSize: 12 }}
-                        disabled={loading} onClick={() => handleAssign(w)}>+ Goş</button>
+                        disabled={loading} onClick={() => handleAssign(w)}>+ {t.common.add}</button>
                     )}
                   </div>
                 )
               })}
-              {filtered.length === 0 && <div className="empty-state" style={{ padding: 16 }}>Işçi tapylmady</div>}
+              {filtered.length === 0 && <div className="empty-state" style={{ padding: 16 }}>{t.common.noData}</div>}
             </div>
           </div>
         </div>
         <div className="modal-footer">
-          <button className="btn btn--secondary btn--sm" onClick={onClose}>Ýap</button>
+          <button className="btn btn--secondary btn--sm" onClick={onClose}>{t.common.close}</button>
         </div>
       </div>
     </div>
@@ -229,6 +233,7 @@ function ImportModal({ onClose, onUpload }: {
   onClose: () => void
   onUpload: (file: File) => Promise<{ imported: number }>
 }) {
+  const { t } = useTranslation()
   const fileRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
@@ -246,29 +251,29 @@ function ImportModal({ onClose, onUpload }: {
   return (
     <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="modal-box" style={{ maxWidth: 400 }}>
-        <div className="modal-header"><h3>Foremen Import</h3><button className="btn btn--ghost btn--sm" onClick={onClose}><X size={14} /></button></div>
+        <div className="modal-header"><h3>{t.foreman.importTitle}</h3><button className="btn btn--ghost btn--sm" onClick={onClose}><X size={14} /></button></div>
         <div className="modal-body">
           {!result ? (
             <>
               <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>
-                Sütunlar: <code style={{ fontSize: 11 }}>name, phone, workerId</code>
+                {t.foreman.importDesc}
               </p>
               {err && <Err msg={err} />}
               <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={e => setFile(e.target.files?.[0] ?? null)} />
               <div onClick={() => fileRef.current?.click()} style={{ border: '2px dashed var(--border)', borderRadius: 8, padding: '24px 16px', textAlign: 'center', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13, background: file ? 'var(--success-light)' : undefined }}>
-                {file ? <span style={{ color: 'var(--success)' }}>✓ {file.name}</span> : <span><Upload size={20} style={{ display: 'block', margin: '0 auto 6px' }} />Excel faýlyny saýla</span>}
+                {file ? <span style={{ color: 'var(--success)' }}>✓ {file.name}</span> : <span><Upload size={20} style={{ display: 'block', margin: '0 auto 6px' }} />{t.foreman.uploadFile}</span>}
               </div>
             </>
           ) : (
             <div style={{ textAlign: 'center', padding: '16px 0' }}>
               <div style={{ fontSize: 32, marginBottom: 8 }}>✅</div>
-              <p style={{ fontWeight: 600 }}>{result.imported} foremen goşuldy</p>
+              <p style={{ fontWeight: 600 }}>{result.imported} {t.foreman.importSuccess}</p>
             </div>
           )}
         </div>
         <div className="modal-footer">
-          <button className="btn btn--secondary btn--sm" onClick={onClose}>{result ? 'Ýap' : 'Ýatyr'}</button>
-          {!result && <button className="btn btn--primary btn--sm" onClick={handleUpload} disabled={!file || loading}>{loading ? 'Ýüklenýär…' : <><Upload size={13} /> Import</>}</button>}
+          <button className="btn btn--secondary btn--sm" onClick={onClose}>{result ? t.common.close : t.common.cancel}</button>
+          {!result && <button className="btn btn--primary btn--sm" onClick={handleUpload} disabled={!file || loading}>{loading ? t.common.uploading : <><Upload size={13} /> {t.common.import}</>}</button>}
         </div>
       </div>
     </div>
@@ -281,6 +286,7 @@ function ForemanWorkers({ foremanId, adminName, onChanged }: {
   adminName: string
   onChanged: () => void
 }) {
+  const { t } = useTranslation()
   const { data: detail, isLoading } = useQuery({
     queryKey: ['foreman', foremanId],
     queryFn: () => foremansApi.getById(foremanId),
@@ -297,9 +303,9 @@ function ForemanWorkers({ foremanId, adminName, onChanged }: {
       <td />
       <td colSpan={4} style={{ padding: '0 0 12px 24px' }}>
         {isLoading ? (
-          <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '8px 0' }}>Ýüklenýär…</div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '8px 0' }}>{t.common.loading}</div>
         ) : (detail?.workers?.length ?? 0) === 0 ? (
-          <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '8px 0' }}>Işçi berkidilmedik.</div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '8px 0' }}>{t.foreman.noWorkersAssigned}</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 6 }}>
             {detail!.workers.map(w => (
@@ -307,9 +313,9 @@ function ForemanWorkers({ foremanId, adminName, onChanged }: {
                 <User size={12} color="var(--text-muted)" />
                 <span className="fw-600" style={{ flex: 1, fontSize: 13 }}>{w.name}</span>
                 <span className="td-muted" style={{ fontSize: 11 }}>{w.workerId} · {w.profession}</span>
-                <span className={`badge badge--dot ${w.mesaiSistemi === 'Aylık' ? 'badge--info' : 'badge--success'}`} style={{ fontSize: 10 }}>{w.mesaiSistemi ?? 'Saatlik'}</span>
+                <span className={`badge badge--dot ${w.mesaiSistemi === 'Aylık' ? 'badge--info' : 'badge--success'}`} style={{ fontSize: 10 }}>{(w.mesaiSistemi ?? 'Saatlik') === 'Aylık' ? t.workers.mesaiMonthly : t.workers.mesaiHourly}</span>
                 <button className="btn btn--ghost btn--sm" style={{ color: 'var(--danger)', padding: '2px 6px' }}
-                  onClick={() => handleUnassign(w.id)} title="Aýyr"><X size={12} /></button>
+                  onClick={() => handleUnassign(w.id)} title={t.common.delete}><X size={12} /></button>
               </div>
             ))}
           </div>
@@ -321,6 +327,7 @@ function ForemanWorkers({ foremanId, adminName, onChanged }: {
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 export function BrigadesPage() {
+  const { t } = useTranslation()
   const { user } = useUiPreferences()
   const adminName = user?.name ?? 'Admin'
   const qc = useQueryClient()
@@ -353,21 +360,21 @@ export function BrigadesPage() {
   return (
     <>
       <div className="page-header">
-        <h1>Foremenlar</h1>
+        <h1>{t.foreman.title}</h1>
         <div className="page-actions">
           <button className="btn btn--secondary btn--sm" onClick={() => setShowImport(true)}>
-            <Upload size={13} /> Import
+            <Upload size={13} /> {t.common.import}
           </button>
           <button className="btn btn--primary btn--sm" onClick={() => setShowAdd(true)}>
-            <Plus size={13} /> Täze Foremen
+            <Plus size={13} /> {t.foreman.new}
           </button>
         </div>
       </div>
 
       {isLoading ? (
-        <div className="empty-state">Ýüklenýär…</div>
+        <div className="empty-state">{t.common.loading}</div>
       ) : foremans.length === 0 ? (
-        <div className="empty-state"><UserCheck size={32} /><p>Foremenlar ýok. Täze goş.</p></div>
+        <div className="empty-state"><UserCheck size={32} /><p>{t.foreman.noForemen}</p></div>
       ) : (
         <div className="card">
           <div className="card-body card-body--p0">
@@ -375,10 +382,10 @@ export function BrigadesPage() {
               <thead>
                 <tr>
                   <th style={{ width: 32 }} />
-                  <th>Ady</th>
-                  <th>Telefon</th>
-                  <th>Işçi sany</th>
-                  <th>Amallar</th>
+                  <th>{t.foreman.name}</th>
+                  <th>{t.foreman.phone}</th>
+                  <th>{t.foreman.workers}</th>
+                  <th>{t.foreman.actions}</th>
                 </tr>
               </thead>
               <tbody>
@@ -391,17 +398,17 @@ export function BrigadesPage() {
                       <td className="fw-600">{f.name}</td>
                       <td className="td-muted">{f.phone || '—'}</td>
                       <td>
-                        <span style={{ fontWeight: 600, color: '#6366F1' }}>{f.workerCount} işçi</span>
+                        <span style={{ fontWeight: 600, color: '#6366F1' }}>{f.workerCount} {t.foreman.workerCount}</span>
                       </td>
                       <td onClick={e => e.stopPropagation()}>
                         <div className="td-actions">
-                          <button className="btn btn--ghost btn--sm" title="Işçi berkitmek" onClick={() => setAssignWorkersFor(f)}>
+                          <button className="btn btn--ghost btn--sm" title={t.foreman.assignTitle} onClick={() => setAssignWorkersFor(f)}>
                             <User size={13} />
                           </button>
-                          <button className="btn btn--ghost btn--sm" title="Üýtget" onClick={() => setEditItem(f)}>
+                          <button className="btn btn--ghost btn--sm" title={t.common.edit} onClick={() => setEditItem(f)}>
                             <Edit2 size={13} />
                           </button>
-                          <button className="btn btn--ghost btn--sm" style={{ color: 'var(--danger)' }} title="Poz" onClick={() => setDeleteId(f.id)}>
+                          <button className="btn btn--ghost btn--sm" style={{ color: 'var(--danger)' }} title={t.common.delete} onClick={() => setDeleteId(f.id)}>
                             <Trash2 size={13} />
                           </button>
                         </div>
@@ -446,7 +453,7 @@ export function BrigadesPage() {
       )}
       {deleteId && (
         <ConfirmModal
-          msg="Bu Formeni pozmak isleýärsiňizmi? Oňa berkidilen işçiler aýrylar."
+          msg={t.foreman.deleteConfirm}
           onConfirm={async () => { await foremansApi.remove(deleteId, adminName); inv() }}
           onClose={() => setDeleteId(null)}
         />

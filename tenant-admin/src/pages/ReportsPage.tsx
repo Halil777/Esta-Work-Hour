@@ -8,6 +8,7 @@ import {
 import { reportConfigApi, reportsApi, type MonthlySchedule } from '../api/reportConfig'
 import { apiFetch } from '../api/http'
 import type { WorkerApi } from '../api/workers'
+import { useTranslation } from '../i18n/useTranslation'
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -46,6 +47,7 @@ interface WorkerMultiSelectProps {
 }
 
 function WorkerMultiSelect({ workers, selected, onChange }: WorkerMultiSelectProps) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const ref = useRef<HTMLDivElement>(null)
@@ -71,10 +73,10 @@ function WorkerMultiSelect({ workers, selected, onChange }: WorkerMultiSelectPro
   const clearAll = () => onChange([])
 
   const label = selected.length === 0
-    ? 'Ähli işçiler'
+    ? t.reports.allWorkers
     : selected.length === 1
       ? workers.find(w => w.workerId === selected[0])?.name ?? selected[0]
-      : `${selected.length} işçi saýlanydy`
+      : `${selected.length} ${t.reports.workersSelected}`
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
@@ -113,15 +115,15 @@ function WorkerMultiSelect({ workers, selected, onChange }: WorkerMultiSelectPro
               autoFocus
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Gözle..."
+              placeholder={t.common.search ?? 'Search...'}
               style={{ border: 'none', outline: 'none', fontSize: 12, flex: 1 }}
             />
           </div>
 
           {/* select/clear all */}
           <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-            <button type="button" onClick={selectAll} style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: '1px solid #e2e8f0', background: '#f8fafc', fontSize: 11, cursor: 'pointer', color: '#374151' }}>Hemmesini saýla</button>
-            <button type="button" onClick={clearAll} style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: '1px solid #e2e8f0', background: '#f8fafc', fontSize: 11, cursor: 'pointer', color: '#374151' }}>Arassala</button>
+            <button type="button" onClick={selectAll} style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: '1px solid #e2e8f0', background: '#f8fafc', fontSize: 11, cursor: 'pointer', color: '#374151' }}>{t.reports.selectAll}</button>
+            <button type="button" onClick={clearAll} style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: '1px solid #e2e8f0', background: '#f8fafc', fontSize: 11, cursor: 'pointer', color: '#374151' }}>{t.reports.clearAll}</button>
           </div>
 
           {/* list */}
@@ -145,7 +147,7 @@ function WorkerMultiSelect({ workers, selected, onChange }: WorkerMultiSelectPro
               )
             })}
             {filtered.length === 0 && (
-              <div style={{ textAlign: 'center', color: '#94a3b8', padding: 16, fontSize: 12 }}>Tapylmady</div>
+              <div style={{ textAlign: 'center', color: '#94a3b8', padding: 16, fontSize: 12 }}>{t.reports.noResults}</div>
             )}
           </div>
         </div>
@@ -157,6 +159,7 @@ function WorkerMultiSelect({ workers, selected, onChange }: WorkerMultiSelectPro
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export function ReportsPage() {
+  const { t } = useTranslation()
   const qc = useQueryClient()
 
   // ── Filter state ─────────────────────────────────────────────────────────────
@@ -205,8 +208,8 @@ export function ReportsPage() {
         cfgData?.schedules ?? [],
         monthly,
       ),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['report-config'] }); alert('Awtomatik hasabat sazlamalary saklandy!') },
-    onError: (e: Error) => alert(`Ýalňyşlyk: ${e.message}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['report-config'] }); alert(t.common.saved) },
+    onError: (e: Error) => alert(`${t.common.error}: ${e.message}`),
   })
 
   const [sendingEmail, setSendingEmail] = useState(false)
@@ -225,7 +228,7 @@ export function ReportsPage() {
         selectedWorkerIds.length > 0 ? selectedWorkerIds : undefined,
       )
     } catch (e: any) {
-      alert(`Ýükläp bolmady: ${e.message}`)
+      alert(`${t.common.error}: ${e.message}`)
     } finally {
       setDownloading(false)
     }
@@ -238,9 +241,9 @@ export function ReportsPage() {
         startDate, endDate,
         selectedWorkerIds.length > 0 ? selectedWorkerIds : undefined,
       )
-      alert(res.message ?? 'Hasabat iberildi!')
+      alert(res.message ?? t.reportEmails.sent)
     } catch (e: any) {
-      alert(`Iberilemedi: ${e.message}`)
+      alert(`${t.reportEmails.failed}: ${e.message}`)
     } finally {
       setSendingEmail(false)
     }
@@ -260,10 +263,10 @@ export function ReportsPage() {
 
   // ── Quick presets ─────────────────────────────────────────────────────────────
   const presets = [
-    { label: 'Bu aý', sd: monthStart(0), ed: monthEnd(0) },
-    { label: 'Geçen aý', sd: monthStart(-1), ed: monthEnd(-1) },
-    { label: 'Bu ýyl', sd: `${new Date().getFullYear()}-01-01`, ed: today() },
-    { label: 'Bu hepde', sd: (() => { const d = new Date(); d.setDate(d.getDate() - d.getDay() + 1); return d.toISOString().split('T')[0] })(), ed: today() },
+    { label: t.reports.thisMonth, sd: monthStart(0), ed: monthEnd(0) },
+    { label: t.reports.lastMonth, sd: monthStart(-1), ed: monthEnd(-1) },
+    { label: t.reports.thisYear, sd: `${new Date().getFullYear()}-01-01`, ed: today() },
+    { label: t.reports.thisWeek, sd: (() => { const d = new Date(); d.setDate(d.getDate() - d.getDay() + 1); return d.toISOString().split('T')[0] })(), ed: today() },
   ]
 
   // ── Stats banner ──────────────────────────────────────────────────────────────
@@ -277,17 +280,17 @@ export function ReportsPage() {
 
       {/* ── Page header ───────────────────────────────────────────────────── */}
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#1e3a5f' }}>İş Sagatlaryny Hasabat</h1>
+        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#1e3a5f' }}>{t.reports.title}</h1>
         <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: 13 }}>
-          Döwür boýunça işçileriň is sagatlaryny görüň, Excel ýükläň ýa-da email iberiň
+          {t.reports.pageDesc}
         </p>
       </div>
 
       {/* ── Tabs ─────────────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderBottom: '2px solid #e2e8f0' }}>
         {([
-          { key: 'report', icon: BarChart3, label: 'Hasabat Al' },
-          { key: 'auto', icon: Settings2, label: 'Awtomatik Hasabat' },
+          { key: 'report', icon: BarChart3, label: t.reports.tabReport },
+          { key: 'auto', icon: Settings2, label: t.reports.tabAuto },
         ] as const).map(tab => (
           <button
             key={tab.key}
@@ -319,7 +322,7 @@ export function ReportsPage() {
             boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
           }}>
             <div style={{ fontWeight: 700, fontSize: 13, color: '#374151', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Calendar size={15} color="#1e3a5f" /> Döwür saýla
+              <Calendar size={15} color="#1e3a5f" /> {t.reports.selectPeriod}
             </div>
 
             {/* Quick presets */}
@@ -343,7 +346,7 @@ export function ReportsPage() {
             {/* Date inputs + worker filter */}
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
               <div>
-                <label style={{ fontSize: 11, color: '#64748b', display: 'block', marginBottom: 4, fontWeight: 600 }}>Başlangyç</label>
+                <label style={{ fontSize: 11, color: '#64748b', display: 'block', marginBottom: 4, fontWeight: 600 }}>{t.reports.fromDate}</label>
                 <input
                   type="date"
                   value={startDate}
@@ -352,7 +355,7 @@ export function ReportsPage() {
                 />
               </div>
               <div>
-                <label style={{ fontSize: 11, color: '#64748b', display: 'block', marginBottom: 4, fontWeight: 600 }}>Soňy</label>
+                <label style={{ fontSize: 11, color: '#64748b', display: 'block', marginBottom: 4, fontWeight: 600 }}>{t.reports.toDate}</label>
                 <input
                   type="date"
                   value={endDate}
@@ -362,7 +365,7 @@ export function ReportsPage() {
                 />
               </div>
               <div>
-                <label style={{ fontSize: 11, color: '#64748b', display: 'block', marginBottom: 4, fontWeight: 600 }}>İşçi filteri</label>
+                <label style={{ fontSize: 11, color: '#64748b', display: 'block', marginBottom: 4, fontWeight: 600 }}>{t.reports.workerFilter}</label>
                 <WorkerMultiSelect
                   workers={workers}
                   selected={selectedWorkerIds}
@@ -380,7 +383,7 @@ export function ReportsPage() {
                 }}
               >
                 {isFetchingRange ? <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Search size={14} />}
-                Görkez
+                {t.reports.show}
               </button>
             </div>
           </div>
@@ -389,10 +392,10 @@ export function ReportsPage() {
           {rangeQueried && rangeData && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
               {[
-                { label: 'Jemi işçi', value: totalWorkers, color: '#1d4ed8', bg: '#eff6ff', icon: Users },
-                { label: 'İşlän işçi', value: workedWorkers, color: '#16a34a', bg: '#f0fdf4', icon: TrendingUp },
-                { label: 'Jemi sagat', value: fmtMs(totalMs), color: '#4f46e5', bg: '#eef2ff', icon: Clock },
-                { label: 'Ortaça (işçi başyna)', value: fmtMs(avgMs), color: '#b45309', bg: '#fef9c3', icon: BarChart3 },
+                { label: t.reports.totalWorkers, value: totalWorkers, color: '#1d4ed8', bg: '#eff6ff', icon: Users },
+                { label: t.reports.workedWorkers, value: workedWorkers, color: '#16a34a', bg: '#f0fdf4', icon: TrendingUp },
+                { label: t.reports.totalHoursLabel, value: fmtMs(totalMs), color: '#4f46e5', bg: '#eef2ff', icon: Clock },
+                { label: t.reports.avgPerWorker, value: fmtMs(avgMs), color: '#b45309', bg: '#fef9c3', icon: BarChart3 },
               ].map(s => (
                 <div key={s.label} style={{ background: s.bg, borderRadius: 10, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
                   <s.icon size={22} color={s.color} />
@@ -421,7 +424,7 @@ export function ReportsPage() {
                 {downloading
                   ? <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} />
                   : <Download size={14} />}
-                Excel Ýükle (.xlsx)
+                {t.reports.downloadExcel}
               </button>
 
               <button
@@ -437,7 +440,7 @@ export function ReportsPage() {
                 {sendingEmail
                   ? <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} />
                   : <Mail size={14} />}
-                E-mail Ugrat
+                {t.reports.sendEmail}
               </button>
             </div>
           )}
@@ -451,20 +454,20 @@ export function ReportsPage() {
               {isFetchingRange ? (
                 <div style={{ padding: 48, textAlign: 'center', color: '#94a3b8' }}>
                   <RefreshCw size={28} style={{ animation: 'spin 1s linear infinite' }} />
-                  <div style={{ marginTop: 8 }}>Hasabat taýarlanýar...</div>
+                  <div style={{ marginTop: 8 }}>{t.reports.preparing}</div>
                 </div>
               ) : rangeData && rangeData.rows.length > 0 ? (
                 <>
                   <div style={{ padding: '14px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontWeight: 700, fontSize: 14, color: '#1e3a5f' }}>
-                      Netijeler — {rangeData.startDate} — {rangeData.endDate}
+                      {t.reports.results} — {rangeData.startDate} — {rangeData.endDate}
                     </span>
-                    <span style={{ fontSize: 12, color: '#94a3b8' }}>{rangeData.rows.length} işçi</span>
+                    <span style={{ fontSize: 12, color: '#94a3b8' }}>{rangeData.rows.length} {t.reports.workerCount}</span>
                   </div>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr style={{ background: '#f8fafc' }}>
-                        {['#', 'İşçi adı', 'Sicil No', 'Görev', 'Ekip', 'İşlän gün', 'Jemi sagat', 'Ortaça gün'].map(h => (
+                        {['#', t.reports.workerName, t.workers.regNo, t.workers.profession, t.workers.team, t.reports.workedDays, t.reports.totalHoursLabel, t.reports.avgPerDay].map(h => (
                           <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#64748b', borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap' }}>{h}</th>
                         ))}
                       </tr>
@@ -481,7 +484,7 @@ export function ReportsPage() {
                             <td style={{ padding: '9px 14px', fontSize: 12, color: '#64748b' }}>{row.brigade || '—'}</td>
                             <td style={{ padding: '9px 14px', fontSize: 12, textAlign: 'center' }}>
                               {row.daysPresent > 0
-                                ? <span style={{ background: '#f0fdf4', color: '#16a34a', borderRadius: 99, padding: '2px 10px', fontWeight: 600, fontSize: 12 }}>{row.daysPresent} gün</span>
+                                ? <span style={{ background: '#f0fdf4', color: '#16a34a', borderRadius: 99, padding: '2px 10px', fontWeight: 600, fontSize: 12 }}>{row.daysPresent} {t.common.days}</span>
                                 : <span style={{ color: '#ef4444', fontSize: 12 }}>—</span>}
                             </td>
                             <td style={{ padding: '9px 14px', fontSize: 13, fontWeight: 700, color: row.totalMs > 0 ? '#1e3a5f' : '#ef4444' }}>
@@ -496,7 +499,7 @@ export function ReportsPage() {
                 </>
               ) : (
                 <div style={{ padding: 48, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
-                  Bu döwürde maglumat ýok
+                  {t.reports.noDataPeriod}
                 </div>
               )}
             </div>
@@ -508,8 +511,8 @@ export function ReportsPage() {
               padding: 48, textAlign: 'center', color: '#94a3b8',
             }}>
               <FileSpreadsheet size={40} color="#cbd5e1" style={{ marginBottom: 12 }} />
-              <div style={{ fontSize: 14, fontWeight: 600 }}>Döwür saýlap "Görkez" düwmesine basyň</div>
-              <div style={{ fontSize: 12, marginTop: 4 }}>Excel ýüklemek ýa-da email ibermek üçin öňünden görkezme gerek</div>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>{t.reports.emptyHint}</div>
+              <div style={{ fontSize: 12, marginTop: 4 }}>{t.reports.excelPreviewHint}</div>
             </div>
           )}
         </>
@@ -530,16 +533,16 @@ export function ReportsPage() {
               <div>
                 <div style={{ fontWeight: 700, fontSize: 15, color: '#1e3a5f', display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Calendar size={17} color="#1e3a5f" />
-                  Aýlyk Awtomatik Hasabat
+                  {t.reports.monthlyAutoTitle}
                 </div>
                 <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
-                  Her ayın 1-inde geçen ayın iş sagatlaryny awtomatik usulda email iberer
+                  {t.reports.monthlyAutoDesc}
                 </div>
               </div>
               <button
                 onClick={() => setMonthly(m => ({ ...m, enabled: !m.enabled }))}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
-                title={monthly.enabled ? 'Öçür' : 'Aç'}
+                title={monthly.enabled ? t.common.disable : t.common.enable}
               >
                 {monthly.enabled
                   ? <ToggleRight size={36} color="#16a34a" />
@@ -557,11 +560,11 @@ export function ReportsPage() {
                 border: `1px solid ${monthly.enabled ? '#bbf7d0' : '#e2e8f0'}`,
               }}>
                 <span style={{ width: 7, height: 7, borderRadius: '50%', background: monthly.enabled ? '#16a34a' : '#94a3b8', display: 'inline-block' }} />
-                {monthly.enabled ? 'Işjeň' : 'Öçürilen'}
+                {monthly.enabled ? t.reports.enabled : t.reports.disabled}
               </span>
               {monthly.lastSentMonth && (
                 <span style={{ marginLeft: 10, fontSize: 11, color: '#94a3b8' }}>
-                  Soňky iberilen: {monthly.lastSentMonth}
+                  {t.reports.lastSentMonth}: {monthly.lastSentMonth}
                 </span>
               )}
             </div>
@@ -570,7 +573,7 @@ export function ReportsPage() {
             <div style={{ marginBottom: 20 }}>
               <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6 }}>
                 <Clock size={13} style={{ marginRight: 4 }} />
-                Iberilmeli wagt (her ayın 1-inde)
+                {t.reports.sendTimeLabel}
               </label>
               <input
                 type="time"
@@ -584,7 +587,7 @@ export function ReportsPage() {
             <div style={{ marginBottom: 24 }}>
               <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 8 }}>
                 <Mail size={13} style={{ marginRight: 4 }} />
-                Email alyjylar (boş bolsa umumy email sanawyny ulanar)
+                {t.reports.monthlyEmails}
               </label>
               <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
                 <input
@@ -599,7 +602,7 @@ export function ReportsPage() {
                   onClick={addMonthlyEmail}
                   style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#1e3a5f', color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
                 >
-                  <Plus size={14} /> Goş
+                  <Plus size={14} /> {t.reports.addEmail}
                 </button>
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -614,7 +617,7 @@ export function ReportsPage() {
                   </span>
                 ))}
                 {monthly.emails.length === 0 && (
-                  <span style={{ fontSize: 12, color: '#94a3b8' }}>Email goşulmadyk — umumy sanaw ulanylar</span>
+                  <span style={{ fontSize: 12, color: '#94a3b8' }}>{t.reports.noMonthlyEmails}</span>
                 )}
               </div>
             </div>
@@ -630,7 +633,7 @@ export function ReportsPage() {
               }}
             >
               {saveCfgMut.isPending ? <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} /> : null}
-              Sakla
+              {t.common.save}
             </button>
           </div>
 
@@ -642,13 +645,7 @@ export function ReportsPage() {
           }}>
             <div style={{ fontSize: 20 }}>ℹ️</div>
             <div>
-              <div style={{ fontWeight: 700, marginBottom: 4 }}>Nähili işleýär?</div>
-              <ul style={{ margin: 0, paddingLeft: 16 }}>
-                <li>Her ayın 1-inde bellenen sagatda (server wagty) hasabat awtomatik iberilýär</li>
-                <li>Hasabatda geçen ayın ähli işçileriniň jemi iş sagatlary bolýar</li>
-                <li>Excel faýly hem email goşundysy hökmünde goşulýar</li>
-                <li>Hasabat iberilen soň, täzeden iberilmez (bir gezek iberilýär)</li>
-              </ul>
+              <div style={{ fontWeight: 700, marginBottom: 4 }}>{t.reports.howItWorks}</div>
             </div>
           </div>
         </div>

@@ -6,16 +6,14 @@ import { extraHoursApi, type ExtraHoursRequest } from '../api/extraHours'
 
 type StatusFilter = 'all' | 'pending' | 'seen' | 'approved' | 'rejected'
 
-type StatusMeta = { label: string; variant: string }
-
-function getStatusMeta(s: ExtraHoursRequest['status']): StatusMeta {
-  const map: Record<ExtraHoursRequest['status'], StatusMeta> = {
-    pending: { label: 'Garaşylýar', variant: 'warning' },
-    seen:    { label: 'Görüldi', variant: 'info' },
-    approved: { label: 'Tassyklandy', variant: 'success' },
-    rejected: { label: 'Ret edildi', variant: 'danger' },
+function getStatusVariant(s: ExtraHoursRequest['status']): string {
+  const map: Record<ExtraHoursRequest['status'], string> = {
+    pending: 'warning',
+    seen: 'info',
+    approved: 'success',
+    rejected: 'danger',
   }
-  return map[s] ?? { label: s, variant: 'neutral' }
+  return map[s] ?? 'neutral'
 }
 
 const fmtDate = (d: string) => {
@@ -26,18 +24,29 @@ const sumHours = (items: ExtraHoursRequest['items']) =>
   items.reduce((acc, i) => acc + Number(i.extraHours), 0)
 
 const STATUS_FILTERS: StatusFilter[] = ['all', 'pending', 'seen', 'approved', 'rejected']
-const STATUS_LABELS: Record<StatusFilter, string> = {
-  all: 'Ählisi',
-  pending: 'Garaşylýar',
-  seen: 'Görüldi',
-  approved: 'Tassyklandy',
-  rejected: 'Ret edildi',
-}
 
 export function OvertimePage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+
+  const STATUS_LABELS: Record<StatusFilter, string> = {
+    all: t.overtime.statusAll,
+    pending: t.overtime.statusPending,
+    seen: t.overtime.statusSeen,
+    approved: t.overtime.statusApproved,
+    rejected: t.overtime.statusRejected,
+  }
+
+  const getStatusLabel = (s: ExtraHoursRequest['status']): string => {
+    const map: Record<ExtraHoursRequest['status'], string> = {
+      pending: t.overtime.statusPending,
+      seen: t.overtime.statusSeen,
+      approved: t.overtime.statusApproved,
+      rejected: t.overtime.statusRejected,
+    }
+    return map[s] ?? s
+  }
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const { data: requests = [], isLoading, error } = useQuery({
@@ -76,7 +85,7 @@ export function OvertimePage() {
       <div className="card">
         <div className="card-header">
           <h3>{t.overtime.title}</h3>
-          <span className="text-xs text-muted">{requests.length} sorag</span>
+          <span className="text-xs text-muted">{requests.length} {t.overtime.title}</span>
         </div>
         <div className="card-body card-body--p0">
           {error && (
@@ -90,7 +99,7 @@ export function OvertimePage() {
                 <tr>
                   <th>{t.overtime.workDate}</th>
                   <th>{t.overtime.foreman}</th>
-                  <th>Site Chief</th>
+                  <th>{t.overtime.siteChief}</th>
                   <th>{t.overtime.workers}</th>
                   <th>{t.overtime.hours}</th>
                   <th>{t.overtime.reason}</th>
@@ -106,7 +115,7 @@ export function OvertimePage() {
                     <div className="empty-state"><p>{t.common.noData}</p></div>
                   </td></tr>
                 ) : requests.map(r => {
-                  const meta = getStatusMeta(r.status)
+                  const variant = getStatusVariant(r.status)
                   const hours = sumHours(r.items)
                   return (
                     <tr key={r.id} style={{ cursor: 'pointer' }} onClick={() => setSelectedId(selectedId === r.id ? null : r.id)}>
@@ -116,7 +125,7 @@ export function OvertimePage() {
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                           <span style={{ fontSize: 13, fontWeight: 600 }}>{r.items.length}</span>
-                          <span className="text-xs text-muted">işçi</span>
+                          <span className="text-xs text-muted">{t.overtime.workerCount}</span>
                         </div>
                       </td>
                       <td>
@@ -125,7 +134,7 @@ export function OvertimePage() {
                       <td style={{ maxWidth: 180 }}>
                         <span className="truncate text-sm text-muted" style={{ display: 'block' }}>{r.note || '—'}</span>
                       </td>
-                      <td><span className={`badge badge--dot badge--${meta.variant}`}>{meta.label}</span></td>
+                      <td><span className={`badge badge--dot badge--${variant}`}>{getStatusLabel(r.status)}</span></td>
                       <td>
                         <div className="td-actions" onClick={e => e.stopPropagation()}>
                           {(r.status === 'pending' || r.status === 'seen') && (
@@ -162,7 +171,7 @@ export function OvertimePage() {
       {selected && (
         <div className="card" style={{ borderLeft: '3px solid var(--primary)' }}>
           <div className="card-header">
-            <h3>Sorag — {selected.foremanName}</h3>
+            <h3>{t.overtime.requestDetailTitle} — {selected.foremanName}</h3>
             <button className="btn btn--ghost btn--sm" onClick={() => setSelectedId(null)}><X size={13} /></button>
           </div>
           <div className="card-body">
@@ -171,9 +180,9 @@ export function OvertimePage() {
                 { label: t.overtime.workDate, value: selected.workDate },
                 { label: t.overtime.requestDate, value: fmtDate(selected.sentAt) },
                 { label: t.overtime.foreman, value: selected.foremanName },
-                { label: 'Site Chief', value: selected.siteChiefName },
-                { label: t.overtime.workers, value: `${selected.items.length} işçi` },
-                { label: t.overtime.hours, value: `${sumHours(selected.items)} saat` },
+                { label: t.overtime.siteChief, value: selected.siteChiefName },
+                { label: t.overtime.workers, value: `${selected.items.length} ${t.overtime.workerCount}` },
+                { label: t.overtime.hours, value: `${sumHours(selected.items)}h` },
               ].map(item => (
                 <div key={item.label} style={{ background: 'var(--bg-surface-2)', borderRadius: 8, padding: '10px 12px' }}>
                   <div className="text-xs text-muted" style={{ marginBottom: 3 }}>{item.label}</div>
@@ -192,7 +201,7 @@ export function OvertimePage() {
             {selected.items.length > 0 && (
               <div>
                 <div className="text-xs text-muted fw-600" style={{ textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
-                  Işçiler ({selected.items.length})
+                  {t.overtime.workersSectionLabel} ({selected.items.length})
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                   {selected.items.map(item => (

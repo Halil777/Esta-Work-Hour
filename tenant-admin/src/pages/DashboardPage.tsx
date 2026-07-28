@@ -32,15 +32,10 @@ function StatCard({ value, label, sub, icon, color, bg, onClick }: {
   )
 }
 
-const actionLabels: Record<string, string> = {
-  CREATE: 'goşuldy',
-  UPDATE: 'üýtgedildi',
-  DELETE: 'pozuldy',
-}
-
-const entityLabels: Record<string, string> = {
-  Worker: 'Işçi',
-  Foreman: 'Foremen',
+const ACTION_KEYS: Record<string, 'created' | 'updated' | 'deleted'> = {
+  CREATE: 'created',
+  UPDATE: 'updated',
+  DELETE: 'deleted',
 }
 
 function downloadDailyPdf(date: string) {
@@ -145,17 +140,17 @@ export function DashboardPage() {
         <div className="ops-strip__main">
           <div className="ops-strip__icon"><Gauge size={18} /></div>
           <div style={{ minWidth: 0 }}>
-            <div className="ops-strip__title">Bugünkü operasion ýagdaý</div>
+            <div className="ops-strip__title">{t.dashboard.opsTitle}</div>
             <div className="ops-strip__meta">
-              {attendanceRate}% gatnaşyk · {presentToday}/{totalWorkers} işçi geldi · {riskCount} açyk mesele
+              {attendanceRate}% {t.dashboard.attendanceRateSub} · {presentToday}/{totalWorkers} {t.dashboard.workersCame} · {riskCount} {t.dashboard.openIssues}
             </div>
           </div>
         </div>
         <div className="ops-strip__side">
           <span className="ops-pill"><CalendarDays size={13} />{todayLabel}</span>
-          <span className="ops-pill"><Activity size={13} />{riskCount === 0 ? 'Arassa' : `${riskCount} mesele`}</span>
+          <span className="ops-pill"><Activity size={13} />{riskCount === 0 ? t.dashboard.clean : `${riskCount} ${t.dashboard.openIssues}`}</span>
           <button className="btn btn--secondary btn--sm" onClick={() => downloadDailyPdf(today)}>
-            <FileDown size={14} /> PDF hasabat
+            <FileDown size={14} /> {t.dashboard.pdfReport}
           </button>
         </div>
       </div>
@@ -164,8 +159,8 @@ export function DashboardPage() {
         <div className="alert-row alert-row--warning" onClick={() => navigate('/late-arrivals')}>
           <AlertTriangle size={16} style={{ flexShrink: 0 }} />
           <div className="alert-row__body">
-            <span className="alert-row__title">{lateArrivals.length} işçi iş başlangyjyna çenli gelmedi</span>
-            <span className="alert-row__sub">Foreman ýa staff boýunça derrew barla</span>
+            <span className="alert-row__title">{lateArrivals.length} {t.dashboard.lateWarning}</span>
+            <span className="alert-row__sub">{t.dashboard.lateWarningSub}</span>
           </div>
           <ChevronRight size={15} />
         </div>
@@ -175,7 +170,7 @@ export function DashboardPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
             <AlertTriangle size={16} style={{ flexShrink: 0 }} />
             <strong style={{ fontSize: 14, flex: 1 }}>
-              {missingCheckouts.length} işçi çykyş belgisi ýok (14+ sagat işde)
+              {missingCheckouts.length} {t.dashboard.missingCheckout}
             </strong>
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -201,7 +196,7 @@ export function DashboardPage() {
         <StatCard
           value={presentToday}
           label={t.dashboard.presentToday}
-          sub={totalWorkers > 0 ? `${Math.round((presentToday / totalWorkers) * 100)}% gatnaşyk` : undefined}
+          sub={totalWorkers > 0 ? `${Math.round((presentToday / totalWorkers) * 100)}% ${t.dashboard.attendanceRateSub}` : undefined}
           icon={<UserCheck size={16} />} color="var(--success)" bg="var(--success-light)"
           onClick={() => navigate('/workers')}
         />
@@ -219,7 +214,7 @@ export function DashboardPage() {
           <div className="card-body card-body--p0">
             {brigadeRows.length === 0 ? (
               <div className="empty-state" style={{ padding: 24 }}>
-                <p style={{ fontSize: 13 }}>Şu gün scan ýok</p>
+                <p style={{ fontSize: 13 }}>{t.dashboard.noScanToday}</p>
               </div>
             ) : (
               <div className="table-wrap">
@@ -266,15 +261,15 @@ export function DashboardPage() {
           {/* Pending Overtime */}
           <div className="card">
             <div className="card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <h3>Garaşylýan Goşmaça Sagat</h3>
+              <h3>{t.dashboard.pendingOTTitle}</h3>
               <button className="btn btn--ghost btn--sm" onClick={() => navigate('/overtime')} style={{ fontSize: 12 }}>
-                Hemmesi →
+                {t.dashboard.viewAll}
               </button>
             </div>
             <div className="activity-list">
               {allPendingOT.length === 0 ? (
                 <div style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>
-                  Garaşylýan ýok
+                  {t.dashboard.noPending}
                 </div>
               ) : allPendingOT.slice(0, 5).map(req => {
                 const totalH = req.items.reduce((s, i) => s + i.extraHours, 0)
@@ -283,7 +278,7 @@ export function DashboardPage() {
                   <div key={req.id} className="activity-item" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <div className="activity-dot" style={{ background: req.status === 'pending' ? 'var(--warning)' : 'var(--info)', flexShrink: 0 }} />
                     <span className="activity-text" style={{ flex: 1 }}>
-                      <strong>{req.foremanName}</strong> — {req.items.length} işçi, {totalH}h
+                      <strong>{req.foremanName}</strong> — {req.items.length} {t.overtime.workerCount}, {totalH}h
                     </span>
                     <span className="activity-time" style={{ flexShrink: 0 }}>{sentDate}</span>
                   </div>
@@ -298,11 +293,13 @@ export function DashboardPage() {
             <div className="activity-list">
               {auditLogs.length === 0 ? (
                 <div style={{ padding: '16px', fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>
-                  Hereket ýok
+                  {t.dashboard.noActivity}
                 </div>
               ) : auditLogs.slice(0, 10).map(log => {
-                const entity = entityLabels[log.entityType] ?? log.entityType
-                const action = actionLabels[log.action] ?? log.action
+                const entityMap: Record<string, string> = { Worker: t.dashboard.entityWorker, Foreman: t.dashboard.entityForeman }
+                const actionMap: Record<string, string> = { CREATE: t.dashboard.actionCreated, UPDATE: t.dashboard.actionUpdated, DELETE: t.dashboard.actionDeleted }
+                const entity = entityMap[log.entityType] ?? log.entityType
+                const action = actionMap[log.action] ?? log.action
                 const name = log.after?.name ?? log.before?.name ?? ''
                 const time = new Date(log.changedAt).toLocaleString('tr-TR', {
                   day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',

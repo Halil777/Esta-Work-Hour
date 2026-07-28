@@ -1,12 +1,14 @@
 import { useRef, useState } from 'react'
 import { AlertCircle, Upload, X } from 'lucide-react'
 import { workersApi } from '../../api/workers'
+import { useTranslation } from '../../i18n/useTranslation'
 
 type WorkerCardImportModalProps = {
   onClose: () => void
 }
 
 export function WorkerCardImportModal({ onClose }: WorkerCardImportModalProps) {
+  const { t } = useTranslation()
   const fileRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
@@ -31,7 +33,7 @@ export function WorkerCardImportModal({ onClose }: WorkerCardImportModalProps) {
     <div className="modal-overlay" onClick={event => { if (event.target === event.currentTarget) onClose() }}>
       <div className="modal-box" style={{ maxWidth: 440 }}>
         <div className="modal-header">
-          <h3>Kart Nomerleri Import</h3>
+          <h3>{t.cardImport.title}</h3>
           <button className="btn btn--ghost btn--sm" type="button" onClick={onClose}><X size={14} /></button>
         </div>
         <div className="modal-body">
@@ -47,19 +49,19 @@ export function WorkerCardImportModal({ onClose }: WorkerCardImportModalProps) {
               )}
               <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={event => setFile(event.target.files?.[0] ?? null)} />
               <div onClick={() => fileRef.current?.click()} style={{ border: '2px dashed var(--border)', borderRadius: 8, padding: '24px 16px', textAlign: 'center', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13, background: file ? 'var(--success-light)' : undefined }}>
-                {file ? <span style={{ color: 'var(--success)' }}>{file.name}</span> : <span><Upload size={20} style={{ display: 'block', margin: '0 auto 6px' }} />card numbers.xlsx saýla</span>}
+                {file ? <span style={{ color: 'var(--success)' }}>{file.name}</span> : <span><Upload size={20} style={{ display: 'block', margin: '0 auto 6px' }} />{t.cardImport.chooseFile}</span>}
               </div>
             </>
           ) : (
             <div style={{ padding: '8px 0' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--success-light)', borderRadius: 6 }}>
-                  <span style={{ fontSize: 13 }}>Kart birikdirildi</span>
-                  <strong style={{ color: 'var(--success)' }}>{result.linked} işçi</strong>
+                  <span style={{ fontSize: 13 }}>{t.cardImport.cardLinked}</span>
+                  <strong style={{ color: 'var(--success)' }}>{result.linked}</strong>
                 </div>
                 {result.notFound > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--warning-light, #FFF7ED)', borderRadius: 6 }}>
-                    <span style={{ fontSize: 13 }}>Tabeli tapylmady</span>
+                    <span style={{ fontSize: 13 }}>{t.cardImport.notFound}</span>
                     <strong style={{ color: 'var(--warning, #F59E0B)' }}>{result.notFound}</strong>
                   </div>
                 )}
@@ -68,10 +70,10 @@ export function WorkerCardImportModal({ onClose }: WorkerCardImportModalProps) {
           )}
         </div>
         <div className="modal-footer">
-          <button className="btn btn--secondary btn--sm" type="button" onClick={onClose}>{result ? 'Ýap' : 'Ýatyr'}</button>
+          <button className="btn btn--secondary btn--sm" type="button" onClick={onClose}>{result ? t.common.close : t.common.cancel}</button>
           {!result && (
             <button className="btn btn--primary btn--sm" type="button" onClick={handleUpload} disabled={!file || loading}>
-              {loading ? 'Ýüklenýär...' : <><Upload size={13} /> Import</>}
+              {loading ? t.common.uploading : <><Upload size={13} /> {t.common.import}</>}
             </button>
           )}
         </div>

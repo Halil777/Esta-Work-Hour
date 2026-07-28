@@ -3,7 +3,7 @@ import { AlertCircle, X } from 'lucide-react'
 import type { WorkerStatus } from '../../types/tenant'
 import { workersApi, type MobileRole, type WorkerApi } from '../../api/workers'
 import { useTranslation } from '../../i18n/useTranslation'
-import { MESAI_SISTEMLERI, MOBILE_ROLES, ROLE_LABELS, WORKER_STATUSES } from '../../domain/workerMeta'
+import { MESAI_SISTEMLERI, MOBILE_ROLES, WORKER_STATUSES } from '../../domain/workerMeta'
 import { todayIso } from '../../utils/dateTime'
 
 export type WorkerShift = 'day' | 'night' | ''
@@ -94,7 +94,7 @@ export function WorkerFormModal({ initial, onClose, onSave }: WorkerFormModalPro
 
   const handleSubmit = async () => {
     if (!form.name.trim()) {
-      setError('Işçi ady hökman')
+      setError(t.workers.requiredName)
       return
     }
 
@@ -104,7 +104,7 @@ export function WorkerFormModal({ initial, onClose, onSave }: WorkerFormModalPro
       await onSave(form)
       onClose()
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Ýalňyşlyk')
+      setError(error instanceof Error ? error.message : t.common.error)
     } finally {
       setSaving(false)
     }
@@ -159,10 +159,10 @@ export function WorkerFormModal({ initial, onClose, onSave }: WorkerFormModalPro
                   disabled={photoUploading}
                   style={{ fontSize: 12 }}
                 >
-                  {photoUploading ? 'Ýüklenýär...' : 'Surat ýükle'}
+                  {photoUploading ? t.workers.photoUploading : t.workers.photoUpload}
                 </button>
                 {photoUrl && (
-                  <div style={{ fontSize: 11, color: 'var(--success)', marginTop: 4 }}>Surat bar</div>
+                  <div style={{ fontSize: 11, color: 'var(--success)', marginTop: 4 }}>{t.workers.photoExists}</div>
                 )}
               </div>
             </div>
@@ -173,7 +173,7 @@ export function WorkerFormModal({ initial, onClose, onSave }: WorkerFormModalPro
               <input value={form.name} onChange={set('name')} placeholder="ASHYROV BAYMYRAT" />
             </div>
             <div className="form-row">
-              <label className="form-label">Sicil No</label>
+              <label className="form-label">{t.workers.regNo}</label>
               <input
                 value={form.workerId}
                 onChange={set('workerId')}
@@ -185,41 +185,58 @@ export function WorkerFormModal({ initial, onClose, onSave }: WorkerFormModalPro
           </div>
           <div className="form-grid">
             <div className="form-row">
-              <label className="form-label">Görev</label>
+              <label className="form-label">{t.workers.profession}</label>
               <input value={form.profession} onChange={set('profession')} placeholder="BORU MONTAJ ISCISI" />
             </div>
             <div className="form-row">
-              <label className="form-label">Ekip (Brigade)</label>
+              <label className="form-label">{t.workers.team}</label>
               <input value={form.brigadeName} onChange={set('brigadeName')} placeholder="ALTYAPI EKIBI" />
             </div>
           </div>
           <div className="form-grid">
             <div className="form-row">
-              <label className="form-label">Mesai Sistemi</label>
+              <label className="form-label">{t.workers.overtimeSystem}</label>
               <select value={form.mesaiSistemi} onChange={set('mesaiSistemi')}>
-                {MESAI_SISTEMLERI.map(value => <option key={value}>{value}</option>)}
+                {MESAI_SISTEMLERI.map(value => <option key={value} value={value}>{value === 'Aylık' ? t.workers.mesaiMonthly : t.workers.mesaiHourly}</option>)}
               </select>
             </div>
             <div className="form-row">
               <label className="form-label">{t.workers.status}</label>
               <select value={form.status} onChange={event => setForm(previous => ({ ...previous, status: event.target.value as WorkerStatus }))}>
-                {WORKER_STATUSES.map(status => <option key={status}>{status}</option>)}
+                {WORKER_STATUSES.map(status => {
+                  const statusLabel: Record<string, string> = {
+                    Active: t.common.active,
+                    Inactive: t.workers.statusInactive,
+                    Suspended: t.workers.statusSuspended,
+                    Transferred: t.workers.statusTransferred,
+                    Terminated: t.workers.statusTerminated,
+                  }
+                  return <option key={status} value={status}>{statusLabel[status] ?? status}</option>
+                })}
               </select>
             </div>
           </div>
           <div className="form-grid">
             <div className="form-row">
-              <label className="form-label">Mobile Rol</label>
+              <label className="form-label">{t.workers.mobileRole}</label>
               <select value={form.mobileRole} onChange={event => setForm(previous => ({ ...previous, mobileRole: event.target.value as MobileRole }))}>
-                {MOBILE_ROLES.map(role => <option key={role} value={role}>{ROLE_LABELS[role]}</option>)}
+                {MOBILE_ROLES.map(role => {
+                  const roleLabel: Record<string, string> = {
+                    worker: t.workers.roleWorker,
+                    foreman: t.workers.roleForeman,
+                    site_chief: t.workers.roleSiteChief,
+                    section_chief: t.workers.roleSectionChief,
+                  }
+                  return <option key={role} value={role}>{roleLabel[role] ?? role}</option>
+                })}
               </select>
             </div>
             <div className="form-row">
-              <label className="form-label">Shift</label>
+              <label className="form-label">{t.workers.shift}</label>
               <select value={form.shift} onChange={set('shift')}>
-                <option value="">Bellenilmedik</option>
-                <option value="day">Gündiz</option>
-                <option value="night">Gije</option>
+                <option value="">{t.workers.shiftNone}</option>
+                <option value="day">{t.workers.dayShift}</option>
+                <option value="night">{t.workers.nightShift}</option>
               </select>
             </div>
           </div>
@@ -241,7 +258,7 @@ export function WorkerFormModal({ initial, onClose, onSave }: WorkerFormModalPro
                 onChange={event => setForm(previous => ({ ...previous, isStaff: event.target.checked }))}
                 style={{ width: 15, height: 15 }}
               />
-              Staff işçi (Aýlyk, ofis işçisi) - aýratyn notification
+              {t.workers.staffLabel}
             </label>
           </div>
         </div>

@@ -7,6 +7,7 @@ import {
   type DailySummaryRecord,
 } from "../api/attendanceEvents";
 import { workersApi, type WorkerApi } from "../api/workers";
+import { useTranslation } from "../i18n/useTranslation";
 
 const fmtTime = (ts: number) =>
   new Date(ts).toLocaleString("ru-RU", {
@@ -42,6 +43,7 @@ function LinkCardModal({
   onClose: () => void;
   onLinked: () => void;
 }) {
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
   const { data: workers = [] } = useQuery({
@@ -64,7 +66,7 @@ function LinkCardModal({
       onLinked();
       onClose();
     } catch (e: any) {
-      alert("Ýalňyşlyk: " + e.message);
+      alert(`${t.common.error}: ` + e.message);
     } finally {
       setSaving(false);
     }
@@ -81,14 +83,14 @@ function LinkCardModal({
       <div style={{ background: "var(--bg-card)", borderRadius: 12, padding: 24, width: 460, maxWidth: "95vw", maxHeight: "80vh", display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: 16, color: "var(--text-primary)" }}>Karta UID bellemek</h3>
+            <h3 style={{ margin: 0, fontSize: 16, color: "var(--text-primary)" }}>{t.nfcPage.linkCardTitle}</h3>
             <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--text-muted)", fontFamily: "monospace" }}>{cardUid}</p>
           </div>
           <button className="btn btn--secondary btn--sm" onClick={onClose}>✕</button>
         </div>
         <input
           className="input"
-          placeholder="Işçi gözle..."
+          placeholder={t.nfcPage.workerSearchPlaceholder}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           autoFocus
@@ -105,7 +107,7 @@ function LinkCardModal({
               <span style={{ fontWeight: 600 }}>{w.name}</span>
               <span style={{ color: "var(--text-muted)", fontSize: 12, marginLeft: 8 }}>{w.workerId}</span>
               {w.nfcCardUid && (
-                <span style={{ color: "#F59E0B", fontSize: 11, marginLeft: 8 }}>⚠ başga karta bar</span>
+                <span style={{ color: "#F59E0B", fontSize: 11, marginLeft: 8 }}>⚠ {t.nfcPage.anotherCard}</span>
               )}
             </button>
           ))}
@@ -116,6 +118,7 @@ function LinkCardModal({
 }
 
 function EventsTab({ date }: { date: string }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [linkCardUid, setLinkCardUid] = useState<string | null>(null);
   const { data: events = [], isLoading, error, refetch, dataUpdatedAt } = useQuery({
@@ -138,37 +141,37 @@ function EventsTab({ date }: { date: string }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
         {dataUpdatedAt > 0 && (
           <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-            Täzelenen: {new Date(dataUpdatedAt).toLocaleTimeString()}
+            {t.nfcPage.updated}: {new Date(dataUpdatedAt).toLocaleTimeString()}
           </span>
         )}
         <button className="btn btn--secondary btn--sm" onClick={() => refetch()} style={{ marginLeft: "auto" }}>
-          <RefreshCw size={13} /> Täzele
+          <RefreshCw size={13} /> {t.nfcPage.refresh}
         </button>
       </div>
 
       {error && (
         <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 8, padding: "12px 16px", color: "#EF4444", marginBottom: 16 }}>
-          Backend bağlantısı yok. Backend çalışıyor mu?
+          {t.nfcPage.backendError}
         </div>
       )}
 
       <div className="card">
         <div className="card-body card-body--p0">
           {isLoading ? (
-            <div className="empty-state">Ýüklenýär…</div>
+            <div className="empty-state">{t.common.loading}</div>
           ) : events.length === 0 ? (
-            <div className="empty-state">Bu gün wakalar ýok.</div>
+            <div className="empty-state">{t.nfcPage.noEventsToday}</div>
           ) : (
             <div className="table-wrap">
               <table>
                 <thead>
                   <tr>
                     <th>#</th>
-                    <th>Işçi ady</th>
-                    <th>Taб. №</th>
-                    <th>Karta UID</th>
-                    <th>Görnüşi</th>
-                    <th>Wagt</th>
+                    <th>{t.nfcPage.colWorkerName}</th>
+                    <th>{t.nfcPage.colTabNo}</th>
+                    <th>{t.nfcPage.colCardUid}</th>
+                    <th>{t.nfcPage.colType}</th>
+                    <th>{t.nfcPage.colTime}</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -179,7 +182,7 @@ function EventsTab({ date }: { date: string }) {
                       <tr key={ev.id} style={unknown ? { background: "rgba(239,68,68,0.04)" } : undefined}>
                         <td style={{ color: "var(--text-muted)", fontSize: 12 }}>{i + 1}</td>
                         <td style={{ fontWeight: 600, color: unknown ? "#EF4444" : undefined }}>
-                          {unknown ? "⚠ Näbelli" : ev.workerName}
+                          {unknown ? `⚠ ${t.nfcPage.unknown}` : ev.workerName}
                         </td>
                         <td style={{ color: "var(--text-secondary)" }}>{ev.employeeNumber || "—"}</td>
                         <td style={{ fontFamily: "monospace", fontSize: 12, color: "var(--text-muted)" }}>{ev.cardUid}</td>
@@ -190,7 +193,7 @@ function EventsTab({ date }: { date: string }) {
                             background: ev.eventType === "CHECK_IN" ? "rgba(16,185,129,0.15)" : "rgba(245,158,11,0.15)",
                             color: ev.eventType === "CHECK_IN" ? "#10B981" : "#F59E0B",
                           }}>
-                            {ev.eventType === "CHECK_IN" ? <><LogIn size={12} /> Giriş</> : <><LogOut size={12} /> Çykyş</>}
+                            {ev.eventType === "CHECK_IN" ? <><LogIn size={12} /> {t.nfcPage.checkIn}</> : <><LogOut size={12} /> {t.nfcPage.checkOut}</>}
                           </span>
                         </td>
                         <td style={{ fontSize: 13 }}>{fmtTime(ev.eventTime)}</td>
@@ -201,7 +204,7 @@ function EventsTab({ date }: { date: string }) {
                               style={{ fontSize: 11, display: "inline-flex", alignItems: "center", gap: 4 }}
                               onClick={() => setLinkCardUid(ev.cardUid)}
                             >
-                              <Link2 size={11} /> Işçä bellemek
+                              <Link2 size={11} /> {t.nfcPage.assignToWorker}
                             </button>
                           )}
                         </td>
@@ -219,6 +222,7 @@ function EventsTab({ date }: { date: string }) {
 }
 
 function SummaryTab({ date }: { date: string }) {
+  const { t } = useTranslation();
   const { data: summary = [], isLoading, error, refetch } = useQuery({
     queryKey: ["nfc-daily-summary", date],
     queryFn: () => attendanceEventsApi.dailySummary(date || undefined),
@@ -230,32 +234,32 @@ function SummaryTab({ date }: { date: string }) {
     <>
       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
         <button className="btn btn--secondary btn--sm" onClick={() => refetch()}>
-          <RefreshCw size={13} /> Täzele
+          <RefreshCw size={13} /> {t.nfcPage.refresh}
         </button>
       </div>
 
       {error && (
         <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 8, padding: "12px 16px", color: "#EF4444", marginBottom: 16 }}>
-          Backend bağlantısı yok.
+          {t.nfcPage.backendError}
         </div>
       )}
 
       <div className="card">
         <div className="card-body card-body--p0">
           {isLoading ? (
-            <div className="empty-state">Ýüklenýär…</div>
+            <div className="empty-state">{t.common.loading}</div>
           ) : summary.length === 0 ? (
-            <div className="empty-state">Bu gün maglumat ýok.</div>
+            <div className="empty-state">{t.nfcPage.noDataToday}</div>
           ) : (
             <div className="table-wrap">
               <table>
                 <thead>
                   <tr>
                     <th>#</th>
-                    <th>Işçi ady</th>
-                    <th>Taб. №</th>
-                    <th>Seanslary</th>
-                    <th style={{ color: "#6366F1" }}>⏱ Jemi işlän wagty</th>
+                    <th>{t.nfcPage.colWorkerName}</th>
+                    <th>{t.nfcPage.colTabNo}</th>
+                    <th>{t.nfcPage.colSessions}</th>
+                    <th style={{ color: "#6366F1" }}>⏱ {t.nfcPage.colTotalTime}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -280,7 +284,7 @@ function SummaryTab({ date }: { date: string }) {
                                   </span>
                                 </span>
                               ) : (
-                                <span style={{ color: "#10B981", fontSize: 11 }}>işde</span>
+                                <span style={{ color: "#10B981", fontSize: 11 }}>{t.nfcPage.working}</span>
                               )}
                             </div>
                           ))}
@@ -305,6 +309,7 @@ function SummaryTab({ date }: { date: string }) {
 }
 
 export function NfcEventsPage() {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>("summary");
   const [date, setDate] = useState(today());
 
@@ -313,9 +318,9 @@ export function NfcEventsPage() {
       <div className="page-header">
         <div>
           <h1 className="page-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <ScanLine size={22} /> NFC Gatnaw Žurnaly
+            <ScanLine size={22} /> {t.nfcPage.title}
           </h1>
-          <p className="page-subtitle">Android planşetden geçen NFC geçişleri</p>
+          <p className="page-subtitle">{t.nfcPage.subtitle}</p>
         </div>
         <input
           type="date"
@@ -326,13 +331,13 @@ export function NfcEventsPage() {
       </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        {(["summary", "events"] as Tab[]).map((t) => (
+        {(["summary", "events"] as Tab[]).map((tabKey) => (
           <button
-            key={t}
-            className={`btn btn--sm ${tab === t ? "btn--primary" : "btn--secondary"}`}
-            onClick={() => setTab(t)}
+            key={tabKey}
+            className={`btn btn--sm ${tab === tabKey ? "btn--primary" : "btn--secondary"}`}
+            onClick={() => setTab(tabKey)}
           >
-            {t === "summary" ? "Günlük Jemi" : "Ähli Skanlar"}
+            {tabKey === "summary" ? t.nfcPage.tabSummary : t.nfcPage.tabEvents}
           </button>
         ))}
       </div>

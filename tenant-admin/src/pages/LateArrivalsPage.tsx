@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Download, Sun, Moon, X, AlertCircle } from "lucide-react";
 import { absenceNotesApi } from "../api/absenceNotes";
 import { useUiPreferences } from "../app/providers/useUiPreferences";
+import { useTranslation } from "../i18n/useTranslation";
 
 type StaffFilter = "all" | "staff" | "workers";
 
@@ -22,6 +23,7 @@ function NoteModal({
   onClose: () => void;
   adminName: string;
 }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [note, setNote] = useState(existingNote ?? "");
   const [saving, setSaving] = useState(false);
@@ -29,7 +31,7 @@ function NoteModal({
 
   const save = async () => {
     if (!note.trim()) {
-      setErr("Sebäp ýazyň");
+      setErr(t.lateArrivals.reasonRequired);
       return;
     }
     setSaving(true);
@@ -58,7 +60,7 @@ function NoteModal({
     >
       <div className="modal-box" style={{ maxWidth: 420 }}>
         <div className="modal-header">
-          <h3>Sebäp — {workerName}</h3>
+          <h3>{t.lateArrivals.reasonTitle} — {workerName}</h3>
           <button className="btn btn--ghost btn--sm" onClick={onClose}>
             <X size={14} />
           </button>
@@ -88,12 +90,12 @@ function NoteModal({
               marginBottom: 8,
             }}
           >
-            Kart ýitdi, kesel, ýadyndan çykdy...
+            {t.lateArrivals.reasonHint}
           </p>
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="Gelip bilmedik sebäbi..."
+            placeholder={t.lateArrivals.reasonPlaceholder}
             rows={4}
             style={{
               width: "100%",
@@ -109,14 +111,14 @@ function NoteModal({
         </div>
         <div className="modal-footer">
           <button className="btn btn--secondary btn--sm" onClick={onClose}>
-            Ýap
+            {t.common.close}
           </button>
           <button
             className="btn btn--primary btn--sm"
             onClick={save}
             disabled={saving}
           >
-            {saving ? "Saklanýar…" : "Sakla"}
+            {saving ? t.common.saving : t.common.save}
           </button>
         </div>
       </div>
@@ -125,6 +127,7 @@ function NoteModal({
 }
 
 export function LateArrivalsPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useUiPreferences();
   const adminName = user?.name ?? "Admin";
@@ -173,8 +176,8 @@ export function LateArrivalsPage() {
   const nightWorkers = workers.filter((w) => w.shift === "night");
 
   const STAFF_FILTERS: { key: StaffFilter; label: string }[] = [
-    { key: "all", label: "Ähli" },
-    { key: "workers", label: "Işçiler" },
+    { key: "all", label: t.lateArrivals.allFilter },
+    { key: "workers", label: t.lateArrivals.workersFilter },
     { key: "staff", label: "Staff" },
   ];
 
@@ -184,7 +187,7 @@ export function LateArrivalsPage() {
         className="td-mono"
         style={{ fontSize: 11 }}
         onClick={() => navigate(`/workers/${w.workerEntityId}`)}
-        title="Detail açmak"
+        title={t.common.openDetail}
       >
         {w.workerId}
       </td>
@@ -219,14 +222,14 @@ export function LateArrivalsPage() {
             className="badge badge--dot badge--warning"
             style={{ fontSize: 11 }}
           >
-            <Sun size={10} /> Gündiz
+            <Sun size={10} /> {t.workers.dayShift}
           </span>
         ) : (
           <span
             className="badge badge--dot badge--neutral"
             style={{ fontSize: 11 }}
           >
-            <Moon size={10} /> Gije
+            <Moon size={10} /> {t.workers.nightShift}
           </span>
         )}
       </td>
@@ -258,7 +261,7 @@ export function LateArrivalsPage() {
             })
           }
         >
-          {w.absenceNote ? "Üýtget" : "+ Sebäp"}
+          {w.absenceNote ? t.lateArrivals.editReason : t.lateArrivals.addReason}
         </button>
       </td>
     </tr>
@@ -283,13 +286,13 @@ export function LateArrivalsPage() {
             )}
             <span style={{ fontWeight: 600, fontSize: 13 }}>{title}</span>
             <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-              (başlangyjy {settings.startTime}, çäk {deadline})
+              ({t.lateArrivals.shiftStartLabel} {settings.startTime}, {t.lateArrivals.deadlineLabel} {deadline})
             </span>
             <span
               className="badge badge--dot badge--danger"
               style={{ fontSize: 12 }}
             >
-              {rows.length} işçi
+              {rows.length} {t.lateArrivals.total}
             </span>
           </div>
         </div>
@@ -298,11 +301,11 @@ export function LateArrivalsPage() {
             <table>
               <thead>
                 <tr>
-                  <th>Sicil No</th>
-                  <th>İşçi</th>
-                  <th>Ekip</th>
-                  <th>Shift</th>
-                  <th>Sebäp</th>
+                  <th>{t.lateArrivals.regNo}</th>
+                  <th>{t.lateArrivals.worker}</th>
+                  <th>{t.lateArrivals.team}</th>
+                  <th>{t.lateArrivals.shift}</th>
+                  <th>{t.lateArrivals.reason}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -317,7 +320,7 @@ export function LateArrivalsPage() {
   return (
     <>
       <div className="page-header">
-        <h1>Gelmedi — {date}</h1>
+        <h1>{t.lateArrivals.title} — {date}</h1>
         <div className="page-actions">
           <button className="btn btn--secondary btn--sm" onClick={exportExcel}>
             <Download size={13} /> Excel
@@ -346,9 +349,8 @@ export function LateArrivalsPage() {
             alignSelf: "center",
           }}
         >
-          Jemi:{" "}
-          <strong style={{ color: "var(--danger)" }}>{workers.length}</strong>{" "}
-          işçi
+          {t.lateArrivals.total}:{" "}
+          <strong style={{ color: "var(--danger)" }}>{workers.length}</strong>
         </span>
       </div>
 
@@ -361,26 +363,26 @@ export function LateArrivalsPage() {
             color: "var(--text-muted)",
           }}
         >
-          Ýüklenýär…
+          {t.common.loading}
         </div>
       ) : workers.length === 0 ? (
         <div className="card" style={{ padding: 40, textAlign: "center" }}>
           <div style={{ fontSize: 32, marginBottom: 8 }}>✅</div>
           <p style={{ color: "var(--text-muted)", fontSize: 14 }}>
-            Ähli işçiler geldi ýa-da heniz iş başlangy wagty geçmedi.
+            {t.lateArrivals.allArrived}
           </p>
         </div>
       ) : (
         <>
           {renderTable(
             dayWorkers,
-            "Gündiz shift — gelmänler",
+            t.lateArrivals.dayShiftMissing,
             daySettings,
             "day",
           )}
           {renderTable(
             nightWorkers,
-            "Gije shift — gelmänler",
+            t.lateArrivals.nightShiftMissing,
             nightSettings,
             "night",
           )}

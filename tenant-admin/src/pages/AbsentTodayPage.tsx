@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Search, WifiOff } from "lucide-react";
 import { workersApi } from "../api/workers";
 import { foremansApi } from "../api/foremans";
+import { useTranslation } from "../i18n/useTranslation";
 
 // Returns today's work date: if current hour >= 7 → today, else → yesterday
 function getWorkDate(): string {
@@ -16,6 +17,7 @@ function getWorkDate(): string {
 }
 
 export function AbsentTodayPage() {
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [foremanFilter, setForemanFilter] = useState("all");
 
@@ -55,10 +57,10 @@ export function AbsentTodayPage() {
       <div className="page-header">
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <WifiOff size={20} style={{ color: "var(--danger)" }} />
-          <h1>Bu günki kart skan etmedik işçiler</h1>
+          <h1>{t.absentPage.title}</h1>
         </div>
         <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
-          Iş güni: <strong>{workDate}</strong>
+          {t.absentPage.workDate}: <strong>{workDate}</strong>
         </div>
       </div>
 
@@ -69,7 +71,7 @@ export function AbsentTodayPage() {
               <Search size={14} />
               <input
                 className="search-input"
-                placeholder="Ady ýa-da Sicil No..."
+                placeholder={t.absentPage.searchPlaceholder}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -79,7 +81,7 @@ export function AbsentTodayPage() {
               value={foremanFilter}
               onChange={(e) => setForemanFilter(e.target.value)}
             >
-              <option value="all">Ähli foremen</option>
+              <option value="all">{t.absentPage.allForemen}</option>
               {foremans.map((f) => (
                 <option key={f.id} value={f.id}>
                   {f.name}
@@ -88,7 +90,7 @@ export function AbsentTodayPage() {
             </select>
           </div>
           <span className="text-xs text-muted">
-            {filtered.length} işçi skan etmedi
+            {filtered.length} {t.absentPage.notScannedCount}
           </span>
         </div>
 
@@ -97,11 +99,11 @@ export function AbsentTodayPage() {
             <table>
               <thead>
                 <tr>
-                  <th>Sicil No</th>
-                  <th>İnsan Adı</th>
-                  <th>Görev</th>
-                  <th>Ekip</th>
-                  <th>Mesai Sistemi</th>
+                  <th>{t.absentPage.regNo}</th>
+                  <th>{t.absentPage.fullName}</th>
+                  <th>{t.absentPage.profession}</th>
+                  <th>{t.absentPage.team}</th>
+                  <th>{t.absentPage.overtimeSystem}</th>
                 </tr>
               </thead>
               <tbody>
@@ -109,7 +111,7 @@ export function AbsentTodayPage() {
                   <tr>
                     <td colSpan={5}>
                       <div className="empty-state">
-                        <p>Ýüklenýär…</p>
+                        <p>{t.common.loading}</p>
                       </div>
                     </td>
                   </tr>
@@ -119,7 +121,7 @@ export function AbsentTodayPage() {
                       <div className="empty-state">
                         <WifiOff size={32} style={{ color: "var(--success)" }} />
                         <p style={{ color: "var(--success)" }}>
-                          Ähli işçiler skan etdi!
+                          {t.absentPage.allScanned}
                         </p>
                       </div>
                     </td>
@@ -143,7 +145,7 @@ export function AbsentTodayPage() {
                               : "badge--success"
                           }`}
                         >
-                          {w.mesaiSistemi ?? "Saatlik"}
+                          {(w.mesaiSistemi ?? "Saatlik") === "Aylık" ? t.workers.mesaiMonthly : t.workers.mesaiHourly}
                         </span>
                       </td>
                     </tr>

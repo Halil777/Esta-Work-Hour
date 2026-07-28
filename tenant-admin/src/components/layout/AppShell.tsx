@@ -12,15 +12,15 @@ function getPageTitle(pathname: string, t: ReturnType<typeof import('../../i18n/
     '/overtime': t.nav.overtime,
     '/nfc-events': t.nav.nfcEvents,
     '/history': t.nav.history,
-    '/absent-today': 'Skan etmedikler',
-    '/late-arrivals': 'Gijä galan işçiler',
-    '/site-chiefs': 'Site Chiefs',
-    '/section-chiefs': 'Bölüm Başlyklary',
-    '/terminated-workers': 'İşden Bosadylanlar',
-    '/reports': 'İş Sagat Hasabaty',
+    '/absent-today': t.nav.absent,
+    '/late-arrivals': t.nav.lateArrivals,
+    '/site-chiefs': t.nav.siteChiefs,
+    '/section-chiefs': t.nav.sectionChiefs,
+    '/terminated-workers': t.nav.terminatedWorkers,
+    '/reports': t.nav.workHoursReport,
     '/settings': t.nav.settings,
   }
-  if (pathname.startsWith('/workers/')) return 'İşçi profili'
+  if (pathname.startsWith('/workers/')) return t.nav.workerProfile
   return map[pathname] ?? 'Tenant Admin'
 }
 

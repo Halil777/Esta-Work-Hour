@@ -4,6 +4,7 @@ import { AlertCircle, Download, History, Mail, RefreshCw, Send, X } from 'lucide
 import { workersApi, type WorkerLifecycleReport } from '../../api/workers'
 import { fmtDateTime } from '../../utils/dateTime'
 import { Badge } from '../ui/Badge'
+import { useTranslation } from '../../i18n/useTranslation'
 
 type WorkerLifecycleReportHistoryModalProps = {
   onClose: () => void
@@ -11,6 +12,7 @@ type WorkerLifecycleReportHistoryModalProps = {
 }
 
 export function WorkerLifecycleReportHistoryModal({ onClose, onChanged }: WorkerLifecycleReportHistoryModalProps) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [error, setError] = useState('')
   const { data: reports = [], isLoading } = useQuery({
@@ -28,13 +30,13 @@ export function WorkerLifecycleReportHistoryModal({ onClose, onChanged }: Worker
   const resendMutation = useMutation({
     mutationFn: (batchId: string) => workersApi.resendLifecycleReport(batchId),
     onSuccess: refresh,
-    onError: (error: Error) => setError(error.message || 'Report ugratmak başartmady'),
+    onError: (error: Error) => setError(error.message || t.lifecycleHistory.errorSend),
   })
 
   const sendPendingMutation = useMutation({
     mutationFn: workersApi.sendPendingLifecycleReports,
     onSuccess: refresh,
-    onError: (error: Error) => setError(error.message || 'Pending report ugratmak başartmady'),
+    onError: (error: Error) => setError(error.message || t.lifecycleHistory.errorSendPending),
   })
 
   const handleDownload = async (report: WorkerLifecycleReport) => {
@@ -42,7 +44,7 @@ export function WorkerLifecycleReportHistoryModal({ onClose, onChanged }: Worker
     try {
       await workersApi.downloadLifecycleReport(report.batchId)
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Download başartmady')
+      setError(error instanceof Error ? error.message : t.lifecycleHistory.errorDownload)
     }
   }
 
@@ -51,18 +53,18 @@ export function WorkerLifecycleReportHistoryModal({ onClose, onChanged }: Worker
       <div className="modal-box" style={{ maxWidth: 920 }}>
         <div className="modal-header">
           <h3 style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-            <History size={17} /> Lifecycle report history
+            <History size={17} /> {t.lifecycleHistory.title}
           </h3>
           <button className="btn btn--ghost btn--sm" type="button" onClick={onClose}><X size={14} /></button>
         </div>
         <div className="modal-body">
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-              Ugradylan, fail bolan we gaýtadan ugradylan worker lifecycle Excel reportlary.
+              {t.lifecycleHistory.description}
             </span>
             <div style={{ display: 'flex', gap: 6 }}>
               <button className="btn btn--secondary btn--sm" type="button" onClick={refresh}>
-                <RefreshCw size={13} /> Täzele
+                <RefreshCw size={13} /> {t.lifecycleHistory.refresh}
               </button>
               <button
                 className="btn btn--primary btn--sm"
@@ -70,7 +72,7 @@ export function WorkerLifecycleReportHistoryModal({ onClose, onChanged }: Worker
                 onClick={() => { setError(''); sendPendingMutation.mutate() }}
                 disabled={sendPendingMutation.isPending}
               >
-                <Send size={13} /> {sendPendingMutation.isPending ? 'Ugradylýar...' : 'Pending ugrat'}
+                <Send size={13} /> {sendPendingMutation.isPending ? t.lifecycleHistory.sending : t.lifecycleHistory.sendPending}
               </button>
             </div>
           </div>
@@ -83,28 +85,28 @@ export function WorkerLifecycleReportHistoryModal({ onClose, onChanged }: Worker
             <table>
               <thead>
                 <tr>
-                  <th>Status</th>
-                  <th>Batch</th>
-                  <th>Event</th>
-                  <th>Recipients</th>
-                  <th>Wagt</th>
+                  <th>{t.lifecycleHistory.colStatus}</th>
+                  <th>{t.lifecycleHistory.colBatch}</th>
+                  <th>{t.lifecycleHistory.colEvent}</th>
+                  <th>{t.lifecycleHistory.colRecipients}</th>
+                  <th>{t.lifecycleHistory.colTime}</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading ? (
-                  <tr><td colSpan={6}><div className="empty-state"><p>Ýüklenýär...</p></div></td></tr>
+                  <tr><td colSpan={6}><div className="empty-state"><p>{t.common.loading}</p></div></td></tr>
                 ) : reports.length === 0 ? (
-                  <tr><td colSpan={6}><div className="empty-state"><Mail size={32} /><p>Heniz lifecycle report ýok</p></div></td></tr>
+                  <tr><td colSpan={6}><div className="empty-state"><Mail size={32} /><p>{t.lifecycleHistory.noReports}</p></div></td></tr>
                 ) : reports.map(report => (
                   <tr key={report.id}>
                     <td>
                       <Badge dot variant={report.status === 'sent' ? 'success' : 'danger'}>
-                        {report.status === 'sent' ? 'Ugradyldy' : 'Fail'}
+                        {report.status === 'sent' ? t.lifecycleHistory.statusSent : t.lifecycleHistory.statusFailed}
                       </Badge>
                       {report.resendCount > 0 && (
                         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>
-                          resend: {report.resendCount}
+                          {t.lifecycleHistory.resendLabel}: {report.resendCount}
                         </div>
                       )}
                     </td>
@@ -131,7 +133,7 @@ export function WorkerLifecycleReportHistoryModal({ onClose, onChanged }: Worker
                       <div style={{ fontSize: 12 }}>{fmtDateTime(report.sentAt ?? report.createdAt)}</div>
                       {report.resentAt && (
                         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>
-                          resend: {fmtDateTime(report.resentAt)}
+                          {t.lifecycleHistory.resendLabel}: {fmtDateTime(report.resentAt)}
                         </div>
                       )}
                     </td>
@@ -158,7 +160,7 @@ export function WorkerLifecycleReportHistoryModal({ onClose, onChanged }: Worker
           </div>
         </div>
         <div className="modal-footer">
-          <button className="btn btn--secondary btn--sm" type="button" onClick={onClose}>Ýap</button>
+          <button className="btn btn--secondary btn--sm" type="button" onClick={onClose}>{t.common.close}</button>
         </div>
       </div>
     </div>

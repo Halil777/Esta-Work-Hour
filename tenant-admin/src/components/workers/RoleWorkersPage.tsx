@@ -4,6 +4,7 @@ import { KeyRound, Search } from 'lucide-react'
 import { workersApi, type MobileRole, type WorkerApi } from '../../api/workers'
 import { CredentialBadge, CredentialModal } from './CredentialAccess'
 import { Badge, type BadgeVariant } from '../ui/Badge'
+import { useTranslation } from '../../i18n/useTranslation'
 
 type RoleWorkersColumn = {
   header: string
@@ -30,9 +31,10 @@ export function RoleWorkersPage({
   description,
   emptyIcon,
   emptyText,
-  emptySearchText = 'Netije ýok',
+  emptySearchText,
   columns,
 }: RoleWorkersPageProps) {
+  const { t } = useTranslation()
   const [credentialWorker, setCredentialWorker] = useState<WorkerApi | null>(null)
   const [search, setSearch] = useState('')
 
@@ -71,7 +73,7 @@ export function RoleWorkersPage({
             <input
               className="input"
               style={{ width: 240, paddingLeft: 32 }}
-              placeholder="Gözle..."
+              placeholder={t.common.search}
               value={search}
               onChange={event => setSearch(event.target.value)}
             />
@@ -90,7 +92,7 @@ export function RoleWorkersPage({
       ) : filtered.length === 0 ? (
         <div className="empty-state">
           {emptyIcon}
-          <p>{query ? emptySearchText : emptyText}</p>
+          <p>{query ? (emptySearchText ?? t.common.noData) : emptyText}</p>
         </div>
       ) : (
         <div className="table-wrap">
@@ -99,7 +101,7 @@ export function RoleWorkersPage({
               <tr>
                 {columns.map(column => <th key={column.header}>{column.header}</th>)}
                 <th>Credential</th>
-                <th></th>
+                <th />
               </tr>
             </thead>
             <tbody>
@@ -113,7 +115,7 @@ export function RoleWorkersPage({
                     <button
                       className="btn btn--ghost btn--sm"
                       type="button"
-                      title="Credential belleý"
+                      title="Credential"
                       onClick={() => setCredentialWorker(worker)}
                     >
                       <KeyRound size={14} />
