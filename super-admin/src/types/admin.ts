@@ -3,7 +3,7 @@ export type Language = 'en' | 'ru' | 'tr'
 
 export type AuthUser = {
   name: string
-  role: 'SuperAdmin' | 'CentralHR' | 'RegionalManager' | 'SystemAdmin' | 'Auditor'
+  role: 'SuperAdmin' | 'CentralHR' | 'RegionalManager' | 'SystemAdmin' | 'Auditor' | 'super_admin'
   email?: string
 }
 
