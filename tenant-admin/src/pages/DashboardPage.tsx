@@ -32,11 +32,6 @@ function StatCard({ value, label, sub, icon, color, bg, onClick }: {
   )
 }
 
-const ACTION_KEYS: Record<string, 'created' | 'updated' | 'deleted'> = {
-  CREATE: 'created',
-  UPDATE: 'updated',
-  DELETE: 'deleted',
-}
 
 function downloadDailyPdf(date: string) {
   const token = localStorage.getItem('adminJwt') ?? ''
