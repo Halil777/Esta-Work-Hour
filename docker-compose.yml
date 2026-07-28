@@ -1,59 +1,63 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: workhour-postgres
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: workhour
-      POSTGRES_USER: postgres
+      POSTGRES_DB: ${DB_NAME:-workhour}
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
-      - pgdata:/var/lib/postgresql/data
-    restart: unless-stopped
-    networks:
-      - workhour-net
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_NAME:-workhour}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: workhour-backend
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
+      TZ: Asia/Ashgabat
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_USERNAME: postgres
+      DB_USERNAME: ${DB_USERNAME:-postgres}
       DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: workhour
+      DB_NAME: ${DB_NAME:-workhour}
       PORT: 3002
-      JWT_SECRET: ${JWT_SECRET}
-    ports:
-      - "3002:3002"
-    depends_on:
-      - postgres
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-workhour-admin-2025}
+      MAIL_USER: ${MAIL_USER}
+      MAIL_PASS: ${MAIL_PASS}
+      SUPER_ADMIN_USERNAME: ${SUPER_ADMIN_USERNAME:-superadmin}
+      SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD}
+      SUPER_ADMIN_JWT_SECRET: ${SUPER_ADMIN_JWT_SECRET}
+    volumes:
+      - uploads_data:/app/uploads
+
+  tenant-admin:
+    build: ./tenant-admin
     restart: unless-stopped
-    networks:
-      - workhour-net
+
+  super-admin:
+    build: ./super-admin
+    restart: unless-stopped
 
   nginx:
     image: nginx:alpine
-    container_name: workhour-nginx
+    restart: unless-stopped
     ports:
       - "80:80"
-      - "3001:3001"
+      - "8080:8080"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./tenant-admin/dist:/usr/share/nginx/tenant-admin:ro
-      - ./super-admin/dist:/usr/share/nginx/super-admin:ro
     depends_on:
       - backend
-    restart: unless-stopped
-    networks:
-      - workhour-net
+      - tenant-admin
+      - super-admin
 
 volumes:
-  pgdata:
-
-networks:
-  workhour-net:
-    driver: bridge
+  postgres_data:
+  uploads_data:
