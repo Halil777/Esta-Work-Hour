@@ -1,0 +1,103 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { randomUUID } from 'crypto';
+import { ScannerDevice } from './scanner-device.entity';
+import { Worker } from '../workers/worker.entity';
+import { CreateScannerDeviceDto } from './dto/create-scanner-device.dto';
+import { UpdateScannerDeviceDto } from './dto/update-scanner-device.dto';
+
+@Injectable()
+export class ScannerDevicesService {
+  constructor(
+    @InjectRepository(ScannerDevice)
+    private readonly repo: Repository<ScannerDevice>,
+    @InjectRepository(Worker)
+    private readonly workerRepo: Repository<Worker>,
+  ) {}
+
+  async findAll(tenantId: string) {
+    const devices = await this.repo.find({
+      where: { tenantId },
+      order: { createdAt: 'ASC' },
+    });
+
+    // Attach operator worker name
+    return Promise.all(devices.map(async d => {
+      let operatorName: string | null = null;
+      if (d.workerEntityId) {
+        const w = await this.workerRepo.findOne({
+          where: { id: d.workerEntityId },
+          select: ['id', 'name', 'workerId'],
+        });
+        operatorName = w?.name ?? null;
+      }
+      const { token: _, ...rest } = d;
+      return { ...rest, operatorName, tokenPrefix: d.token.slice(0, 8) };
+    }));
+  }
+
+  async getToken(tenantId: string, id: string) {
+    const device = await this.repo.findOneBy({ id, tenantId });
+    if (!device) throw new NotFoundException('Enjam tapylmady');
+    return { token: device.token };
+  }
+
+  async create(tenantId: string, dto: CreateScannerDeviceDto) {
+    const token = randomUUID();
+    const device = this.repo.create({
+      tenantId,
+      label: dto.label,
+      token,
+      workerEntityId: dto.workerEntityId ?? null,
+      location: dto.location ?? null,
+      isActive: dto.isActive ?? true,
+    });
+    const saved = await this.repo.save(device);
+    // Return token once (on creation)
+    return { ...saved };
+  }
+
+  async update(tenantId: string, id: string, dto: UpdateScannerDeviceDto) {
+    const device = await this.repo.findOneBy({ id, tenantId });
+    if (!device) throw new NotFoundException('Enjam tapylmady');
+
+    if (dto.label !== undefined) device.label = dto.label;
+    if (dto.workerEntityId !== undefined) device.workerEntityId = dto.workerEntityId ?? null;
+    if (dto.location !== undefined) device.location = dto.location ?? null;
+    if (dto.isActive !== undefined) device.isActive = dto.isActive;
+
+    const saved = await this.repo.save(device);
+    const { token: _, ...rest } = saved;
+    return { ...rest, tokenPrefix: saved.token.slice(0, 8) };
+  }
+
+  async regenerateToken(tenantId: string, id: string) {
+    const device = await this.repo.findOneBy({ id, tenantId });
+    if (!device) throw new NotFoundException('Enjam tapylmady');
+    device.token = randomUUID();
+    const saved = await this.repo.save(device);
+    return { token: saved.token };
+  }
+
+  async remove(tenantId: string, id: string) {
+    const device = await this.repo.findOneBy({ id, tenantId });
+    if (!device) throw new NotFoundException('Enjam tapylmady');
+    await this.repo.remove(device);
+    return { success: true };
+  }
+
+  // Used by DeviceGuard
+  async findByToken(token: string): Promise<ScannerDevice | null> {
+    return this.repo.findOneBy({ token, isActive: true });
+  }
+
+  // Used by device setup login endpoint
+  async findByWorkerEntityId(workerEntityId: string): Promise<ScannerDevice | null> {
+    return this.repo.findOneBy({ workerEntityId, isActive: true });
+  }
+
+  async updateLastSeen(id: string) {
+    await this.repo.update(id, { lastSeenAt: new Date() });
+  }
+}

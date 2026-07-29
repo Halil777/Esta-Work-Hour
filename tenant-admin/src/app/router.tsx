@@ -15,6 +15,7 @@ import { TerminatedWorkersPage } from '../pages/TerminatedWorkersPage'
 import { WorkerDetailPage } from '../pages/WorkerDetailPage'
 import { LateArrivalsPage } from '../pages/LateArrivalsPage'
 import { ReportsPage } from '../pages/ReportsPage'
+import { ScannerDevicesPage } from '../pages/ScannerDevicesPage'
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -36,6 +37,7 @@ export const router = createBrowserRouter([
       { path: 'terminated-workers', element: <TerminatedWorkersPage /> },
       { path: 'late-arrivals', element: <LateArrivalsPage /> },
       { path: 'reports', element: <ReportsPage /> },
+      { path: 'scanner-devices', element: <ScannerDevicesPage /> },
       { path: 'settings', element: <SettingsPage /> },
     ],
   },

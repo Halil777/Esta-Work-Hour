@@ -36,6 +36,8 @@ import { WorkerLifecycleModule } from './worker-lifecycle/worker-lifecycle.modul
 import { TenantsModule } from './tenants/tenants.module';
 import { SuperAdminAuthModule } from './super-admin-auth/super-admin-auth.module';
 import { DeviceModule } from './device/device.module';
+import { ScannerDevicesModule } from './scanner-devices/scanner-devices.module';
+import { ScannerDevice } from './scanner-devices/scanner-device.entity';
 
 @Module({
   imports: [
@@ -54,7 +56,7 @@ import { DeviceModule } from './device/device.module';
           Worker, AttendanceEvent, AuditLog, Foreman, Brigadir,
           MobileCredential, ExtraHoursRequest, ExtraHoursRequestItem,
           ShiftSetting, AbsenceNote, AttendanceOverride, ReportConfig,
-          WorkerLifecycleEvent, WorkerLifecycleReport, Tenant,
+          WorkerLifecycleEvent, WorkerLifecycleReport, Tenant, ScannerDevice,
         ],
         synchronize: cfg.get('NODE_ENV', 'development') !== 'production',
       }),
@@ -62,6 +64,7 @@ import { DeviceModule } from './device/device.module';
     TenantsModule,
     SuperAdminAuthModule,
     DeviceModule,
+    ScannerDevicesModule,
     WorkersModule,
     AttendanceEventsModule,
     AuditLogModule,

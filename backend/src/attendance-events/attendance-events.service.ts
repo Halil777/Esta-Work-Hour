@@ -33,6 +33,7 @@ export class AttendanceEventsService {
 
   async syncEvents(dto: SyncEventsDto, tenantId?: string) {
     const results: { localId: number; serverId: string | null; status: string }[] = [];
+    const warnings: { employeeNumber: string; workerName: string; type: string; lastEventTime: number }[] = [];
     let synced = 0;
     let failed = 0;
 
@@ -42,11 +43,15 @@ export class AttendanceEventsService {
 
         // Resolve employeeNumber: if empty, try cardUid → worker mapping (scoped to tenant)
         let employeeNumber = item.employeeNumber ?? '';
+        let workerName = '';
         if (!employeeNumber && item.cardUid) {
           const byCard = await this.workerRepo.findOne({
             where: { nfcCardUid: item.cardUid, ...(tenantId ? { tenantId } : {}) },
           });
-          if (byCard) employeeNumber = byCard.workerId;
+          if (byCard) { employeeNumber = byCard.workerId; workerName = byCard.name; }
+        } else if (employeeNumber) {
+          const w = await this.workerRepo.findOne({ where: { workerId: employeeNumber, ...(tenantId ? { tenantId } : {}) } });
+          if (w) workerName = w.name;
         }
 
         const event = this.repo.create({
@@ -62,13 +67,42 @@ export class AttendanceEventsService {
         const saved = await this.repo.save(event) as AttendanceEvent;
         results.push({ localId: item.localId, serverId: saved.id, status: 'SYNCED' });
         synced++;
+
+        // Cross-device double-scan detection: if CHECK_IN and worker already has open session today
+        if (eventType === EventType.CHECK_IN && employeeNumber) {
+          const todayStart = new Date(item.eventTime);
+          todayStart.setHours(0, 0, 0, 0);
+          const recentEvents: { eventType: string; eventTime: string }[] = await this.repo.query(
+            `SELECT "eventType", "eventTime" FROM attendance_events
+             WHERE "employeeNumber" = $1
+               AND "id" != $2
+               AND "eventTime" >= $3
+               AND "eventTime" <= $4
+             ORDER BY "eventTime" ASC`,
+            [employeeNumber, saved.id, todayStart.getTime(), item.eventTime],
+          );
+          // Check if there is an open CHECK_IN (no subsequent CHECK_OUT)
+          let openCheckIn: number | null = null;
+          for (const ev of recentEvents) {
+            if (ev.eventType === 'CHECK_IN') openCheckIn = Number(ev.eventTime);
+            else openCheckIn = null;
+          }
+          if (openCheckIn !== null) {
+            warnings.push({
+              employeeNumber,
+              workerName: workerName || employeeNumber,
+              type: 'ALREADY_CHECKED_IN',
+              lastEventTime: openCheckIn,
+            });
+          }
+        }
       } catch {
         results.push({ localId: item.localId, serverId: null, status: 'FAILED' });
         failed++;
       }
     }
 
-    return { synced, failed, results };
+    return { synced, failed, results, warnings };
   }
 
   async findAll(date?: string, limit = 500, tenantId?: string) {
