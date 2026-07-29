@@ -20,6 +20,9 @@ export class Tenant {
   @Column({ default: true })
   isActive: boolean;
 
+  @Column({ type: 'varchar', nullable: true, default: null })
+  deviceToken: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

@@ -1,7 +1,9 @@
 import type { AuthUser } from '../types/tenant';
+import { apiFetch } from './http';
 
 export type AdminLoginResponse = {
   token: string;
+  deviceToken: string | null;
   user: AuthUser;
 };
 
@@ -18,4 +20,10 @@ export const adminAuthApi = {
     }
     return res.json();
   },
+
+  getDeviceToken: (): Promise<{ deviceToken: string | null }> =>
+    apiFetch('/admin/auth/device-token'),
+
+  regenerateDeviceToken: (): Promise<{ deviceToken: string }> =>
+    apiFetch('/admin/auth/device-token/regenerate', { method: 'POST' }),
 };

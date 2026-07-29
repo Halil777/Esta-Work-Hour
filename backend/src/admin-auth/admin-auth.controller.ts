@@ -1,7 +1,8 @@
-import { Controller, Post, Body, UnauthorizedException } from '@nestjs/common';
+import { Controller, Post, Get, Body, UseGuards, Req, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { ADMIN_JWT_SECRET } from './admin-auth.constants';
+import { AdminJwtGuard } from './admin-auth.guard';
 import { TenantsService } from '../tenants/tenants.service';
 
 @Controller('admin/auth')
@@ -41,6 +42,7 @@ export class AdminAuthController {
 
     return {
       token,
+      deviceToken: tenant.deviceToken,
       user: {
         id: tenant.id,
         name: tenant.name,
@@ -50,5 +52,17 @@ export class AdminAuthController {
         logoUrl: tenant.logoUrl,
       },
     };
+  }
+
+  @UseGuards(AdminJwtGuard)
+  @Get('device-token')
+  getDeviceToken(@Req() req: any) {
+    return this.tenantsService.getDeviceToken(req.adminUser.tenantId);
+  }
+
+  @UseGuards(AdminJwtGuard)
+  @Post('device-token/regenerate')
+  regenerateDeviceToken(@Req() req: any) {
+    return this.tenantsService.regenerateDeviceToken(req.adminUser.tenantId);
   }
 }

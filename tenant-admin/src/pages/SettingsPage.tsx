@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Sun, Moon, Mail, Clock, Plus, Trash2, Send } from 'lucide-react'
+import { Sun, Moon, Mail, Clock, Plus, Trash2, Send, Smartphone, Copy, Eye, EyeOff, RefreshCw } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from '../i18n/useTranslation'
 import { useUiPreferences } from '../app/providers/useUiPreferences'
 import { shiftSettingsApi } from '../api/shiftSettings'
 import { reportConfigApi, type ReportScheduleItem, type ReportType } from '../api/reportConfig'
+import { adminAuthApi } from '../api/adminAuth'
 import type { Language } from '../types/tenant'
 
 const LANGS: Array<{ key: Language; label: string }> = [
@@ -379,6 +380,123 @@ function ReportEmailsCard() {
   )
 }
 
+// ─── NFC Device Token Card ────────────────────────────────────────────────────
+
+function NfcDeviceCard() {
+  const qc = useQueryClient()
+  const [showToken, setShowToken] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['device-token'],
+    queryFn: adminAuthApi.getDeviceToken,
+    staleTime: 60_000,
+    initialData: () => {
+      const stored = localStorage.getItem('deviceToken')
+      return stored ? { deviceToken: stored } : undefined
+    },
+  })
+
+  const regenerateMutation = useMutation({
+    mutationFn: adminAuthApi.regenerateDeviceToken,
+    onSuccess: (result) => {
+      localStorage.setItem('deviceToken', result.deviceToken)
+      qc.setQueryData(['device-token'], { deviceToken: result.deviceToken })
+    },
+  })
+
+  const token = data?.deviceToken ?? ''
+  const serverUrl = window.location.origin
+
+  function copyToken() {
+    if (!token) return
+    navigator.clipboard.writeText(token).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  function copyServerUrl() {
+    navigator.clipboard.writeText(serverUrl)
+  }
+
+  return (
+    <div className="card" style={{ gridColumn: '1 / -1' }}>
+      <div className="card-header">
+        <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Smartphone size={16} /> NFC Enjam Sazlamalary
+        </h3>
+      </div>
+      <div className="card-body">
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16, marginTop: 0 }}>
+          EstaAttendance Android programmasy üçin aşakdaky maglumatlary programmanyň ilkinji işledilişinde giriziň.
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+
+          {/* Server URL */}
+          <div className="form-row">
+            <label className="form-label">Server URL</label>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <input readOnly value={serverUrl} style={{ flex: 1, fontSize: 12, fontFamily: 'monospace' }} />
+              <button className="btn btn--sm btn--secondary" onClick={copyServerUrl} title="Kopirle">
+                <Copy size={13} />
+              </button>
+            </div>
+          </div>
+
+          {/* Device Token */}
+          <div className="form-row">
+            <label className="form-label">Device Token</label>
+            {isLoading ? (
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Ýüklenýär...</span>
+            ) : (
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input
+                  readOnly
+                  value={showToken ? token : token ? '••••••••-••••-••••-••••-••••••••••••' : '—'}
+                  style={{ flex: 1, fontSize: 12, fontFamily: 'monospace', letterSpacing: showToken ? 0 : 2 }}
+                />
+                <button className="btn btn--sm btn--secondary" onClick={() => setShowToken(v => !v)} title={showToken ? 'Gizle' : 'Görkez'}>
+                  {showToken ? <EyeOff size={13} /> : <Eye size={13} />}
+                </button>
+                <button className="btn btn--sm btn--secondary" onClick={copyToken} title="Kopirle">
+                  {copied ? '✓' : <Copy size={13} />}
+                </button>
+              </div>
+            )}
+          </div>
+
+        </div>
+
+        <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 10, borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+          <button
+            className="btn btn--sm"
+            style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--warning)', color: '#000' }}
+            onClick={() => {
+              if (window.confirm('Token täzeden döredilensoň, enjamda täze token girizilmeli. Dowam etmelimi?')) {
+                regenerateMutation.mutate()
+              }
+            }}
+            disabled={regenerateMutation.isPending}
+          >
+            <RefreshCw size={13} />
+            {regenerateMutation.isPending ? 'Täzelenýär...' : 'Tokeni täzele'}
+          </button>
+          {regenerateMutation.isSuccess && (
+            <span style={{ fontSize: 12, color: 'var(--success)' }}>✓ Täze token döredildi</span>
+          )}
+          {regenerateMutation.isError && (
+            <span style={{ fontSize: 12, color: 'var(--danger)' }}>Ýalňyşlyk boldy</span>
+          )}
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto' }}>
+            Token gizlin saklaň — enjam bilen paýlaşyň
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function SettingsPage() {
@@ -438,6 +556,8 @@ export function SettingsPage() {
         <ShiftSettingsCard />
 
         <ReportEmailsCard />
+
+        <NfcDeviceCard />
       </div>
     </>
   )

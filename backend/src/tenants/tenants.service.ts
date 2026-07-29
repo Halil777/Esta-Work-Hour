@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
 import { Tenant } from './tenant.entity';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
@@ -41,6 +42,7 @@ export class TenantsService {
       adminPasswordHash,
       logoUrl: dto.logoUrl ?? null,
       isActive: dto.isActive ?? true,
+      deviceToken: randomUUID(),
     });
     const saved = await this.repo.save(tenant);
     const { adminPasswordHash: _, ...result } = saved;
@@ -74,5 +76,24 @@ export class TenantsService {
     if (!tenant) throw new NotFoundException(`Tenant ${id} tapylmady`);
     await this.repo.remove(tenant);
     return { success: true };
+  }
+
+  async findByDeviceToken(token: string): Promise<Tenant | null> {
+    return this.repo.findOneBy({ deviceToken: token, isActive: true });
+  }
+
+  async regenerateDeviceToken(id: string): Promise<{ deviceToken: string }> {
+    const tenant = await this.repo.findOneBy({ id });
+    if (!tenant) throw new NotFoundException(`Tenant ${id} tapylmady`);
+    const newToken = randomUUID();
+    tenant.deviceToken = newToken;
+    await this.repo.save(tenant);
+    return { deviceToken: newToken };
+  }
+
+  async getDeviceToken(id: string): Promise<{ deviceToken: string | null }> {
+    const tenant = await this.repo.findOneBy({ id });
+    if (!tenant) throw new NotFoundException(`Tenant ${id} tapylmady`);
+    return { deviceToken: tenant.deviceToken };
   }
 }

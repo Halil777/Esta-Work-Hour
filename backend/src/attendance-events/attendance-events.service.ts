@@ -31,7 +31,7 @@ export class AttendanceEventsService {
     return this.missingCheckoutsService.getMissingCheckouts(foremanWorkerEntityId);
   }
 
-  async syncEvents(dto: SyncEventsDto) {
+  async syncEvents(dto: SyncEventsDto, tenantId?: string) {
     const results: { localId: number; serverId: string | null; status: string }[] = [];
     let synced = 0;
     let failed = 0;
@@ -40,10 +40,12 @@ export class AttendanceEventsService {
       try {
         const eventType = item.eventType === 'CHECK_IN' ? EventType.CHECK_IN : EventType.CHECK_OUT;
 
-        // Resolve employeeNumber: if empty, try cardUid → worker mapping
+        // Resolve employeeNumber: if empty, try cardUid → worker mapping (scoped to tenant)
         let employeeNumber = item.employeeNumber ?? '';
         if (!employeeNumber && item.cardUid) {
-          const byCard = await this.workerRepo.findOne({ where: { nfcCardUid: item.cardUid } });
+          const byCard = await this.workerRepo.findOne({
+            where: { nfcCardUid: item.cardUid, ...(tenantId ? { tenantId } : {}) },
+          });
           if (byCard) employeeNumber = byCard.workerId;
         }
 
@@ -55,6 +57,7 @@ export class AttendanceEventsService {
           eventTime: item.eventTime,
           source: item.source,
           mobileLocalId: item.localId,
+          tenantId: tenantId ?? null,
         });
         const saved = await this.repo.save(event) as AttendanceEvent;
         results.push({ localId: item.localId, serverId: saved.id, status: 'SYNCED' });

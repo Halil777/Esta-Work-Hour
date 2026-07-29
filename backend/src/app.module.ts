@@ -35,6 +35,7 @@ import { ReportSchedulerModule } from './report-scheduler/report-scheduler.modul
 import { WorkerLifecycleModule } from './worker-lifecycle/worker-lifecycle.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { SuperAdminAuthModule } from './super-admin-auth/super-admin-auth.module';
+import { DeviceModule } from './device/device.module';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { SuperAdminAuthModule } from './super-admin-auth/super-admin-auth.module
     }),
     TenantsModule,
     SuperAdminAuthModule,
+    DeviceModule,
     WorkersModule,
     AttendanceEventsModule,
     AuditLogModule,

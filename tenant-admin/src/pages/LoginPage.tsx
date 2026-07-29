@@ -20,8 +20,9 @@ export function LoginPage() {
     setLoading(true)
     setError('')
     try {
-      const { token, user } = await adminAuthApi.login(username, password)
+      const { token, deviceToken, user } = await adminAuthApi.login(username, password)
       localStorage.setItem('adminJwt', token)
+      if (deviceToken) localStorage.setItem('deviceToken', deviceToken)
       login(user)
       navigate('/dashboard', { replace: true })
     } catch (e: any) {
