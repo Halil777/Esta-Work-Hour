@@ -35,20 +35,24 @@ function StatCard({ value, label, sub, icon, color, bg, onClick }: {
 
 function downloadDailyPdf(date: string) {
   const token = localStorage.getItem('adminJwt') ?? ''
-  const a = document.createElement('a')
-  a.href = `/api/reports/daily?date=${date}`
-  // Fetch with auth header then create blob URL
   fetch(`/api/reports/daily?date=${date}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   })
-    .then(r => r.blob())
+    .then(r => {
+      if (!r.ok) throw new Error(`PDF ýüklenip bilinmedi: ${r.status}`)
+      return r.blob()
+    })
     .then(blob => {
       const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
       a.href = url
       a.download = `daily-report-${date}.pdf`
+      document.body.appendChild(a)
       a.click()
-      URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
     })
+    .catch(err => alert(err.message))
 }
 
 export function DashboardPage() {

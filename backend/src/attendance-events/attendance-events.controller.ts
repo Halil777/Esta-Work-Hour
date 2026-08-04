@@ -49,19 +49,21 @@ export class AttendanceEventsController {
   @UseGuards(AdminJwtGuard)
   @Get('late-arrivals')
   getLateArrivals(
+    @Req() req: any,
     @Query('foremanWorkerEntityId') foremanWorkerEntityId?: string,
     @Query('staffFilter') staffFilter?: 'staff' | 'workers',
   ) {
-    return this.service.getLateArrivals(foremanWorkerEntityId, staffFilter);
+    return this.service.getLateArrivals(foremanWorkerEntityId, staffFilter, req.adminUser?.tenantId);
   }
 
   @UseGuards(AdminJwtGuard)
   @Get('late-arrivals/export')
   async exportLateArrivals(
+    @Req() req: any,
     @Query('staffFilter') staffFilter: 'staff' | 'workers' | undefined,
     @Res() res: Response,
   ) {
-    const buf = await this.service.exportLateArrivalsExcel(undefined, staffFilter);
+    const buf = await this.service.exportLateArrivalsExcel(undefined, staffFilter, req.adminUser?.tenantId);
     const date = new Date().toISOString().split('T')[0];
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="late-arrivals-${date}.xlsx"`);

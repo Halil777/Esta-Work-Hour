@@ -176,10 +176,25 @@ export const workersApi = {
     }),
 
   exportExcel: () => {
-    const a = document.createElement('a');
-    a.href = `/api/workers/export`;
-    a.download = '';
-    a.click();
+    const token = localStorage.getItem('adminJwt');
+    fetch('/api/workers/export', {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then(r => {
+        if (!r.ok) throw new Error(`Export failed: ${r.status}`);
+        return r.blob();
+      })
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `workers-${new Date().toISOString().split('T')[0]}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      })
+      .catch(err => console.error('Export error:', err));
   },
 
   importExcel: (file: File, changedBy?: string) => {

@@ -19,12 +19,12 @@ export class AttendanceEventsService {
     private readonly missingCheckoutsService: MissingCheckoutsService,
   ) {}
 
-  getLateArrivals(foremanWorkerEntityId?: string, staffFilter?: 'staff' | 'workers') {
-    return this.lateArrivalsService.getLateArrivals(foremanWorkerEntityId, staffFilter);
+  getLateArrivals(foremanWorkerEntityId?: string, staffFilter?: 'staff' | 'workers', tenantId?: string) {
+    return this.lateArrivalsService.getLateArrivals(foremanWorkerEntityId, staffFilter, tenantId);
   }
 
-  exportLateArrivalsExcel(foremanWorkerEntityId?: string, staffFilter?: 'staff' | 'workers') {
-    return this.lateArrivalsService.exportLateArrivalsExcel(foremanWorkerEntityId, staffFilter);
+  exportLateArrivalsExcel(foremanWorkerEntityId?: string, staffFilter?: 'staff' | 'workers', tenantId?: string) {
+    return this.lateArrivalsService.exportLateArrivalsExcel(foremanWorkerEntityId, staffFilter, tenantId);
   }
 
   getMissingCheckouts(foremanWorkerEntityId?: string) {

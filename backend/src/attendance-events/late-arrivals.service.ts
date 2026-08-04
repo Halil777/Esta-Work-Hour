@@ -15,12 +15,19 @@ export class LateArrivalsService {
     private readonly workerRepo: Repository<Worker>,
   ) {}
 
-  async getLateArrivals(foremanWorkerEntityId?: string, staffFilter?: 'staff' | 'workers') {
+  async getLateArrivals(foremanWorkerEntityId?: string, staffFilter?: 'staff' | 'workers', tenantId?: string) {
     const today = todayLocal();
     const currentMinutes = currentLocalMinutes();
 
     const shiftSettings: { shiftType: string; startTime: string; graceMinutes: number }[] =
-      await this.eventRepo.query(`SELECT "shiftType", "startTime", "graceMinutes" FROM shift_settings`).catch(() => []);
+      tenantId
+        ? await this.eventRepo.query(
+            `SELECT "shiftType", "startTime", "graceMinutes" FROM shift_settings WHERE "tenantId" = $1`,
+            [tenantId],
+          ).catch(() => [])
+        : await this.eventRepo.query(
+            `SELECT "shiftType", "startTime", "graceMinutes" FROM shift_settings WHERE "tenantId" IS NULL`,
+          ).catch(() => []);
 
     const settingsMap = new Map(shiftSettings.map(s => [s.shiftType, s]));
     const daySettings   = settingsMap.get('day')   ?? { startTime: '07:00', graceMinutes: 60 };
@@ -59,6 +66,10 @@ export class LateArrivalsService {
         { shifts: lateShifts },
       )
       .andWhere('w.status != :terminated', { terminated: 'Terminated' });
+
+    if (tenantId) {
+      qb = qb.andWhere('w.tenantId = :tenantId', { tenantId });
+    }
 
     if (foremanWorkerEntityId) {
       qb = qb.andWhere('w.foremanId = :fid', { fid: foremanWorkerEntityId });
@@ -102,8 +113,8 @@ export class LateArrivalsService {
     };
   }
 
-  async exportLateArrivalsExcel(foremanWorkerEntityId?: string, staffFilter?: 'staff' | 'workers'): Promise<Buffer> {
-    const result = await this.getLateArrivals(foremanWorkerEntityId, staffFilter);
+  async exportLateArrivalsExcel(foremanWorkerEntityId?: string, staffFilter?: 'staff' | 'workers', tenantId?: string): Promise<Buffer> {
+    const result = await this.getLateArrivals(foremanWorkerEntityId, staffFilter, tenantId);
     const rows = result.workers.map(w => ({
       'İşçi adı':      w.workerName,
       'Sicil No':       w.workerId,
