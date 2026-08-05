@@ -26,6 +26,8 @@ type WorkersFilterPanelProps = {
   onEndDateChange: (value: string) => void
   noScanFilter: boolean
   onNoScanFilterChange: (value: boolean) => void
+  hasScanFilter: boolean
+  onHasScanFilterChange: (value: boolean) => void
   activeFilterCount: number
   hasActiveFilters: boolean
   totalCount: number
@@ -34,7 +36,7 @@ type WorkersFilterPanelProps = {
   totalCountLabel: string
   statusLabel: (status: WorkerStatus) => string
   onClearFilters: () => void
-  onApplyTodayNoScan: () => void
+  onApplyTodayHasScan: () => void
   onApplyActiveWorkers: () => void
 }
 
@@ -56,6 +58,8 @@ export function WorkersFilterPanel({
   onEndDateChange,
   noScanFilter,
   onNoScanFilterChange,
+  hasScanFilter,
+  onHasScanFilterChange,
   activeFilterCount,
   hasActiveFilters,
   totalCount,
@@ -64,7 +68,7 @@ export function WorkersFilterPanel({
   totalCountLabel,
   statusLabel,
   onClearFilters,
-  onApplyTodayNoScan,
+  onApplyTodayHasScan,
   onApplyActiveWorkers,
 }: WorkersFilterPanelProps) {
   const { t } = useTranslation()
@@ -141,8 +145,8 @@ export function WorkersFilterPanel({
           <button className={`quick-chip${statusFilter === 'Active' ? ' active' : ''}`} type="button" onClick={onApplyActiveWorkers}>
             {t.workers.quickFilterActive}
           </button>
-          <button className={`quick-chip${noScanFilter ? ' active' : ''}`} type="button" onClick={onApplyTodayNoScan}>
-            {t.workers.quickFilterNoScan}
+          <button className={`quick-chip${hasScanFilter ? ' active' : ''}`} type="button" onClick={onApplyTodayHasScan}>
+            {t.workers.quickFilterHasScan}
           </button>
           <button className={`quick-chip${roleFilter === 'foreman' ? ' active' : ''}`} type="button" onClick={() => onRoleFilterChange('foreman')}>
             Foremen

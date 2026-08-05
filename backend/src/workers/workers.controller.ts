@@ -40,6 +40,7 @@ export class WorkersController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
     @Query('noScan') noScan?: string,
+    @Query('hasScan') hasScan?: string,
   ) {
     return this.service.findAll({
       search,
@@ -51,6 +52,7 @@ export class WorkersController {
       startDate,
       endDate,
       noScan: noScan === 'true',
+      hasScan: hasScan === 'true',
       tenantId: req.adminUser?.tenantId,
     });
   }
@@ -61,8 +63,28 @@ export class WorkersController {
   async exportExcel(
     @Req() req: any,
     @Res({ passthrough: true }) res: Response,
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('foremanId') foremanId?: string,
+    @Query('mobileRole') mobileRole?: string,
+    @Query('mesaiSistemi') mesaiSistemi?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('noScan') noScan?: string,
+    @Query('hasScan') hasScan?: string,
   ): Promise<StreamableFile> {
-    const buffer = await this.service.exportToExcel(req.adminUser?.tenantId);
+    const buffer = await this.service.exportToExcel({
+      tenantId: req.adminUser?.tenantId,
+      search,
+      status,
+      foremanId,
+      mobileRole,
+      mesaiSistemi,
+      startDate,
+      endDate,
+      noScan: noScan === 'true',
+      hasScan: hasScan === 'true',
+    });
     const date = new Date().toISOString().split('T')[0];
     res.set({
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

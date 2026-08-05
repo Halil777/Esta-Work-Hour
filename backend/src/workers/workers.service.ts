@@ -83,9 +83,10 @@ export class WorkersService {
     startDate?: string;
     endDate?: string;
     noScan?: boolean;
+    hasScan?: boolean;
     tenantId?: string;
   } = {}) {
-    const { search, brigadeId, status, foremanId, mobileRole, mesaiSistemi, startDate, endDate, noScan, tenantId } = params;
+    const { search, brigadeId, status, foremanId, mobileRole, mesaiSistemi, startDate, endDate, noScan, hasScan, tenantId } = params;
     const where: any[] = [];
     const statusFilter = status && status !== 'all' ? (status as WorkerStatus) : undefined;
     const brigadeFilter = brigadeId && brigadeId !== 'all' ? brigadeId : undefined;
@@ -169,6 +170,11 @@ export class WorkersService {
     // noScan filter: workers with no attendance events in the period
     if (noScan) {
       return result.filter(w => !eventsByWorker.has(w.workerId));
+    }
+
+    // hasScan filter: workers WITH attendance events in the period
+    if (hasScan) {
+      return result.filter(w => eventsByWorker.has(w.workerId));
     }
 
     return result;
@@ -297,8 +303,19 @@ export class WorkersService {
     return { photoUrl };
   }
 
-  async exportToExcel(tenantId?: string): Promise<Buffer> {
-    const workers = await this.findAll({ tenantId }) as any[];
+  async exportToExcel(params?: {
+    tenantId?: string;
+    search?: string;
+    status?: string;
+    foremanId?: string;
+    mobileRole?: string;
+    mesaiSistemi?: string;
+    startDate?: string;
+    endDate?: string;
+    noScan?: boolean;
+    hasScan?: boolean;
+  }): Promise<Buffer> {
+    const workers = await this.findAll(params ?? {}) as any[];
 
     const fmtTime = (ts: number | null) => {
       if (!ts) return '';

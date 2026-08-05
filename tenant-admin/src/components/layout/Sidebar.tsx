@@ -87,7 +87,7 @@ export function Sidebar() {
             <div className="user-name">{user?.name ?? 'Object Admin'}</div>
             <div className="user-role">{user?.role ?? 'Admin'}</div>
           </div>
-          <LogOut size={14} color="rgba(255,255,255,0.25)" />
+          <LogOut size={14} className="sidebar-logout-icon" />
         </div>
       </div>
     </aside>

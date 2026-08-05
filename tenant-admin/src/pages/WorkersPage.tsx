@@ -38,6 +38,7 @@ export function WorkersPage() {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [noScanFilter, setNoScanFilter] = useState(false)
+  const [hasScanFilter, setHasScanFilter] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
   const [editWorker, setEditWorker] = useState<WorkerApi | null>(null)
   const [showImport, setShowImport] = useState(false)
@@ -53,7 +54,7 @@ export function WorkersPage() {
   })
 
   const { data: workers = [], isLoading, error } = useQuery({
-    queryKey: ['workers', search, mesaiSistemi, statusFilter, foremanFilter, roleFilter, startDate, endDate, noScanFilter],
+    queryKey: ['workers', search, mesaiSistemi, statusFilter, foremanFilter, roleFilter, startDate, endDate, noScanFilter, hasScanFilter],
     queryFn: () => workersApi.list({
       search: search || undefined,
       mesaiSistemi: mesaiSistemi !== 'all' ? mesaiSistemi : undefined,
@@ -63,6 +64,7 @@ export function WorkersPage() {
       startDate: startDate || undefined,
       endDate: endDate || undefined,
       noScan: noScanFilter || undefined,
+      hasScan: hasScanFilter || undefined,
     }),
     refetchInterval: 30_000,
     staleTime: 15_000,
@@ -115,6 +117,7 @@ export function WorkersPage() {
     startDate,
     endDate,
     noScanFilter,
+    hasScanFilter,
   ].filter(Boolean).length
 
   const clearFilters = () => {
@@ -126,18 +129,21 @@ export function WorkersPage() {
     setStartDate('')
     setEndDate('')
     setNoScanFilter(false)
+    setHasScanFilter(false)
   }
 
-  const applyTodayNoScan = () => {
+  const applyTodayHasScan = () => {
     const date = todayIso()
     setStartDate(date)
     setEndDate(date)
-    setNoScanFilter(true)
+    setHasScanFilter(true)
+    setNoScanFilter(false)
   }
 
   const applyActiveWorkers = () => {
     setStatusFilter('Active')
     setNoScanFilter(false)
+    setHasScanFilter(false)
   }
 
   return (
@@ -157,7 +163,17 @@ export function WorkersPage() {
           <button className="btn btn--secondary btn--sm" type="button" onClick={() => setShowReportHistory(true)}>
             <History size={13} /> {t.workers.reportHistory}
           </button>
-          <button className="btn btn--secondary btn--sm" type="button" onClick={() => workersApi.exportExcel()}>
+          <button className="btn btn--secondary btn--sm" type="button" onClick={() => workersApi.exportExcel({
+            search: search || undefined,
+            mesaiSistemi: mesaiSistemi !== 'all' ? mesaiSistemi : undefined,
+            status: statusFilter !== 'all' ? statusFilter : undefined,
+            foremanId: foremanFilter !== 'all' ? foremanFilter : undefined,
+            mobileRole: roleFilter !== 'all' ? roleFilter : undefined,
+            startDate: startDate || undefined,
+            endDate: endDate || undefined,
+            noScan: noScanFilter || undefined,
+            hasScan: hasScanFilter || undefined,
+          })}>
             <Download size={13} /> {t.common.export}
           </button>
           <button className="btn btn--primary btn--sm" type="button" onClick={() => setShowAdd(true)}>
@@ -186,7 +202,9 @@ export function WorkersPage() {
           endDate={endDate}
           onEndDateChange={setEndDate}
           noScanFilter={noScanFilter}
-          onNoScanFilterChange={setNoScanFilter}
+          onNoScanFilterChange={v => { setNoScanFilter(v); if (v) setHasScanFilter(false) }}
+          hasScanFilter={hasScanFilter}
+          onHasScanFilterChange={v => { setHasScanFilter(v); if (v) setNoScanFilter(false) }}
           activeFilterCount={activeFilterCount}
           hasActiveFilters={activeFilterCount > 0}
           totalCount={workers.length}
@@ -195,7 +213,7 @@ export function WorkersPage() {
           totalCountLabel={t.workers.totalCount}
           statusLabel={status => t.status[status.toLowerCase() as keyof typeof t.status] ?? status}
           onClearFilters={clearFilters}
-          onApplyTodayNoScan={applyTodayNoScan}
+          onApplyTodayHasScan={applyTodayHasScan}
           onApplyActiveWorkers={applyActiveWorkers}
         />
 

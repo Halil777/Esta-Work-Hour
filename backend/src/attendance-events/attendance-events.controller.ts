@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Query, Req, Res, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Body, Query, Req, Res, UseGuards, StreamableFile } from '@nestjs/common';
 import type { Response } from 'express';
 import { AttendanceEventsService } from './attendance-events.service';
 import { SyncEventsDto } from './dto/sync-events.dto';
@@ -12,6 +12,22 @@ export class AttendanceEventsController {
   @Post('sync')
   syncEvents(@Body() dto: SyncEventsDto) {
     return this.service.syncEvents(dto);
+  }
+
+  @UseGuards(AdminJwtGuard)
+  @Get('events/export')
+  async exportEvents(
+    @Req() req: any,
+    @Res({ passthrough: true }) res: Response,
+    @Query('date') date?: string,
+  ): Promise<StreamableFile> {
+    const buffer = await this.service.exportEventsExcel(date, req.adminUser?.tenantId);
+    const label = date ?? new Date().toISOString().split('T')[0];
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="scans-${label}.xlsx"`,
+    });
+    return new StreamableFile(buffer);
   }
 
   @UseGuards(AdminJwtGuard)

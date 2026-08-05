@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ScanLine, RefreshCw, LogIn, LogOut, Clock, Link2 } from "lucide-react";
+import { ScanLine, RefreshCw, LogIn, LogOut, Clock, Link2, Download } from "lucide-react";
 import {
   attendanceEventsApi,
   type AttendanceEventRecord,
@@ -10,13 +10,13 @@ import { workersApi, type WorkerApi } from "../api/workers";
 import { useTranslation } from "../i18n/useTranslation";
 
 const fmtTime = (ts: number) =>
-  new Date(ts).toLocaleString("ru-RU", {
+  new Date(Number(ts)).toLocaleString("ru-RU", {
     day: "2-digit", month: "2-digit", year: "numeric",
     hour: "2-digit", minute: "2-digit", second: "2-digit",
   });
 
 const fmtTimeShort = (ts: number) =>
-  new Date(ts).toLocaleString("ru-RU", {
+  new Date(Number(ts)).toLocaleString("ru-RU", {
     hour: "2-digit", minute: "2-digit",
   });
 
@@ -117,6 +117,29 @@ function LinkCardModal({
   );
 }
 
+function downloadEventsExcel(date: string) {
+  const token = localStorage.getItem('adminJwt');
+  const qs = date ? `?date=${date}` : '';
+  fetch(`/api/attendance/events/export${qs}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+    .then(r => {
+      if (!r.ok) throw new Error(`Export failed: ${r.status}`);
+      return r.blob();
+    })
+    .then(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `scans-${date}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    })
+    .catch(err => console.error('Export error:', err));
+}
+
 function EventsTab({ date }: { date: string }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -144,9 +167,14 @@ function EventsTab({ date }: { date: string }) {
             {t.nfcPage.updated}: {new Date(dataUpdatedAt).toLocaleTimeString()}
           </span>
         )}
-        <button className="btn btn--secondary btn--sm" onClick={() => refetch()} style={{ marginLeft: "auto" }}>
-          <RefreshCw size={13} /> {t.nfcPage.refresh}
-        </button>
+        <div style={{ display: "flex", gap: 6, marginLeft: "auto" }}>
+          <button className="btn btn--secondary btn--sm" onClick={() => downloadEventsExcel(date)}>
+            <Download size={13} /> Excel
+          </button>
+          <button className="btn btn--secondary btn--sm" onClick={() => refetch()}>
+            <RefreshCw size={13} /> {t.nfcPage.refresh}
+          </button>
+        </div>
       </div>
 
       {error && (

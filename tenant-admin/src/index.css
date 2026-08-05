@@ -45,7 +45,7 @@
 
 [data-theme="light"] {
   --bg-app: #F5F7FA;
-  --bg-sidebar: #161A22;
+  --bg-sidebar: #FFFFFF;
   --bg-surface: #FFFFFF;
   --bg-surface-2: #F8FAFB;
   --bg-hover: rgba(0,0,0,0.03);
@@ -798,3 +798,25 @@ tbody tr:hover { background: var(--bg-hover); }
   .metric-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .form-grid { grid-template-columns: 1fr; }
 }
+
+/* ─── SIDEBAR LIGHT MODE ─── */
+.sidebar-logout-icon { color: rgba(255,255,255,0.25); }
+
+[data-theme="light"] .sidebar {
+  border-right-color: rgba(0,0,0,0.08);
+}
+[data-theme="light"] .sidebar-logo {
+  border-bottom-color: rgba(0,0,0,0.06);
+}
+[data-theme="light"] .sidebar-logo-text .company { color: #18181B; }
+[data-theme="light"] .sidebar-logo-text .object-name { color: #8A8F98; }
+[data-theme="light"] .nav-item { color: #71717A; }
+[data-theme="light"] .nav-item:hover { background: rgba(0,0,0,0.04); color: #18181B; }
+[data-theme="light"] .nav-item.active { background: rgba(37,99,235,0.1); color: #2563EB; }
+[data-theme="light"] .nav-item.active::before { background: #2563EB; }
+[data-theme="light"] .sidebar-section-label { color: #A1A1AA; }
+[data-theme="light"] .sidebar-footer { border-top-color: rgba(0,0,0,0.06); }
+[data-theme="light"] .user-name { color: #18181B; }
+[data-theme="light"] .user-role { color: #71717A; }
+[data-theme="light"] .user-card:hover { background: rgba(0,0,0,0.04); }
+[data-theme="light"] .sidebar-logout-icon { color: rgba(0,0,0,0.3); }

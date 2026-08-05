@@ -122,6 +122,7 @@ export const workersApi = {
     startDate?: string;
     endDate?: string;
     noScan?: boolean;
+    hasScan?: boolean;
   }) => {
     const qs = new URLSearchParams();
     if (params?.search) qs.set('search', params.search);
@@ -133,6 +134,7 @@ export const workersApi = {
     if (params?.startDate) qs.set('startDate', params.startDate);
     if (params?.endDate) qs.set('endDate', params.endDate);
     if (params?.noScan) qs.set('noScan', 'true');
+    if (params?.hasScan) qs.set('hasScan', 'true');
     const q = qs.toString();
     return request<WorkerApi[]>(`/workers${q ? '?' + q : ''}`);
   },
@@ -175,9 +177,30 @@ export const workersApi = {
       body: JSON.stringify(data),
     }),
 
-  exportExcel: () => {
+  exportExcel: (params?: {
+    search?: string;
+    status?: string;
+    foremanId?: string;
+    mobileRole?: string;
+    mesaiSistemi?: string;
+    startDate?: string;
+    endDate?: string;
+    noScan?: boolean;
+    hasScan?: boolean;
+  }) => {
     const token = localStorage.getItem('adminJwt');
-    fetch('/api/workers/export', {
+    const qs = new URLSearchParams();
+    if (params?.search) qs.set('search', params.search);
+    if (params?.status) qs.set('status', params.status);
+    if (params?.foremanId) qs.set('foremanId', params.foremanId);
+    if (params?.mobileRole) qs.set('mobileRole', params.mobileRole);
+    if (params?.mesaiSistemi) qs.set('mesaiSistemi', params.mesaiSistemi);
+    if (params?.startDate) qs.set('startDate', params.startDate);
+    if (params?.endDate) qs.set('endDate', params.endDate);
+    if (params?.noScan) qs.set('noScan', 'true');
+    if (params?.hasScan) qs.set('hasScan', 'true');
+    const q = qs.toString();
+    fetch(`/api/workers/export${q ? '?' + q : ''}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
       .then(r => {

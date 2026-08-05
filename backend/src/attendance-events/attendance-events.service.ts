@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
+import * as XLSX from 'xlsx';
 import { AttendanceEvent, EventType } from './attendance-event.entity';
 import { Worker } from '../workers/worker.entity';
 import { SyncEventsDto } from './dto/sync-events.dto';
@@ -302,6 +303,33 @@ export class AttendanceEventsService {
       days,
       totalMs,
     };
+  }
+
+  async exportEventsExcel(date?: string, tenantId?: string): Promise<Buffer> {
+    const events = await this.findAll(date, 5000, tenantId) as any[];
+
+    const fmtTime = (ts: number) => {
+      if (!ts) return '';
+      return new Date(Number(ts)).toLocaleString('ru-RU', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+      });
+    };
+
+    const rows = events.map((ev, i) => ({
+      '#': i + 1,
+      'Işçi Ady': ev.workerName || '?',
+      'Sicil No': ev.employeeNumber || '',
+      'Kart UID': ev.cardUid || '',
+      'Hadysa': ev.eventType === 'CHECK_IN' ? 'Giriş' : 'Çykyş',
+      'Wagt': fmtTime(ev.eventTime),
+      'Çeşme': ev.source || '',
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Scans');
+    return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
   }
 
 }
