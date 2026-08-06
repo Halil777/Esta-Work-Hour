@@ -16,6 +16,7 @@ import { WorkerDetailPage } from '../pages/WorkerDetailPage'
 import { LateArrivalsPage } from '../pages/LateArrivalsPage'
 import { ReportsPage } from '../pages/ReportsPage'
 import { ScannerDevicesPage } from '../pages/ScannerDevicesPage'
+import { CardReportsPage } from '../pages/CardReportsPage'
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -38,6 +39,7 @@ export const router = createBrowserRouter([
       { path: 'late-arrivals', element: <LateArrivalsPage /> },
       { path: 'reports', element: <ReportsPage /> },
       { path: 'scanner-devices', element: <ScannerDevicesPage /> },
+      { path: 'card-reports', element: <CardReportsPage /> },
       { path: 'settings', element: <SettingsPage /> },
     ],
   },

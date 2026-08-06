@@ -118,12 +118,12 @@ export class WorkersController {
 
   @Post('import/cards')
   @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
-  async importCards(@UploadedFile() file: Express.Multer.File) {
+  async importCards(@Req() req: any, @UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('No file uploaded');
     if (!file.originalname.match(/\.(xlsx|xls)$/i)) {
       throw new BadRequestException('Only .xlsx or .xls files are allowed');
     }
-    return this.service.importCardNumbers(file.buffer);
+    return this.service.importCardNumbers(file.buffer, req.adminUser?.tenantId);
   }
 
   // ── Parameterized routes ─────────────────────────────────────────────────────

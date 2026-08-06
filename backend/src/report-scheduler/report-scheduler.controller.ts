@@ -14,8 +14,12 @@ export class ReportSchedulerController {
     @Req() req: any,
     @Query('date') date?: string,
     @Query('reportType') reportType?: string,
+    @Query('lang') lang?: string,
   ) {
-    await this.service.sendNow(date, (reportType as ReportType) ?? 'daily_all', req.adminUser?.tenantId);
+    await this.service.sendNow(
+      date, (reportType as ReportType) ?? 'daily_all',
+      req.adminUser?.tenantId, req.adminUser?.tenantName, lang || 'tr',
+    );
     return { ok: true, message: 'Günlük hasabat iberildi' };
   }
 
@@ -27,11 +31,15 @@ export class ReportSchedulerController {
     @Body('endDate') endDate: string,
     @Body('workerIds') workerIds?: string[],
     @Body('customEmails') customEmails?: string[],
+    @Body('lang') lang?: string,
   ) {
     if (!startDate || !endDate) {
       throw new Error('startDate and endDate are required');
     }
-    await this.service.sendRange(startDate, endDate, workerIds, customEmails, req.adminUser?.tenantId);
+    await this.service.sendRange(
+      startDate, endDate, workerIds, customEmails,
+      req.adminUser?.tenantId, req.adminUser?.tenantName, lang || 'tr',
+    );
     return { ok: true, message: `Hasabat iberildi (${startDate} — ${endDate})` };
   }
 }

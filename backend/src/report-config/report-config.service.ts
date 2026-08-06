@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ReportConfig, ReportScheduleItem, MonthlySchedule } from './report-config.entity';
+import { ReportConfig, ReportScheduleItem, MonthlySchedule, DashboardSchedule } from './report-config.entity';
 
 const DEFAULT_MONTHLY: MonthlySchedule = {
   enabled: false,
@@ -105,5 +105,33 @@ export class ReportConfigService {
   // Returns all configs (for scheduler that processes all tenants)
   async getAllConfigs(): Promise<ReportConfig[]> {
     return this.repo.find();
+  }
+
+  // ─── Dashboard schedule ───────────────────────────────────────────────────────
+
+  private parseDashboardSchedule(cfg: ReportConfig): DashboardSchedule {
+    try { return JSON.parse(cfg.dashboardScheduleJson); } catch { return { enabled: false, time: '08:00', emails: [], lastSentDate: null }; }
+  }
+
+  async getDashboardSchedule(tenantId?: string): Promise<DashboardSchedule> {
+    const cfg = await this.getSingleton(tenantId);
+    return this.parseDashboardSchedule(cfg);
+  }
+
+  async updateDashboardSchedule(schedule: Partial<DashboardSchedule>, tenantId?: string): Promise<DashboardSchedule> {
+    const cfg = await this.getSingleton(tenantId);
+    const existing = this.parseDashboardSchedule(cfg);
+    const updated = { ...existing, ...schedule, lastSentDate: existing.lastSentDate };
+    cfg.dashboardScheduleJson = JSON.stringify(updated);
+    await this.repo.save(cfg);
+    return updated;
+  }
+
+  async updateDashboardLastSent(date: string, tenantId?: string): Promise<void> {
+    const cfg = await this.getSingleton(tenantId);
+    const schedule = this.parseDashboardSchedule(cfg);
+    schedule.lastSentDate = date;
+    cfg.dashboardScheduleJson = JSON.stringify(schedule);
+    await this.repo.save(cfg);
   }
 }

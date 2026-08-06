@@ -24,6 +24,13 @@ export interface MonthlySchedule {
   lastSentMonth: string | null; // YYYY-MM of the month when send was triggered
 }
 
+export interface DashboardSchedule {
+  enabled: boolean;
+  time: string;        // HH:MM — fires daily
+  emails: string[];
+  lastSentDate: string | null; // YYYY-MM-DD
+}
+
 @Entity('report_config')
 export class ReportConfig {
   @PrimaryGeneratedColumn()
@@ -43,6 +50,12 @@ export class ReportConfig {
     default: '{"enabled":false,"time":"08:00","emails":[],"lastSentMonth":null}',
   })
   monthlyScheduleJson: string; // JSON MonthlySchedule
+
+  @Column({
+    type: 'text',
+    default: '{"enabled":false,"time":"08:00","emails":[],"lastSentDate":null}',
+  })
+  dashboardScheduleJson: string; // JSON DashboardSchedule
 
   @UpdateDateColumn()
   updatedAt: Date;

@@ -87,11 +87,12 @@ export const reportConfigApi = {
     endDate: string,
     workerIds?: string[],
     customEmails?: string[],
+    lang?: string,
   ) =>
     req<{ ok: boolean; message: string }>('/report-config/send-range', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ startDate, endDate, workerIds, customEmails }),
+      body: JSON.stringify({ startDate, endDate, workerIds, customEmails, lang }),
     }),
 };
 
@@ -109,10 +110,12 @@ export const reportsApi = {
     startDate: string,
     endDate: string,
     workerIds?: string[],
+    lang?: string,
   ): Promise<void> => {
     const token = localStorage.getItem('adminJwt');
     const params = new URLSearchParams({ startDate, endDate });
     if (workerIds && workerIds.length > 0) params.set('workerIds', workerIds.join(','));
+    if (lang) params.set('lang', lang);
 
     const res = await fetch(`/api/reports/range-xlsx?${params.toString()}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},

@@ -9,6 +9,7 @@ import { reportConfigApi, reportsApi, type MonthlySchedule } from '../api/report
 import { apiFetch } from '../api/http'
 import type { WorkerApi } from '../api/workers'
 import { useTranslation } from '../i18n/useTranslation'
+import { useUiPreferences } from '../app/providers/useUiPreferences'
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -160,6 +161,7 @@ function WorkerMultiSelect({ workers, selected, onChange }: WorkerMultiSelectPro
 
 export function ReportsPage() {
   const { t } = useTranslation()
+  const { language } = useUiPreferences()
   const qc = useQueryClient()
 
   // ── Filter state ─────────────────────────────────────────────────────────────
@@ -226,13 +228,14 @@ export function ReportsPage() {
       await reportsApi.downloadRangeXlsx(
         startDate, endDate,
         selectedWorkerIds.length > 0 ? selectedWorkerIds : undefined,
+        language,
       )
     } catch (e: any) {
       alert(`${t.common.error}: ${e.message}`)
     } finally {
       setDownloading(false)
     }
-  }, [startDate, endDate, selectedWorkerIds])
+  }, [startDate, endDate, selectedWorkerIds, language])
 
   const handleSendEmail = useCallback(async () => {
     setSendingEmail(true)
@@ -240,6 +243,8 @@ export function ReportsPage() {
       const res = await reportConfigApi.sendRange(
         startDate, endDate,
         selectedWorkerIds.length > 0 ? selectedWorkerIds : undefined,
+        undefined,
+        language,
       )
       alert(res.message ?? t.reportEmails.sent)
     } catch (e: any) {
@@ -247,7 +252,7 @@ export function ReportsPage() {
     } finally {
       setSendingEmail(false)
     }
-  }, [startDate, endDate, selectedWorkerIds])
+  }, [startDate, endDate, selectedWorkerIds, language])
 
   // ── Monthly email helpers ─────────────────────────────────────────────────────
   const addMonthlyEmail = () => {

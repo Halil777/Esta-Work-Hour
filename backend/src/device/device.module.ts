@@ -7,6 +7,7 @@ import { DeviceGuard } from './device.guard';
 import { TenantsModule } from '../tenants/tenants.module';
 import { AttendanceEventsModule } from '../attendance-events/attendance-events.module';
 import { ScannerDevicesModule } from '../scanner-devices/scanner-devices.module';
+import { CardReportsModule } from '../card-reports/card-reports.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { ScannerDevicesModule } from '../scanner-devices/scanner-devices.module'
     TenantsModule,
     AttendanceEventsModule,
     ScannerDevicesModule,
+    CardReportsModule,
   ],
   controllers: [DeviceController],
   providers: [DeviceGuard],

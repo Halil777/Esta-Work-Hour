@@ -322,6 +322,7 @@ export class WorkersService {
       return new Date(ts).toLocaleString('tr-TR', {
         day: '2-digit', month: '2-digit', year: 'numeric',
         hour: '2-digit', minute: '2-digit',
+        timeZone: APP_TZ,
       });
     };
 
@@ -633,33 +634,50 @@ export class WorkersService {
     await this.repo.save(worker);
   }
 
-  async importCardNumbers(buffer: Buffer) {
+  async importCardNumbers(buffer: Buffer, tenantId?: string) {
     const workbook = XLSX.read(buffer, { type: 'buffer' });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-
-    // The file has 2 header rows before actual data:
-    // Row 0: merged title "Отчет Сотрудники"
-    // Row 1: column names (Фамилия, Имя, ..., Табельный номер, ..., Карта №, ...)
-    // Row 2+: actual data
-    // When parsed, __EMPTY_3 = Табельный номер, __EMPTY_9 = Карта №
-    const dataRows = rows.slice(2);
+    if (rows.length === 0) return { linked: 0, notFound: 0 };
 
     let linked = 0;
     let notFound = 0;
+    const tenantFilter = tenantId ? { tenantId } : {};
 
-    for (const row of dataRows) {
-      const tabNo = String(row['__EMPTY_3'] || '').trim();
-      const cardNo = String(row['__EMPTY_9'] || '').trim();
-      if (!tabNo || !cardNo) continue;
+    // Detect format by inspecting first row keys
+    const firstRowKeys = Object.keys(rows[0]);
+    const isScanFormat = firstRowKeys.includes('Sicil No') || firstRowKeys.includes('Kart UID');
 
-      const worker = await this.repo.findOneBy({ workerId: tabNo });
-      if (worker) {
-        worker.nfcCardUid = cardNo;
-        await this.repo.save(worker);
-        linked++;
-      } else {
-        notFound++;
+    if (isScanFormat) {
+      // Scans export format: #, Işçi Ady, Sicil No, Kart UID
+      for (const row of rows) {
+        const tabNo = String(row['Sicil No'] || '').trim();
+        const cardUid = String(row['Kart UID'] || '').trim();
+        if (!tabNo || !cardUid) continue;
+        const worker = await this.repo.findOneBy({ workerId: tabNo, ...tenantFilter });
+        if (worker) {
+          worker.nfcCardUid = cardUid;
+          await this.repo.save(worker);
+          linked++;
+        } else {
+          notFound++;
+        }
+      }
+    } else {
+      // Legacy format: 2 title rows, then Табельный номер at __EMPTY_3, Карта № at __EMPTY_9
+      const dataRows = rows.slice(2);
+      for (const row of dataRows) {
+        const tabNo = String(row['__EMPTY_3'] || '').trim();
+        const cardNo = String(row['__EMPTY_9'] || '').trim();
+        if (!tabNo || !cardNo) continue;
+        const worker = await this.repo.findOneBy({ workerId: tabNo, ...tenantFilter });
+        if (worker) {
+          worker.nfcCardUid = cardNo;
+          await this.repo.save(worker);
+          linked++;
+        } else {
+          notFound++;
+        }
       }
     }
 

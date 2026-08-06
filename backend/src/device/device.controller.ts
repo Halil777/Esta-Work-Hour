@@ -2,6 +2,7 @@ import {
   Controller, Get, Post, Body, Req, UseGuards,
   UnauthorizedException, NotFoundException, BadRequestException,
 } from '@nestjs/common';
+import { CardReportsService } from '../card-reports/card-reports.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -33,6 +34,7 @@ export class DeviceController {
     private readonly attendanceService: AttendanceEventsService,
     private readonly scannerDevicesService: ScannerDevicesService,
     private readonly tenantsService: TenantsService,
+    private readonly cardReportsService: CardReportsService,
   ) {}
 
   /**
@@ -122,5 +124,31 @@ export class DeviceController {
   syncEvents(@Req() req: any, @Body() dto: SyncEventsDto) {
     const { tenantId } = req.device as DeviceContext;
     return this.attendanceService.syncEvents(dto, tenantId);
+  }
+
+  /**
+   * Submit a card reassignment report from the NFC scanner device.
+   */
+  @UseGuards(DeviceGuard)
+  @Post('card-reports')
+  async submitCardReport(
+    @Req() req: any,
+    @Body('cardUid') cardUid: string,
+    @Body('currentWorkerName') currentWorkerName?: string,
+    @Body('suggestedWorkerId') suggestedWorkerId?: string,
+    @Body('suggestedWorkerName') suggestedWorkerName?: string,
+    @Body('note') note?: string,
+  ) {
+    if (!cardUid) throw new BadRequestException('cardUid is required');
+    const { tenantId, deviceLabel } = req.device as DeviceContext;
+    return this.cardReportsService.create({
+      tenantId,
+      cardUid,
+      currentWorkerName,
+      suggestedWorkerId,
+      suggestedWorkerName,
+      deviceLabel,
+      note,
+    });
   }
 }

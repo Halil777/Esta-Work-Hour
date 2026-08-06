@@ -38,6 +38,9 @@ import { SuperAdminAuthModule } from './super-admin-auth/super-admin-auth.module
 import { DeviceModule } from './device/device.module';
 import { ScannerDevicesModule } from './scanner-devices/scanner-devices.module';
 import { ScannerDevice } from './scanner-devices/scanner-device.entity';
+import { CardReport } from './card-reports/card-report.entity';
+import { CardReportsModule } from './card-reports/card-reports.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 
 @Module({
   imports: [
@@ -56,7 +59,7 @@ import { ScannerDevice } from './scanner-devices/scanner-device.entity';
           Worker, AttendanceEvent, AuditLog, Foreman, Brigadir,
           MobileCredential, ExtraHoursRequest, ExtraHoursRequestItem,
           ShiftSetting, AbsenceNote, AttendanceOverride, ReportConfig,
-          WorkerLifecycleEvent, WorkerLifecycleReport, Tenant, ScannerDevice,
+          WorkerLifecycleEvent, WorkerLifecycleReport, Tenant, ScannerDevice, CardReport,
         ],
         synchronize: cfg.get('NODE_ENV', 'development') !== 'production',
       }),
@@ -81,6 +84,8 @@ import { ScannerDevice } from './scanner-devices/scanner-device.entity';
     ReportConfigModule,
     ReportSchedulerModule,
     WorkerLifecycleModule,
+    CardReportsModule,
+    AnalyticsModule,
   ],
 })
 export class AppModule {}

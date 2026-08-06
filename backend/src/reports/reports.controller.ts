@@ -13,10 +13,16 @@ export class ReportsController {
   async dailyPdf(
     @Req() req: any,
     @Query('date') date: string,
+    @Query('lang') lang: string,
     @Res() res: Response,
   ) {
     const target = date || new Date().toISOString().split('T')[0];
-    const buf = await this.service.generateDailyPdf(target, req.adminUser?.tenantId);
+    const buf = await this.service.generateDailyPdf(
+      target,
+      req.adminUser?.tenantId,
+      req.adminUser?.tenantName,
+      (lang as any) || 'tr',
+    );
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="daily-report-${target}.pdf"`);
     res.send(buf);
@@ -24,7 +30,7 @@ export class ReportsController {
 
   /**
    * Range Excel download
-   * GET /reports/range-xlsx?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD&workerIds=id1,id2
+   * GET /reports/range-xlsx?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD&workerIds=id1,id2&lang=tr
    */
   @Get('range-xlsx')
   async rangeXlsx(
@@ -32,6 +38,7 @@ export class ReportsController {
     @Query('startDate') startDate: string,
     @Query('endDate') endDate: string,
     @Query('workerIds') workerIdsParam: string,
+    @Query('lang') lang: string,
     @Res() res: Response,
   ) {
     const sd = startDate || new Date().toISOString().split('T')[0];
@@ -40,7 +47,10 @@ export class ReportsController {
       ? workerIdsParam.split(',').map(s => s.trim()).filter(Boolean)
       : undefined;
 
-    const { xlsx } = await this.service.generateRangeReport(sd, ed, workerIds, false, req.adminUser?.tenantId);
+    const { xlsx } = await this.service.generateRangeReport(
+      sd, ed, workerIds, false, req.adminUser?.tenantId,
+      req.adminUser?.tenantName, (lang as any) || 'tr',
+    );
     const filename = `is-sagatlary-${sd}-${ed}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);

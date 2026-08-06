@@ -125,17 +125,17 @@ export class ReportSchedulerService {
 
   // ─── Manual trigger: daily ────────────────────────────────────────────────────
 
-  async sendNow(date?: string, reportType: ReportType = 'daily_all', tenantId?: string): Promise<void> {
+  async sendNow(date?: string, reportType: ReportType = 'daily_all', tenantId?: string, tenantName = 'WorkForce', lang = 'tr'): Promise<void> {
     const reportDate = date ?? todayLocal();
     const { emails } = await this.reportConfigService.getConfig(tenantId);
     if (emails.length === 0) throw new Error('No recipient emails configured');
 
-    const { xlsx, html } = await this.reportsService.generateReport(reportDate, reportType, true, tenantId);
+    const { xlsx, html } = await this.reportsService.generateReport(reportDate, reportType, true, tenantId, tenantName, lang as any);
 
     await this.transporter.sendMail({
-      from: `"Esta WorkForce" <${process.env.MAIL_USER}>`,
+      from: `"${tenantName}" <${process.env.MAIL_USER}>`,
       to: emails.join(', '),
-      subject: `Esta WorkForce — Günlük Hasabat (${reportDate})`,
+      subject: `${tenantName} — Günlük Hasabat (${reportDate})`,
       html,
       attachments: [
         {
@@ -155,17 +155,19 @@ export class ReportSchedulerService {
     workerIds?: string[],
     customEmails?: string[],
     tenantId?: string,
+    tenantName = 'WorkForce',
+    lang = 'tr',
   ): Promise<void> {
     const { emails: configEmails } = await this.reportConfigService.getConfig(tenantId);
     const recipients = customEmails && customEmails.length > 0 ? customEmails : configEmails;
     if (recipients.length === 0) throw new Error('No recipient emails configured');
 
     const { xlsx, html, subject } = await this.reportsService.generateRangeReport(
-      startDate, endDate, workerIds, false, tenantId,
+      startDate, endDate, workerIds, false, tenantId, tenantName, lang as any,
     );
 
     await this.transporter.sendMail({
-      from: `"Esta WorkForce" <${process.env.MAIL_USER}>`,
+      from: `"${tenantName}" <${process.env.MAIL_USER}>`,
       to: recipients.join(', '),
       subject,
       html,
