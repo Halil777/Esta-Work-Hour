@@ -152,7 +152,7 @@ function AttendanceTooltip({ active, payload, label }: any) {
 // ─── Dashboard schedule sub-component ────────────────────────────────────────
 
 function DashboardScheduleCard({
-  startDate, endDate, tenantName,
+  startDate, endDate,
 }: { startDate: string; endDate: string; tenantName: string }) {
   const { t } = useTranslation()
   const qc = useQueryClient()
@@ -457,7 +457,7 @@ function AnalyticsSection({ tenantName }: { tenantName: string }) {
                       tickFormatter={(v: string) => v.length > 14 ? v.slice(0, 13) + '…' : v}
                     />
                     <Tooltip
-                      formatter={(val: number) => [`${val}h`, t.analytics.totalHours]}
+                      formatter={(val: any) => [`${val}h`, t.analytics.totalHours]}
                       contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8 }}
                     />
                     <Bar dataKey="totalHours" name={t.analytics.totalHours} radius={[0, 3, 3, 0]}>
