@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ReportConfig, ReportScheduleItem, MonthlySchedule, DashboardSchedule } from './report-config.entity';
+import { ReportConfig, ReportScheduleItem, MonthlySchedule, DashboardSchedule, AnomalySchedule } from './report-config.entity';
 
 const DEFAULT_MONTHLY: MonthlySchedule = {
   enabled: false,
@@ -133,5 +133,33 @@ export class ReportConfigService {
     schedule.lastSentDate = date;
     cfg.dashboardScheduleJson = JSON.stringify(schedule);
     await this.repo.save(cfg);
+  }
+
+  // ─── Anomaly schedule ─────────────────────────────────────────────────────────
+
+  private readonly DEFAULT_ANOMALY: AnomalySchedule = {
+    missingCheckInEnabled: false,
+    shiftAlertEnabled: false,
+    dayShiftLastAlertDate: null,
+    nightShiftLastAlertDate: null,
+  };
+
+  parseAnomalySchedule(cfg: ReportConfig): AnomalySchedule {
+    try { return { ...this.DEFAULT_ANOMALY, ...JSON.parse(cfg.anomalyScheduleJson) }; }
+    catch { return { ...this.DEFAULT_ANOMALY }; }
+  }
+
+  async getAnomalySchedule(tenantId?: string): Promise<AnomalySchedule> {
+    const cfg = await this.getSingleton(tenantId);
+    return this.parseAnomalySchedule(cfg);
+  }
+
+  async updateAnomalySchedule(patch: Partial<AnomalySchedule>, tenantId?: string): Promise<AnomalySchedule> {
+    const cfg = await this.getSingleton(tenantId);
+    const existing = this.parseAnomalySchedule(cfg);
+    const updated = { ...existing, ...patch };
+    cfg.anomalyScheduleJson = JSON.stringify(updated);
+    await this.repo.save(cfg);
+    return updated;
   }
 }

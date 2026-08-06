@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Sun, Moon, Mail, Clock, Plus, Trash2, Send, Smartphone, Copy, Eye, EyeOff, RefreshCw } from 'lucide-react'
+import { Sun, Moon, Mail, Clock, Plus, Trash2, Send, Smartphone, Copy, Eye, EyeOff, RefreshCw, Bell } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from '../i18n/useTranslation'
 import { useUiPreferences } from '../app/providers/useUiPreferences'
 import { shiftSettingsApi } from '../api/shiftSettings'
 import { reportConfigApi, type ReportScheduleItem, type ReportType } from '../api/reportConfig'
+import { anomaliesApi } from '../api/anomaliesApi'
 import { adminAuthApi } from '../api/adminAuth'
 import type { Language } from '../types/tenant'
 
@@ -497,6 +498,92 @@ function NfcDeviceCard() {
   )
 }
 
+// ─── Anomaly Alert Card ───────────────────────────────────────────────────────
+
+function AnomalyAlertCard() {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+  const [saved, setSaved] = useState(false)
+
+  const { data: schedule } = useQuery({
+    queryKey: ['anomaly-schedule'],
+    queryFn: anomaliesApi.getSchedule,
+    staleTime: 30_000,
+  })
+
+  const mutation = useMutation({
+    mutationFn: (patch: { missingCheckInEnabled?: boolean; shiftAlertEnabled?: boolean }) =>
+      anomaliesApi.updateSchedule(patch),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['anomaly-schedule'] })
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    },
+  })
+
+  const toggle = (key: 'missingCheckInEnabled' | 'shiftAlertEnabled') => {
+    if (!schedule) return
+    mutation.mutate({ [key]: !schedule[key] })
+  }
+
+  const ToggleRow = ({ label, value, onToggle }: { label: string; value: boolean; onToggle: () => void }) => (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--bg-border)' }}>
+      <button
+        onClick={onToggle}
+        disabled={mutation.isPending}
+        style={{
+          width: 40, height: 22, borderRadius: 11,
+          background: value ? 'var(--brand-primary)' : 'var(--bg-border)',
+          border: 'none', cursor: 'pointer', position: 'relative',
+          flexShrink: 0, transition: 'background 0.2s',
+        }}
+      >
+        <span style={{
+          position: 'absolute', top: 3, left: value ? 20 : 3,
+          width: 16, height: 16, borderRadius: '50%', background: '#fff',
+          transition: 'left 0.2s',
+        }} />
+      </button>
+      <span style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.4 }}>{label}</span>
+    </div>
+  )
+
+  return (
+    <div className="card">
+      <div className="card-header">
+        <h3 style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Bell size={14} style={{ color: 'var(--warning)' }} />
+          {t.anomaly.alertSettingsTitle}
+        </h3>
+      </div>
+      <div className="card-body">
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 12px' }}>
+          {t.reportEmails.note}
+        </p>
+        {schedule ? (
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <ToggleRow
+              label={t.anomaly.enableMissingCheckin}
+              value={schedule.missingCheckInEnabled}
+              onToggle={() => toggle('missingCheckInEnabled')}
+            />
+            <ToggleRow
+              label={t.anomaly.enableShiftAlert}
+              value={schedule.shiftAlertEnabled}
+              onToggle={() => toggle('shiftAlertEnabled')}
+            />
+            {saved && (
+              <span style={{ fontSize: 12, color: 'var(--success)', marginTop: 10 }}>{t.anomaly.saved}</span>
+            )}
+          </div>
+        ) : (
+          <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t.common.loading}</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function SettingsPage() {
@@ -556,6 +643,8 @@ export function SettingsPage() {
         <ShiftSettingsCard />
 
         <ReportEmailsCard />
+
+        <AnomalyAlertCard />
 
         <NfcDeviceCard />
       </div>

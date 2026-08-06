@@ -41,6 +41,7 @@ import { ScannerDevice } from './scanner-devices/scanner-device.entity';
 import { CardReport } from './card-reports/card-report.entity';
 import { CardReportsModule } from './card-reports/card-reports.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { AttendanceAnomaliesModule } from './attendance-anomalies/attendance-anomalies.module';
 
 @Module({
   imports: [
@@ -86,6 +87,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
     WorkerLifecycleModule,
     CardReportsModule,
     AnalyticsModule,
+    AttendanceAnomaliesModule,
   ],
 })
 export class AppModule {}

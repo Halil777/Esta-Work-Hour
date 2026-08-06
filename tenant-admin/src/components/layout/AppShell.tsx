@@ -1,6 +1,8 @@
 import { Outlet, useLocation, Navigate } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
+import { AttendanceAnomalyBanner } from '../AttendanceAnomalyBanner'
+import { ShiftAlertPopup } from '../ShiftAlertPopup'
 import { useUiPreferences } from '../../app/providers/useUiPreferences'
 import { useTranslation } from '../../i18n/useTranslation'
 
@@ -37,8 +39,10 @@ export function AppShell() {
       <div className="main-area">
         <Header title={getPageTitle(location.pathname, t)} />
         <main className="page-content">
+          <AttendanceAnomalyBanner />
           <Outlet />
         </main>
+        <ShiftAlertPopup />
       </div>
     </div>
   )
