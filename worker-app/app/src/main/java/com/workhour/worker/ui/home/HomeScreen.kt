@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.workhour.worker.data.model.AttendanceRecord
+import com.workhour.worker.data.model.SavedUser
 import com.workhour.worker.ui.theme.*
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
@@ -33,22 +34,23 @@ private val dayFmt   = SimpleDateFormat("EEE", Locale.US)
 private val parseFmt = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 
 @Composable
-fun HomeScreen(serverUrl: String, workerName: String) {
+fun HomeScreen(serverUrl: String, user: SavedUser) {
+    val c   = LocalAppColors.current
     val vm: HomeViewModel = viewModel()
     val state by vm.state.collectAsStateWithLifecycle()
 
-    // Live clock that ticks every minute for elapsed time display
+    // Live clock — ticks every second for elapsed display
     var tick by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
-        while (true) { delay(60_000L); tick = System.currentTimeMillis() }
+        while (true) { delay(1_000L); tick = System.currentTimeMillis() }
     }
 
-    LaunchedEffect(serverUrl) { vm.load(serverUrl, workerName) }
+    LaunchedEffect(serverUrl) { vm.load(serverUrl, user.workerEntityId, user.name) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(BgDeep)
+            .background(c.bgDeep)
             .verticalScroll(rememberScrollState()),
     ) {
         // ── Top bar
@@ -58,20 +60,20 @@ fun HomeScreen(serverUrl: String, workerName: String) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(greeting(), style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                Text(greeting(), style = MaterialTheme.typography.bodySmall, color = c.textMuted)
                 Text(
-                    state.workerName.ifBlank { workerName },
+                    state.workerName.ifBlank { user.name },
                     style = MaterialTheme.typography.titleLarge,
-                    color = TextPrimary,
+                    color = c.textPrimary,
                     fontWeight = FontWeight.Bold,
                 )
-                Text(dateFmt.format(Date()), style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                Text(dateFmt.format(Date()), style = MaterialTheme.typography.labelSmall, color = c.textSecondary)
             }
             IconButton(
-                onClick = { vm.refresh(serverUrl, workerName) },
-                modifier = Modifier.size(40.dp).background(BgCard, CircleShape),
+                onClick = { vm.refresh(serverUrl, user.workerEntityId, user.name) },
+                modifier = Modifier.size(40.dp).background(c.bgCard, CircleShape),
             ) {
-                Icon(Icons.Outlined.Refresh, null, tint = TextSecondary, modifier = Modifier.size(18.dp))
+                Icon(Icons.Outlined.Refresh, null, tint = c.textSecondary, modifier = Modifier.size(18.dp))
             }
         }
 
@@ -82,20 +84,12 @@ fun HomeScreen(serverUrl: String, workerName: String) {
                 CircularProgressIndicator(color = AccentPurple, strokeWidth = 2.dp)
             }
         } else {
-            // ── Hero check-in card
-            HeroStatusCard(state.today, tick, modifier = Modifier.padding(horizontal = 20.dp))
-
+            HeroStatusCard(state.today, tick, c, modifier = Modifier.padding(horizontal = 20.dp))
             Spacer(Modifier.height(14.dp))
-
-            // ── Stat row
-            StatRow(state.today, tick, modifier = Modifier.padding(horizontal = 20.dp))
-
+            StatRow(state.today, tick, c, modifier = Modifier.padding(horizontal = 20.dp))
             Spacer(Modifier.height(20.dp))
+            WeekSection(state.week, c, modifier = Modifier.padding(horizontal = 20.dp))
 
-            // ── 7-day week bar chart
-            WeekSection(state.week, modifier = Modifier.padding(horizontal = 20.dp))
-
-            // ── Error
             if (state.error.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))
                 Row(
@@ -103,7 +97,7 @@ fun HomeScreen(serverUrl: String, workerName: String) {
                         .padding(horizontal = 20.dp)
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(10.dp))
-                        .background(RedDim.copy(0.3f))
+                        .background(c.redDim.copy(0.3f))
                         .padding(12.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -118,33 +112,32 @@ fun HomeScreen(serverUrl: String, workerName: String) {
     }
 }
 
-// ─── Hero card: prominent today status ───────────────────────────────────────
+// ─── Hero card ────────────────────────────────────────────────────────────────
 
 @Composable
-private fun HeroStatusCard(today: AttendanceRecord?, tick: Long, modifier: Modifier = Modifier) {
-    val isIn      = today?.status == "partial"
-    val isDone    = today?.status == "present"
-    val isAbsent  = today == null || today.status == "absent"
+private fun HeroStatusCard(today: AttendanceRecord?, tick: Long, c: AppColors, modifier: Modifier = Modifier) {
+    val isIn     = today?.status == "partial"
+    val isDone   = today?.status == "present"
 
     val gradientColors = when {
-        isDone   -> listOf(AccentBlue.copy(0.25f), BgCard)
-        isIn     -> listOf(GreenSuccess.copy(0.2f), BgCard)
-        else     -> listOf(BgCard, BgElevated)
+        isDone -> listOf(AccentBlue.copy(0.25f), c.bgCard)
+        isIn   -> listOf(GreenSuccess.copy(0.2f), c.bgCard)
+        else   -> listOf(c.bgCard, c.bgElevated)
     }
     val accentColor = when {
-        isDone  -> AccentBlue
-        isIn    -> GreenSuccess
-        else    -> TextMuted
+        isDone -> AccentBlue
+        isIn   -> GreenSuccess
+        else   -> c.textMuted
     }
     val icon = when {
-        isDone  -> Icons.Outlined.CheckCircleOutline
-        isIn    -> Icons.Outlined.Login
-        else    -> Icons.Outlined.HourglassEmpty
+        isDone -> Icons.Outlined.CheckCircleOutline
+        isIn   -> Icons.Outlined.Login
+        else   -> Icons.Outlined.HourglassEmpty
     }
     val statusText = when {
-        isDone  -> "Day Complete"
-        isIn    -> "Checked In"
-        else    -> "Not Checked In"
+        isDone -> "Day Complete"
+        isIn   -> "Checked In"
+        else   -> "Not Checked In"
     }
 
     Box(
@@ -160,7 +153,6 @@ private fun HeroStatusCard(today: AttendanceRecord?, tick: Long, modifier: Modif
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            // Status badge
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -173,75 +165,83 @@ private fun HeroStatusCard(today: AttendanceRecord?, tick: Long, modifier: Modif
                 Text(statusText, style = MaterialTheme.typography.labelMedium, color = accentColor, fontWeight = FontWeight.SemiBold)
             }
 
-            // Big time display
             if (today?.checkIn != null) {
                 Text(
                     timeFmt.format(Date(today.checkIn)),
                     style = MaterialTheme.typography.displaySmall.copy(fontSize = 52.sp, letterSpacing = (-1).sp),
-                    color = TextPrimary,
+                    color = c.textPrimary,
                     fontWeight = FontWeight.Bold,
                 )
-                Text("Check-in time", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                Text("Check-in time", style = MaterialTheme.typography.labelSmall, color = c.textSecondary)
 
                 if (isIn) {
-                    val elapsedMin = (tick - today.checkIn) / 60_000L
                     Spacer(Modifier.height(4.dp))
-                    ElapsedBar(elapsedMin)
+                    ElapsedBar(today.checkIn, tick, c)
                 }
             } else {
-                // No scan yet — show dashes
                 Text(
                     "- - : - -",
                     style = MaterialTheme.typography.displaySmall.copy(fontSize = 52.sp, letterSpacing = (-1).sp),
-                    color = TextMuted,
+                    color = c.textMuted,
                     fontWeight = FontWeight.Light,
                 )
-                Text("Waiting for NFC scan…", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+                Text("Waiting for NFC scan…", style = MaterialTheme.typography.labelSmall, color = c.textMuted)
             }
         }
     }
 }
 
 @Composable
-private fun ElapsedBar(elapsedMin: Long) {
-    val h = elapsedMin / 60
-    val m = elapsedMin % 60
-    val targetMins = 480f // 8h target
-    val pct = (elapsedMin / targetMins).coerceIn(0f, 1f)
+private fun ElapsedBar(checkInMs: Long, tick: Long, c: AppColors) {
+    val elapsedMs  = tick - checkInMs
+    val h          = elapsedMs / 3_600_000L
+    val m          = (elapsedMs % 3_600_000L) / 60_000L
+    val s          = (elapsedMs % 60_000L) / 1_000L
+    val elapsedMin = elapsedMs / 60_000L
+    val targetPct  = (elapsedMin / 480f).coerceIn(0f, 1f)
+    val animPct by animateFloatAsState(targetPct, tween(1000, easing = EaseOutCubic), label = "elapsed")
 
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             Icon(Icons.Outlined.Timer, null, tint = OrangeWarning, modifier = Modifier.size(13.dp))
-            Text("${h}h ${m}m working", style = MaterialTheme.typography.labelMedium, color = OrangeWarning)
+            Text(
+                "%02d:%02d:%02d working".format(h, m, s),
+                style = MaterialTheme.typography.labelMedium,
+                color = OrangeWarning,
+            )
         }
-        // Progress toward 8h
         Box(
             modifier = Modifier
                 .fillMaxWidth(0.8f)
                 .height(4.dp)
                 .clip(RoundedCornerShape(2.dp))
-                .background(BorderSubtle),
+                .background(c.borderSubtle),
         ) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(pct)
+                    .fillMaxWidth(animPct)
                     .fillMaxHeight()
                     .clip(RoundedCornerShape(2.dp))
                     .background(Brush.horizontalGradient(listOf(GreenSuccess, OrangeWarning))),
             )
         }
-        Text("${(pct * 100).toInt()}% of 8h shift", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+        Text("${(animPct * 100).toInt()}% of 8h shift", style = MaterialTheme.typography.labelSmall, color = c.textMuted)
     }
 }
 
-// ─── Stat mini-cards ─────────────────────────────────────────────────────────
+// ─── Stat mini-cards ──────────────────────────────────────────────────────────
 
 @Composable
-private fun StatRow(today: AttendanceRecord?, tick: Long, modifier: Modifier = Modifier) {
+private fun StatRow(today: AttendanceRecord?, tick: Long, c: AppColors, modifier: Modifier = Modifier) {
     val hasCheckIn  = today?.checkIn != null
     val hasCheckOut = today?.checkOut != null
-
     if (!hasCheckIn && !hasCheckOut) return
+
+    // Animate duration minutes
+    val rawMin = if (hasCheckIn && !hasCheckOut)
+        ((tick - today!!.checkIn!!) / 60_000L).toInt()
+    else today?.totalMinutes ?: 0
+    val animMin by animateIntAsState(rawMin, tween(800, easing = EaseOutCubic), label = "min")
 
     Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         if (hasCheckIn) {
@@ -250,6 +250,7 @@ private fun StatRow(today: AttendanceRecord?, tick: Long, modifier: Modifier = M
                 label  = "Check In",
                 value  = timeFmt.format(Date(today!!.checkIn!!)),
                 color  = GreenSuccess,
+                c      = c,
                 modifier = Modifier.weight(1f),
             )
         }
@@ -259,25 +260,31 @@ private fun StatRow(today: AttendanceRecord?, tick: Long, modifier: Modifier = M
                 label  = "Check Out",
                 value  = timeFmt.format(Date(today!!.checkOut!!)),
                 color  = AccentBlue,
+                c      = c,
                 modifier = Modifier.weight(1f),
             )
             hasCheckIn -> {
-                val elapsed = (tick - today!!.checkIn!!) / 60_000L
+                val h = animMin / 60
+                val m = animMin % 60
                 MiniStat(
                     icon   = Icons.Outlined.Schedule,
                     label  = "Duration",
-                    value  = "${elapsed / 60}h ${elapsed % 60}m",
+                    value  = "%dh %02dm".format(h, m),
                     color  = OrangeWarning,
+                    c      = c,
                     modifier = Modifier.weight(1f),
                 )
             }
         }
         if (hasCheckOut && today?.totalMinutes != null) {
+            val h = animMin / 60
+            val m = animMin % 60
             MiniStat(
                 icon   = Icons.Outlined.BarChart,
                 label  = "Total",
-                value  = "${today.totalMinutes / 60}h ${today.totalMinutes % 60}m",
+                value  = "%dh %02dm".format(h, m),
                 color  = AccentPurple,
+                c      = c,
                 modifier = Modifier.weight(1f),
             )
         }
@@ -285,28 +292,32 @@ private fun StatRow(today: AttendanceRecord?, tick: Long, modifier: Modifier = M
 }
 
 @Composable
-private fun MiniStat(icon: ImageVector, label: String, value: String, color: Color, modifier: Modifier = Modifier) {
+private fun MiniStat(icon: ImageVector, label: String, value: String, color: Color, c: AppColors, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
-            .background(BgCard)
-            .border(1.dp, BorderSubtle, RoundedCornerShape(12.dp))
+            .background(c.bgCard)
+            .border(1.dp, c.borderSubtle, RoundedCornerShape(12.dp))
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Icon(icon, null, tint = color, modifier = Modifier.size(15.dp))
-        Text(value, style = MaterialTheme.typography.titleSmall, color = TextPrimary, fontWeight = FontWeight.Bold)
-        Text(label, style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+        Text(value, style = MaterialTheme.typography.titleSmall, color = c.textPrimary, fontWeight = FontWeight.Bold)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = c.textSecondary)
     }
 }
 
-// ─── 7-day bar chart ─────────────────────────────────────────────────────────
+// ─── 7-day bar chart ──────────────────────────────────────────────────────────
 
 @Composable
-private fun WeekSection(week: List<AttendanceRecord>, modifier: Modifier = Modifier) {
+private fun WeekSection(week: List<AttendanceRecord>, c: AppColors, modifier: Modifier = Modifier) {
     if (week.isEmpty()) return
     val todayStr = parseFmt.format(Date())
     val maxMin   = week.maxOfOrNull { it.totalMinutes ?: 0 }.takeIf { it != null && it > 0 } ?: 480
+
+    // Animate total
+    val totalRaw = week.sumOf { it.totalMinutes ?: 0 }
+    val animTotal by animateIntAsState(totalRaw, tween(800, easing = EaseOutCubic), label = "total")
 
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(
@@ -314,28 +325,27 @@ private fun WeekSection(week: List<AttendanceRecord>, modifier: Modifier = Modif
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Last 7 Days", style = MaterialTheme.typography.titleSmall, color = TextPrimary, fontWeight = FontWeight.SemiBold)
-            val total = week.sumOf { it.totalMinutes ?: 0 }
-            Text("${total / 60}h ${total % 60}m", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+            Text("Last 7 Days", style = MaterialTheme.typography.titleSmall, color = c.textPrimary, fontWeight = FontWeight.SemiBold)
+            Text("${animTotal / 60}h ${animTotal % 60}m", style = MaterialTheme.typography.labelSmall, color = c.textMuted)
         }
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(14.dp))
-                .background(BgCard)
-                .border(1.dp, BorderSubtle, RoundedCornerShape(14.dp))
+                .background(c.bgCard)
+                .border(1.dp, c.borderSubtle, RoundedCornerShape(14.dp))
                 .padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             week.forEach { rec ->
-                val isToday = rec.date == todayStr
-                val pct = ((rec.totalMinutes ?: 0).toFloat() / maxMin).coerceIn(0f, 1f)
+                val isToday  = rec.date == todayStr
+                val targetPct = ((rec.totalMinutes ?: 0).toFloat() / maxMin).coerceIn(0f, 1f)
+                val animPct by animateFloatAsState(targetPct, tween(700, easing = EaseOutCubic), label = "bar")
                 val barColor = when {
-                    rec.status == "present"             -> AccentPurple
-                    isToday && rec.status == "partial"  -> OrangeWarning
-                    rec.status == "partial"             -> OrangeWarning
-                    else                                -> BorderSubtle
+                    rec.status == "present"            -> AccentPurple
+                    rec.status == "partial"            -> OrangeWarning
+                    else                               -> c.borderSubtle
                 }
                 val dayLabel = try {
                     dayFmt.format(parseFmt.parse(rec.date)!!).take(2)
@@ -347,27 +357,20 @@ private fun WeekSection(week: List<AttendanceRecord>, modifier: Modifier = Modif
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
-                    // Hours label on top if present
                     if (mins > 0) {
-                        Text(
-                            "${mins / 60}h",
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                            color = barColor,
-                        )
+                        Text("${mins / 60}h", style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp), color = barColor)
                     } else {
                         Spacer(Modifier.height(14.dp))
                     }
-
-                    // Bar
                     Box(
-                        modifier = Modifier.fillMaxWidth().height(70.dp).clip(RoundedCornerShape(5.dp)).background(BgElevated),
+                        modifier = Modifier.fillMaxWidth().height(70.dp).clip(RoundedCornerShape(5.dp)).background(c.bgElevated),
                         contentAlignment = Alignment.BottomCenter,
                     ) {
-                        if (pct > 0f) {
+                        if (animPct > 0f) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .fillMaxHeight(pct.coerceAtLeast(0.06f))
+                                    .fillMaxHeight(animPct.coerceAtLeast(0.06f))
                                     .clip(RoundedCornerShape(5.dp))
                                     .background(
                                         if (isToday)
@@ -378,19 +381,13 @@ private fun WeekSection(week: List<AttendanceRecord>, modifier: Modifier = Modif
                             )
                         }
                     }
-
-                    // Day label
                     Text(
                         dayLabel,
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                        color = if (isToday) AccentPurple else TextMuted,
+                        color = if (isToday) AccentPurple else c.textMuted,
                         fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
                     )
-
-                    // Today dot
-                    if (isToday) {
-                        Box(Modifier.size(4.dp).background(AccentPurple, CircleShape))
-                    }
+                    if (isToday) Box(Modifier.size(4.dp).background(AccentPurple, CircleShape))
                 }
             }
         }

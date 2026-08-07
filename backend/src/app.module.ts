@@ -17,6 +17,9 @@ import { ReportConfig } from './report-config/report-config.entity';
 import { WorkerLifecycleEvent } from './worker-lifecycle/worker-lifecycle-event.entity';
 import { WorkerLifecycleReport } from './worker-lifecycle/worker-lifecycle-report.entity';
 import { Tenant } from './tenants/tenant.entity';
+import { AdjustmentReason } from './adjustment-reasons/adjustment-reason.entity';
+import { WorkAdjustment } from './work-adjustments/work-adjustment.entity';
+import { WorkAdjustmentLog } from './work-adjustments/work-adjustment-log.entity';
 import { WorkersModule } from './workers/workers.module';
 import { AttendanceEventsModule } from './attendance-events/attendance-events.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
@@ -43,6 +46,9 @@ import { CardReportsModule } from './card-reports/card-reports.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { AttendanceAnomaliesModule } from './attendance-anomalies/attendance-anomalies.module';
 import { MobileWorkerModule } from './mobile-worker/mobile-worker.module';
+import { AdjustmentReasonsModule } from './adjustment-reasons/adjustment-reasons.module';
+import { WorkAdjustmentsModule } from './work-adjustments/work-adjustments.module';
+import { WorkTimeModule } from './work-time/work-time.module';
 
 @Module({
   imports: [
@@ -62,6 +68,7 @@ import { MobileWorkerModule } from './mobile-worker/mobile-worker.module';
           MobileCredential, ExtraHoursRequest, ExtraHoursRequestItem,
           ShiftSetting, AbsenceNote, AttendanceOverride, ReportConfig,
           WorkerLifecycleEvent, WorkerLifecycleReport, Tenant, ScannerDevice, CardReport,
+          AdjustmentReason, WorkAdjustment, WorkAdjustmentLog,
         ],
         synchronize: cfg.get('NODE_ENV', 'development') !== 'production',
       }),
@@ -90,6 +97,9 @@ import { MobileWorkerModule } from './mobile-worker/mobile-worker.module';
     AnalyticsModule,
     AttendanceAnomaliesModule,
     MobileWorkerModule,
+    AdjustmentReasonsModule,
+    WorkAdjustmentsModule,
+    WorkTimeModule,
   ],
 })
 export class AppModule {}

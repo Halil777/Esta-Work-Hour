@@ -9,6 +9,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.google.gson.Gson
 import com.workhour.worker.data.model.SavedUser
 import com.workhour.worker.ui.theme.AppLanguage
+import com.workhour.worker.ui.theme.AppTheme
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -25,6 +26,7 @@ class PrefsDataStore(context: Context) {
         private val KEY_TOKEN      = stringPreferencesKey("token")
         private val KEY_USER       = stringPreferencesKey("user")
         private val KEY_LANGUAGE   = stringPreferencesKey("language")
+        private val KEY_THEME      = stringPreferencesKey("theme")
     }
 
     val serverUrlFlow: Flow<String?> = store.data.map { it[KEY_SERVER_URL] }
@@ -41,6 +43,12 @@ class PrefsDataStore(context: Context) {
             else -> AppLanguage.EN
         }
     }
+    val themeFlow: Flow<AppTheme> = store.data.map { prefs ->
+        when (prefs[KEY_THEME]) {
+            "LIGHT" -> AppTheme.LIGHT
+            else    -> AppTheme.DARK
+        }
+    }
 
     suspend fun getServerUrl() = store.data.first()[KEY_SERVER_URL]
     suspend fun getToken()     = store.data.first()[KEY_TOKEN]
@@ -55,6 +63,7 @@ class PrefsDataStore(context: Context) {
     }
 
     suspend fun setLanguage(lang: AppLanguage) = store.edit { it[KEY_LANGUAGE] = lang.name }
+    suspend fun setTheme(theme: AppTheme)       = store.edit { it[KEY_THEME] = theme.name }
 
     suspend fun clearSession() {
         store.edit { prefs ->

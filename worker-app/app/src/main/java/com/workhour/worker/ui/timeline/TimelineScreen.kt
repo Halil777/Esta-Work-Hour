@@ -29,19 +29,19 @@ private val secsFmt  = SimpleDateFormat("HH:mm:ss", Locale.US).apply { timeZone 
 private val dateFmt  = SimpleDateFormat("EEEE, MMMM d", Locale.US)
 
 @Composable
-fun TimelineScreen(serverUrl: String) {
-    val s = LocalStrings.current
+fun TimelineScreen(serverUrl: String, workerEntityId: String) {
+    val s  = LocalStrings.current
+    val c  = LocalAppColors.current
     val vm: TimelineViewModel = viewModel()
     val state by vm.state.collectAsStateWithLifecycle()
 
-    LaunchedEffect(serverUrl) { vm.load(serverUrl) }
+    LaunchedEffect(serverUrl) { vm.load(serverUrl, workerEntityId) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(BgDeep),
+            .background(c.bgDeep),
     ) {
-        // ── Header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -50,14 +50,14 @@ fun TimelineScreen(serverUrl: String) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(s.todaysScans, style = MaterialTheme.typography.titleLarge, color = TextPrimary, fontWeight = FontWeight.Bold)
-                Text(dateFmt.format(Date()), style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                Text(s.todaysScans, style = MaterialTheme.typography.titleLarge, color = c.textPrimary, fontWeight = FontWeight.Bold)
+                Text(dateFmt.format(Date()), style = MaterialTheme.typography.labelSmall, color = c.textSecondary)
             }
             IconButton(
-                onClick = { vm.refresh(serverUrl) },
-                modifier = Modifier.size(40.dp).background(BgCard, CircleShape),
+                onClick = { vm.refresh(serverUrl, workerEntityId) },
+                modifier = Modifier.size(40.dp).background(c.bgCard, CircleShape),
             ) {
-                Icon(Icons.Outlined.Refresh, null, tint = TextSecondary, modifier = Modifier.size(18.dp))
+                Icon(Icons.Outlined.Refresh, null, tint = c.textSecondary, modifier = Modifier.size(18.dp))
             }
         }
 
@@ -73,9 +73,9 @@ fun TimelineScreen(serverUrl: String) {
                 contentAlignment = Alignment.Center,
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Icon(Icons.Outlined.CloudOff, null, tint = TextMuted, modifier = Modifier.size(40.dp))
-                    Text(state.error, style = MaterialTheme.typography.bodySmall, color = TextMuted)
-                    TextButton(onClick = { vm.refresh(serverUrl) }) {
+                    Icon(Icons.Outlined.CloudOff, null, tint = c.textMuted, modifier = Modifier.size(40.dp))
+                    Text(state.error, style = MaterialTheme.typography.bodySmall, color = c.textMuted)
+                    TextButton(onClick = { vm.refresh(serverUrl, workerEntityId) }) {
                         Text("Retry", color = AccentPurple)
                     }
                 }
@@ -86,37 +86,30 @@ fun TimelineScreen(serverUrl: String) {
                     .weight(1f)
                     .verticalScroll(rememberScrollState()),
             ) {
-                // ── Summary card
-                SummaryCard(state.events, modifier = Modifier.padding(horizontal = 20.dp))
-
+                SummaryCard(state.events, c, modifier = Modifier.padding(horizontal = 20.dp))
                 Spacer(Modifier.height(20.dp))
-
-                // ── Timeline
                 if (state.events.isEmpty()) {
-                    EmptyTimeline(modifier = Modifier.padding(horizontal = 20.dp))
+                    EmptyTimeline(s, c, modifier = Modifier.padding(horizontal = 20.dp))
                 } else {
-                    Timeline(state.events, modifier = Modifier.padding(horizontal = 20.dp))
+                    Timeline(state.events, s, c, modifier = Modifier.padding(horizontal = 20.dp))
                 }
-
                 Spacer(Modifier.height(24.dp))
             }
         }
     }
 }
 
-// ─── Summary card ─────────────────────────────────────────────────────────────
-
 @Composable
-private fun SummaryCard(events: List<ScanEvent>, modifier: Modifier = Modifier) {
-    val s = LocalStrings.current
+private fun SummaryCard(events: List<ScanEvent>, c: AppColors, modifier: Modifier = Modifier) {
+    val s         = LocalStrings.current
     val checkIns  = events.count { it.eventType == "CHECK_IN" }
     val checkOuts = events.count { it.eventType == "CHECK_OUT" }
     val lastEvent = events.lastOrNull()
-    val isCurrentlyIn = lastEvent?.eventType == "CHECK_IN"
+    val isIn      = lastEvent?.eventType == "CHECK_IN"
 
     val (statusColor, statusLabel, statusIcon) = when {
-        events.isEmpty() -> Triple(TextMuted, s.noScansToday, Icons.Outlined.HourglassEmpty)
-        isCurrentlyIn    -> Triple(GreenSuccess, s.currentlyWorking, Icons.Outlined.Login)
+        events.isEmpty() -> Triple(c.textMuted, s.noScansToday, Icons.Outlined.HourglassEmpty)
+        isIn             -> Triple(GreenSuccess, s.currentlyWorking, Icons.Outlined.Login)
         else             -> Triple(AccentBlue, s.checkedOut, Icons.Outlined.CheckCircleOutline)
     }
 
@@ -124,19 +117,13 @@ private fun SummaryCard(events: List<ScanEvent>, modifier: Modifier = Modifier) 
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(Brush.linearGradient(listOf(statusColor.copy(0.15f), BgCard)))
+            .background(Brush.linearGradient(listOf(statusColor.copy(0.15f), c.bgCard)))
             .border(1.dp, statusColor.copy(0.25f), RoundedCornerShape(14.dp))
             .padding(16.dp),
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Box(
-                modifier = Modifier
-                    .size(46.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(statusColor.copy(0.15f)),
+                modifier = Modifier.size(46.dp).clip(RoundedCornerShape(12.dp)).background(statusColor.copy(0.15f)),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(statusIcon, null, tint = statusColor, modifier = Modifier.size(22.dp))
@@ -144,36 +131,25 @@ private fun SummaryCard(events: List<ScanEvent>, modifier: Modifier = Modifier) 
             Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(statusLabel, style = MaterialTheme.typography.titleSmall, color = statusColor, fontWeight = FontWeight.SemiBold)
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("$checkIns check-in${if (checkIns != 1) "s" else ""}", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-                    Text("$checkOuts check-out${if (checkOuts != 1) "s" else ""}", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                    Text("$checkIns check-in${if (checkIns != 1) "s" else ""}", style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
+                    Text("$checkOuts check-out${if (checkOuts != 1) "s" else ""}", style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
                 }
             }
         }
     }
 }
 
-// ─── Timeline list ────────────────────────────────────────────────────────────
-
 @Composable
-private fun Timeline(events: List<ScanEvent>, modifier: Modifier = Modifier) {
-    val s = LocalStrings.current
+private fun Timeline(events: List<ScanEvent>, s: AppStrings, c: AppColors, modifier: Modifier = Modifier) {
     Column(modifier = modifier.fillMaxWidth()) {
         events.forEachIndexed { index, event ->
-            val isLast   = index == events.lastIndex
+            val isLast    = index == events.lastIndex
             val isCheckIn = event.eventType == "CHECK_IN"
             val nodeColor = if (isCheckIn) GreenSuccess else AccentBlue
             val nextEvent = events.getOrNull(index + 1)
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                // ── Left: line + node
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.width(32.dp),
-                ) {
-                    // Node
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(32.dp)) {
                     Box(
                         modifier = Modifier
                             .size(32.dp)
@@ -189,24 +165,18 @@ private fun Timeline(events: List<ScanEvent>, modifier: Modifier = Modifier) {
                             modifier = Modifier.size(15.dp),
                         )
                     }
-                    // Connecting line (not after last)
                     if (!isLast) {
                         Box(
                             modifier = Modifier
                                 .width(2.dp)
                                 .height(72.dp)
-                                .background(
-                                    Brush.verticalGradient(listOf(nodeColor.copy(0.4f), BorderSubtle.copy(0.3f)))
-                                ),
+                                .background(Brush.verticalGradient(listOf(nodeColor.copy(0.4f), c.borderSubtle.copy(0.3f)))),
                         )
                     }
                 }
 
-                // ── Right: event card
-                Column(modifier = Modifier.weight(1f).padding(bottom = if (!isLast) 0.dp else 0.dp)) {
-                    EventCard(event = event, nodeColor = nodeColor)
-
-                    // Gap label between consecutive events
+                Column(modifier = Modifier.weight(1f)) {
+                    EventCard(event, nodeColor, c)
                     if (!isLast && nextEvent != null) {
                         val gapMs  = nextEvent.eventTime - event.eventTime
                         val gapMin = gapMs / 60_000L
@@ -214,6 +184,8 @@ private fun Timeline(events: List<ScanEvent>, modifier: Modifier = Modifier) {
                             gapMin    = gapMin,
                             isBreak   = !isCheckIn && nextEvent.eventType == "CHECK_IN",
                             isWorking = isCheckIn && nextEvent.eventType == "CHECK_OUT",
+                            s         = s,
+                            c         = c,
                             modifier  = Modifier.padding(top = 8.dp, bottom = 8.dp, start = 4.dp),
                         )
                     }
@@ -221,34 +193,31 @@ private fun Timeline(events: List<ScanEvent>, modifier: Modifier = Modifier) {
             }
         }
 
-        // Pending tail (if last event is CHECK_IN)
+        // Pending tail (last event is CHECK_IN)
         if (events.isNotEmpty() && events.last().eventType == "CHECK_IN") {
             Spacer(Modifier.height(4.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.width(32.dp),
-                ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(32.dp)) {
                     Box(
                         modifier = Modifier
                             .size(32.dp)
                             .clip(CircleShape)
-                            .background(BorderSubtle.copy(0.3f))
-                            .border(2.dp, BorderSubtle, CircleShape),
+                            .background(c.borderSubtle.copy(0.3f))
+                            .border(2.dp, c.borderSubtle, CircleShape),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(Icons.Outlined.QuestionMark, null, tint = TextMuted, modifier = Modifier.size(14.dp))
+                        Icon(Icons.Outlined.QuestionMark, null, tint = c.textMuted, modifier = Modifier.size(14.dp))
                     }
                 }
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(10.dp))
-                        .background(BgCard)
-                        .border(1.dp, BorderSubtle, RoundedCornerShape(10.dp))
+                        .background(c.bgCard)
+                        .border(1.dp, c.borderSubtle, RoundedCornerShape(10.dp))
                         .padding(12.dp),
                 ) {
-                    Text(s.waitingCheckOut, style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                    Text(s.waitingCheckOut, style = MaterialTheme.typography.bodySmall, color = c.textMuted)
                 }
             }
         }
@@ -256,21 +225,17 @@ private fun Timeline(events: List<ScanEvent>, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun EventCard(event: ScanEvent, nodeColor: Color) {
+private fun EventCard(event: ScanEvent, nodeColor: Color, c: AppColors) {
     val isCheckIn = event.eventType == "CHECK_IN"
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(BgCard)
+            .background(c.bgCard)
             .border(1.dp, nodeColor.copy(0.2f), RoundedCornerShape(12.dp))
             .padding(14.dp),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     if (isCheckIn) "CHECK IN" else "CHECK OUT",
@@ -279,23 +244,19 @@ private fun EventCard(event: ScanEvent, nodeColor: Color) {
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 0.8.sp,
                 )
-                Text(
-                    event.source ?: "NFC",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextMuted,
-                )
+                Text(event.source ?: "NFC", style = MaterialTheme.typography.labelSmall, color = c.textMuted)
             }
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(
                     timeFmt.format(Date(event.eventTime)),
                     style = MaterialTheme.typography.titleMedium.copy(fontSize = 20.sp),
-                    color = TextPrimary,
+                    color = c.textPrimary,
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
                     secsFmt.format(Date(event.eventTime)),
                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                    color = TextMuted,
+                    color = c.textMuted,
                 )
             }
         }
@@ -303,56 +264,43 @@ private fun EventCard(event: ScanEvent, nodeColor: Color) {
 }
 
 @Composable
-private fun GapLabel(gapMin: Long, isBreak: Boolean, isWorking: Boolean, modifier: Modifier = Modifier) {
-    val s = LocalStrings.current
+private fun GapLabel(gapMin: Long, isBreak: Boolean, isWorking: Boolean, s: AppStrings, c: AppColors, modifier: Modifier = Modifier) {
     val h = gapMin / 60
     val m = gapMin % 60
     val durationText = if (h > 0) "${h}h ${m}m" else "${m}m"
     val (label, color) = when {
         isWorking -> (s.workingFor + " $durationText") to GreenSuccess
-        isBreak   -> (s.break_ + " — $durationText") to OrangeWarning
-        else      -> "$durationText" to TextMuted
+        isBreak   -> (s.break_ + " — $durationText")  to OrangeWarning
+        else      -> "$durationText" to c.textMuted
     }
-    Row(
-        modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         Icon(
             if (isWorking) Icons.Outlined.Timer else Icons.Outlined.Coffee,
-            null,
-            tint = color,
-            modifier = Modifier.size(11.dp),
+            null, tint = color, modifier = Modifier.size(11.dp),
         )
         Text(label, style = MaterialTheme.typography.labelSmall, color = color)
     }
 }
 
-// ─── Empty state ──────────────────────────────────────────────────────────────
-
 @Composable
-private fun EmptyTimeline(modifier: Modifier = Modifier) {
-    val s = LocalStrings.current
+private fun EmptyTimeline(s: AppStrings, c: AppColors, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(BgCard)
-            .border(1.dp, BorderSubtle, RoundedCornerShape(14.dp))
+            .background(c.bgCard)
+            .border(1.dp, c.borderSubtle, RoundedCornerShape(14.dp))
             .padding(40.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Box(
-            modifier = Modifier
-                .size(64.dp)
-                .clip(CircleShape)
-                .background(BgElevated),
+            modifier = Modifier.size(64.dp).clip(CircleShape).background(c.bgElevated),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Outlined.RadioButtonUnchecked, null, tint = TextMuted, modifier = Modifier.size(32.dp))
+            Icon(Icons.Outlined.RadioButtonUnchecked, null, tint = c.textMuted, modifier = Modifier.size(32.dp))
         }
-        Text(s.noScansToday, style = MaterialTheme.typography.titleSmall, color = TextPrimary)
-        Text(s.noScansDesc, style = MaterialTheme.typography.bodySmall, color = TextMuted)
+        Text(s.noScansToday, style = MaterialTheme.typography.titleSmall, color = c.textPrimary)
+        Text(s.noScansDesc, style = MaterialTheme.typography.bodySmall, color = c.textMuted)
     }
 }

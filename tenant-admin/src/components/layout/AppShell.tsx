@@ -21,9 +21,12 @@ function getPageTitle(pathname: string, t: ReturnType<typeof import('../../i18n/
     '/section-chiefs': t.nav.sectionChiefs,
     '/terminated-workers': t.nav.terminatedWorkers,
     '/reports': t.nav.workHoursReport,
+    '/work-time': t.nav.workTime,
+    '/work-time/reasons': t.nav.adjustmentReasons,
     '/settings': t.nav.settings,
   }
   if (pathname.startsWith('/workers/')) return t.nav.workerProfile
+  if (pathname.startsWith('/work-time/')) return t.nav.workTime
   return map[pathname] ?? 'Tenant Admin'
 }
 

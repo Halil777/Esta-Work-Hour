@@ -22,109 +22,80 @@ import com.workhour.worker.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
 
-private val TZ_UTC3   = TimeZone.getTimeZone("GMT+3")
-private val timeFmt   = SimpleDateFormat("HH:mm", Locale.US).apply { timeZone = TZ_UTC3 }
-private val monthDisp = SimpleDateFormat("MMMM yyyy", Locale.US)
-private val dayDisp   = SimpleDateFormat("EEE, MMM d", Locale.US)
-private val parseFmt  = SimpleDateFormat("yyyy-MM", Locale.US)
+private val TZ_UTC3      = TimeZone.getTimeZone("GMT+3")
+private val timeFmt      = SimpleDateFormat("HH:mm", Locale.US).apply { timeZone = TZ_UTC3 }
+private val monthDisp    = SimpleDateFormat("MMMM yyyy", Locale.US)
+private val dayDisp      = SimpleDateFormat("EEE, MMM d", Locale.US)
+private val parseFmt     = SimpleDateFormat("yyyy-MM", Locale.US)
 private val parseDateFmt = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 
 @Composable
-fun HistoryScreen(serverUrl: String) {
+fun HistoryScreen(serverUrl: String, workerEntityId: String) {
+    val c  = LocalAppColors.current
     val vm: HistoryViewModel = viewModel()
     val state by vm.state.collectAsStateWithLifecycle()
 
-    LaunchedEffect(serverUrl) { vm.load(serverUrl) }
+    LaunchedEffect(serverUrl) { vm.load(serverUrl, workerEntityId) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(BgDeep),
-    ) {
-        // ── Header
+    Column(modifier = Modifier.fillMaxSize().background(c.bgDeep)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(20.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Attendance History", style = MaterialTheme.typography.titleLarge, color = TextPrimary)
+            Text("Attendance History", style = MaterialTheme.typography.titleLarge, color = c.textPrimary)
         }
 
-        // ── Month selector
         Row(
             modifier = Modifier
-                .padding(horizontal = 20.dp)
-                .fillMaxWidth()
+                .padding(horizontal = 20.dp).fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .background(BgCard)
-                .border(1.dp, BorderSubtle, RoundedCornerShape(12.dp))
+                .background(c.bgCard)
+                .border(1.dp, c.borderSubtle, RoundedCornerShape(12.dp))
                 .padding(4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = { vm.prevMonth(serverUrl) }) {
-                Icon(Icons.Outlined.ChevronLeft, null, tint = TextSecondary)
+                Icon(Icons.Outlined.ChevronLeft, null, tint = c.textSecondary)
             }
-            Text(
-                state.month.toMonthDisplay(),
-                style = MaterialTheme.typography.titleSmall,
-                color = TextPrimary,
-                fontWeight = FontWeight.SemiBold,
-            )
+            Text(state.month.toMonthDisplay(), style = MaterialTheme.typography.titleSmall, color = c.textPrimary, fontWeight = FontWeight.SemiBold)
             val isCurrentMonth = state.month == SimpleDateFormat("yyyy-MM", Locale.US).format(Date())
             IconButton(onClick = { vm.nextMonth(serverUrl) }, enabled = !isCurrentMonth) {
-                Icon(
-                    Icons.Outlined.ChevronRight,
-                    null,
-                    tint = if (isCurrentMonth) TextMuted else TextSecondary,
-                )
+                Icon(Icons.Outlined.ChevronRight, null, tint = if (isCurrentMonth) c.textMuted else c.textSecondary)
             }
         }
 
         Spacer(Modifier.height(12.dp))
 
-        // ── Summary chips
         if (!state.loading && state.records.isNotEmpty()) {
             Row(
                 modifier = Modifier.padding(horizontal = 20.dp).fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                SummaryChip(
-                    "${state.presentDays}",
-                    "Days Present",
-                    GreenSuccess,
-                    GreenDim.copy(0.3f),
-                    Modifier.weight(1f),
-                )
-                SummaryChip(
-                    "${state.totalMinutes / 60}h ${state.totalMinutes % 60}m",
-                    "Total Hours",
-                    AccentPurple,
-                    AccentPurpleDim.copy(0.3f),
-                    Modifier.weight(1f),
-                )
+                SummaryChip("${state.presentDays}", "Days Present", GreenSuccess, c.greenDim.copy(0.3f), Modifier.weight(1f))
+                SummaryChip("${state.totalMinutes / 60}h ${state.totalMinutes % 60}m", "Total Hours", AccentPurple, AccentPurpleDim.copy(0.3f), Modifier.weight(1f))
             }
             Spacer(Modifier.height(16.dp))
         }
 
-        // ── Content
         when {
             state.loading -> Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = AccentPurple, strokeWidth = 2.dp)
             }
             state.error.isNotEmpty() -> Box(Modifier.fillMaxWidth().weight(1f).padding(32.dp), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Icon(Icons.Outlined.CloudOff, null, tint = TextMuted, modifier = Modifier.size(40.dp))
-                    Text(state.error, style = MaterialTheme.typography.bodySmall, color = TextMuted)
-                    TextButton(onClick = { vm.load(serverUrl, state.month) }) {
+                    Icon(Icons.Outlined.CloudOff, null, tint = c.textMuted, modifier = Modifier.size(40.dp))
+                    Text(state.error, style = MaterialTheme.typography.bodySmall, color = c.textMuted)
+                    TextButton(onClick = { vm.load(serverUrl, state.workerEntityId, state.month) }) {
                         Text("Retry", color = AccentPurple)
                     }
                 }
             }
             state.records.isEmpty() -> Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Outlined.EventBusy, null, tint = TextMuted, modifier = Modifier.size(40.dp))
-                    Text("No attendance records", color = TextMuted, style = MaterialTheme.typography.bodyMedium)
+                    Icon(Icons.Outlined.EventBusy, null, tint = c.textMuted, modifier = Modifier.size(40.dp))
+                    Text("No attendance records", color = c.textMuted, style = MaterialTheme.typography.bodyMedium)
                 }
             }
             else -> LazyColumn(
@@ -133,7 +104,7 @@ fun HistoryScreen(serverUrl: String) {
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(state.records, key = { it.date }) { record ->
-                    AttendanceItem(record)
+                    AttendanceItem(record, c)
                 }
             }
         }
@@ -142,12 +113,9 @@ fun HistoryScreen(serverUrl: String) {
 
 @Composable
 private fun SummaryChip(value: String, label: String, color: Color, bg: Color, modifier: Modifier = Modifier) {
+    val c = LocalAppColors.current
     Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(bg)
-            .border(1.dp, color.copy(0.3f), RoundedCornerShape(12.dp))
-            .padding(14.dp),
+        modifier = modifier.clip(RoundedCornerShape(12.dp)).background(bg).border(1.dp, color.copy(0.3f), RoundedCornerShape(12.dp)).padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         Text(value, style = MaterialTheme.typography.titleMedium, color = color, fontWeight = FontWeight.Bold)
@@ -156,34 +124,22 @@ private fun SummaryChip(value: String, label: String, color: Color, bg: Color, m
 }
 
 @Composable
-private fun AttendanceItem(record: AttendanceRecord) {
+private fun AttendanceItem(record: AttendanceRecord, c: AppColors) {
     val (statusColor, statusBg, statusLabel) = when (record.status) {
-        "present" -> Triple(GreenSuccess, GreenDim.copy(0.25f), "Present")
-        "partial"  -> Triple(OrangeWarning, OrangeDim.copy(0.25f), "Partial")
-        else       -> Triple(TextMuted, BorderSubtle.copy(0.3f), "Absent")
+        "present" -> Triple(GreenSuccess, c.greenDim.copy(0.25f), "Present")
+        "partial"  -> Triple(OrangeWarning, c.orangeDim.copy(0.25f), "Partial")
+        else       -> Triple(c.textMuted, c.borderSubtle.copy(0.3f), "Absent")
     }
-
-    val dateLabel = try {
-        dayDisp.format(parseDateFmt.parse(record.date)!!)
-    } catch (_: Exception) { record.date }
+    val dateLabel = try { dayDisp.format(parseDateFmt.parse(record.date)!!) } catch (_: Exception) { record.date }
 
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(BgCard)
-            .border(1.dp, BorderSubtle, RoundedCornerShape(12.dp))
-            .padding(14.dp),
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(c.bgCard).border(1.dp, c.borderSubtle, RoundedCornerShape(12.dp)).padding(14.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            // Status dot
             Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(statusBg),
+                modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(statusBg),
                 contentAlignment = Alignment.Center,
             ) {
                 val icon = when (record.status) {
@@ -194,41 +150,29 @@ private fun AttendanceItem(record: AttendanceRecord) {
                 Icon(icon, null, tint = statusColor, modifier = Modifier.size(18.dp))
             }
             Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(dateLabel, style = MaterialTheme.typography.titleSmall, color = TextPrimary)
+                Text(dateLabel, style = MaterialTheme.typography.titleSmall, color = c.textPrimary)
                 if (record.checkIn != null) {
                     Text(
                         buildString {
                             append(timeFmt.format(Date(record.checkIn)))
                             if (record.checkOut != null) append(" → ${timeFmt.format(Date(record.checkOut))}")
                         },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary,
+                        style = MaterialTheme.typography.bodySmall, color = c.textSecondary,
                     )
                 } else {
-                    Text("No scan", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                    Text("No scan", style = MaterialTheme.typography.bodySmall, color = c.textMuted)
                 }
             }
         }
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
             if (record.totalMinutes != null && record.totalMinutes > 0) {
-                Text(
-                    "${record.totalMinutes / 60}h ${record.totalMinutes % 60}m",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = TextPrimary,
-                    fontWeight = FontWeight.SemiBold,
-                )
+                Text("${record.totalMinutes / 60}h ${record.totalMinutes % 60}m", style = MaterialTheme.typography.titleSmall, color = c.textPrimary, fontWeight = FontWeight.SemiBold)
             }
-            Text(
-                statusLabel,
-                style = MaterialTheme.typography.labelSmall,
-                color = statusColor,
-            )
+            Text(statusLabel, style = MaterialTheme.typography.labelSmall, color = statusColor)
         }
     }
 }
 
-private fun String.toMonthDisplay(): String {
-    return try {
-        monthDisp.format(parseFmt.parse(this)!!)
-    } catch (_: Exception) { this }
-}
+private fun String.toMonthDisplay(): String = try {
+    monthDisp.format(parseFmt.parse(this)!!)
+} catch (_: Exception) { this }

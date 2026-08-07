@@ -7,6 +7,7 @@ import com.workhour.worker.data.local.PrefsDataStore
 import com.workhour.worker.data.model.SavedUser
 import com.workhour.worker.data.network.TokenHolder
 import com.workhour.worker.ui.theme.AppLanguage
+import com.workhour.worker.ui.theme.AppTheme
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -30,11 +31,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val language: StateFlow<AppLanguage> = prefs.languageFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, AppLanguage.EN)
 
+    val theme: StateFlow<AppTheme> = prefs.themeFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, AppTheme.DARK)
+
     init {
         viewModelScope.launch {
             combine(prefs.serverUrlFlow, prefs.tokenFlow, prefs.userFlow) { url, token, user ->
                 when {
-                    url.isNullOrBlank()                  -> AppUiState.NeedSetup
+                    url.isNullOrBlank()                   -> AppUiState.NeedSetup
                     token.isNullOrBlank() || user == null -> AppUiState.NeedLogin
                     else -> {
                         TokenHolder.token = token
@@ -59,6 +63,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setLanguage(lang: AppLanguage) {
         viewModelScope.launch { prefs.setLanguage(lang) }
+    }
+
+    fun setTheme(theme: AppTheme) {
+        viewModelScope.launch { prefs.setTheme(theme) }
     }
 
     fun logout() {

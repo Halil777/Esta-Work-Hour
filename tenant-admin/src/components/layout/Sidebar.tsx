@@ -4,7 +4,7 @@ import {
   Building2, LayoutDashboard, Users, Layers, Clock,
   Settings, LogOut,
   ScanLine, History, WifiOff, ShieldCheck, HardHat, UserMinus, AlarmClock,
-  FileSpreadsheet, Smartphone, CreditCard,
+  FileSpreadsheet, Smartphone, CreditCard, Timer, ListChecks,
 } from 'lucide-react'
 import { useUiPreferences } from '../../app/providers/useUiPreferences'
 import { useTranslation } from '../../i18n/useTranslation'
@@ -26,6 +26,8 @@ export function Sidebar() {
     { path: '/nfc-events', icon: ScanLine, label: t.nav.nfcEvents, section: t.sidebar.attendance },
     { path: '/overtime', icon: Clock, label: t.nav.overtime, section: t.sidebar.approvals },
     { path: '/reports', icon: FileSpreadsheet, label: t.nav.workHoursReport, section: t.sidebar.reports },
+    { path: '/work-time', icon: Timer, label: t.nav.workTime, section: t.sidebar.workTime },
+    { path: '/work-time/reasons', icon: ListChecks, label: t.nav.adjustmentReasons, section: t.sidebar.workTime },
     { path: '/card-reports', icon: CreditCard, label: t.nav.cardReports, section: t.sidebar.system },
     { path: '/history', icon: History, label: t.nav.history, section: t.sidebar.system },
     { path: '/scanner-devices', icon: Smartphone, label: 'NFC Enjamlar', section: t.sidebar.system },

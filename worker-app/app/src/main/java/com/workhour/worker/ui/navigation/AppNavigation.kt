@@ -37,16 +37,17 @@ private val TABS = listOf(
 
 @Composable
 fun MainNavigation(serverUrl: String, user: SavedUser, onLogout: () -> Unit) {
-    val s = LocalStrings.current
+    val s   = LocalStrings.current
+    val c   = LocalAppColors.current
     val navController = rememberNavController()
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
 
     Scaffold(
-        containerColor = BgDeep,
+        containerColor = c.bgDeep,
         bottomBar = {
             NavigationBar(
-                containerColor = BgSurface,
+                containerColor = c.bgSurface,
                 tonalElevation = 0.dp,
             ) {
                 TABS.forEach { tab ->
@@ -65,8 +66,8 @@ fun MainNavigation(serverUrl: String, user: SavedUser, onLogout: () -> Unit) {
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor   = AccentPurple,
                             selectedTextColor   = AccentPurple,
-                            unselectedIconColor = TextMuted,
-                            unselectedTextColor = TextMuted,
+                            unselectedIconColor = c.textMuted,
+                            unselectedTextColor = c.textMuted,
                             indicatorColor      = AccentPurpleDim.copy(0.2f),
                         ),
                     )
@@ -80,11 +81,11 @@ fun MainNavigation(serverUrl: String, user: SavedUser, onLogout: () -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(BgDeep),
+                .background(c.bgDeep),
         ) {
-            composable("home")     { HomeScreen(serverUrl, user.name) }
-            composable("calendar") { CalendarScreen(serverUrl) }
-            composable("timeline") { TimelineScreen(serverUrl) }
+            composable("home")     { HomeScreen(serverUrl, user) }
+            composable("calendar") { CalendarScreen(serverUrl, user.workerEntityId) }
+            composable("timeline") { TimelineScreen(serverUrl, user.workerEntityId) }
             composable("settings") { SettingsScreen(serverUrl) }
             composable("profile")  { ProfileScreen(serverUrl, user, onLogout) }
         }

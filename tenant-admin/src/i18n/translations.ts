@@ -22,6 +22,8 @@ const en = {
     workHoursReport: 'Work Hours Report',
     workerProfile: 'Worker Profile',
     cardReports: 'Card Issues',
+    workTime: 'Work Time',
+    adjustmentReasons: 'Adjustment Reasons',
   },
   sidebar: {
     overview: 'Overview',
@@ -29,6 +31,7 @@ const en = {
     attendance: 'Attendance',
     approvals: 'Approvals',
     reports: 'Reports',
+    workTime: 'Work Time',
     system: 'System',
   },
   common: {
@@ -847,6 +850,8 @@ const ru: typeof en = {
     workHoursReport: 'Отчёт рабочего времени',
     workerProfile: 'Профиль работника',
     cardReports: 'Проблемы с картами',
+    workTime: 'Рабочее время',
+    adjustmentReasons: 'Причины корректировок',
   },
   sidebar: {
     overview: 'Обзор',
@@ -854,6 +859,7 @@ const ru: typeof en = {
     attendance: 'Посещаемость',
     approvals: 'Одобрения',
     reports: 'Отчёты',
+    workTime: 'Рабочее время',
     system: 'Система',
   },
   common: {
@@ -1672,6 +1678,8 @@ const tr: typeof en = {
     workHoursReport: 'İş Saatleri Raporu',
     workerProfile: 'Çalışan Profili',
     cardReports: 'Kart meseleleri',
+    workTime: 'Mesai Takibi',
+    adjustmentReasons: 'Düzeltme Sebepleri',
   },
   sidebar: {
     overview: 'Genel',
@@ -1679,6 +1687,7 @@ const tr: typeof en = {
     attendance: 'Yoklama',
     approvals: 'Onaylar',
     reports: 'Raporlar',
+    workTime: 'Mesai',
     system: 'Sistem',
   },
   common: {

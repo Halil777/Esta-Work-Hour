@@ -45,8 +45,8 @@ data class AppStrings(
     val working: String,
     val waitingForScan: String,
     val lastSevenDays: String,
-    val ofShift: String,           // "% of 8h shift"
-    val workingFor: String,        // "Working for Xh Ym"
+    val ofShift: String,
+    val workingFor: String,
 
     // ── Calendar ─────────────────────────────────────────────────────────────
     val workCalendar: String,
@@ -57,7 +57,7 @@ data class AppStrings(
     val noRecord: String,
     val noAttendanceRecorded: String,
     val inProgress: String,
-    val dayHeaders: List<String>,  // Mon–Sun
+    val dayHeaders: List<String>,
 
     // ── Timeline ─────────────────────────────────────────────────────────────
     val todaysScans: String,
@@ -86,6 +86,9 @@ data class AppStrings(
 
     // ── Settings ─────────────────────────────────────────────────────────────
     val language: String,
+    val theme: String,
+    val darkMode: String,
+    val lightMode: String,
     val appearance: String,
     val security: String,
     val changePassword: String,
@@ -149,7 +152,8 @@ val EnStrings = AppStrings(
     signOutConfirmTitle = "Sign Out",
     signOutConfirmText = "Are you sure you want to sign out?",
 
-    language = "Language", appearance = "Appearance", security = "Security",
+    language = "Language", theme = "Theme", darkMode = "Dark", lightMode = "Light",
+    appearance = "Appearance", security = "Security",
     changePassword = "Change Password", currentPassword = "Current Password",
     newPassword = "New Password", confirmPassword = "Confirm Password",
     updatePassword = "Update Password",
@@ -157,7 +161,7 @@ val EnStrings = AppStrings(
     passwordsDoNotMatch = "Passwords do not match",
     passwordTooShort = "Password must be at least 4 characters",
     wrongPassword = "Current password is incorrect",
-    about = "About", appVersion = "Version 1.0",
+    about = "About", appVersion = "Version 1.1",
 
     signInWithCredentials = "Sign in with your work credentials",
     username = "Username", password = "Password",
@@ -206,7 +210,8 @@ val RuStrings = AppStrings(
     signOutConfirmTitle = "Выход",
     signOutConfirmText = "Вы уверены, что хотите выйти?",
 
-    language = "Язык", appearance = "Внешний вид", security = "Безопасность",
+    language = "Язык", theme = "Тема", darkMode = "Тёмная", lightMode = "Светлая",
+    appearance = "Внешний вид", security = "Безопасность",
     changePassword = "Изменить пароль", currentPassword = "Текущий пароль",
     newPassword = "Новый пароль", confirmPassword = "Подтвердите пароль",
     updatePassword = "Обновить пароль",
@@ -214,7 +219,7 @@ val RuStrings = AppStrings(
     passwordsDoNotMatch = "Пароли не совпадают",
     passwordTooShort = "Пароль должен содержать не менее 4 символов",
     wrongPassword = "Текущий пароль неверен",
-    about = "О приложении", appVersion = "Версия 1.0",
+    about = "О приложении", appVersion = "Версия 1.1",
 
     signInWithCredentials = "Войдите с рабочими данными",
     username = "Имя пользователя", password = "Пароль",
@@ -229,61 +234,62 @@ val RuStrings = AppStrings(
     addressMustStartHttp = "Адрес должен начинаться с http:// или https://",
 )
 
-// ─── Turkish ──────────────────────────────────────────────────────────────────
+// ─── Turkmen ──────────────────────────────────────────────────────────────────
 
 val TrStrings = AppStrings(
-    home = "Ana Sayfa", calendar = "Takvim", timeline = "Zaman Çizelgesi",
-    settings = "Ayarlar", profile = "Profil",
+    home = "Baş sahypa", calendar = "Senenama", timeline = "Skan lenti",
+    settings = "Sazlamalar", profile = "Profil",
 
-    signIn = "Giriş Yap", signOut = "Çıkış Yap", retry = "Tekrar Dene",
-    cancel = "İptal", save = "Kaydet", refresh = "Yenile",
-    loading = "Yükleniyor…", noData = "Veri yok",
+    signIn = "Giriş et", signOut = "Çykyş et", retry = "Täzeden synap gör",
+    cancel = "Ýatyr", save = "Sakla", refresh = "Täzele",
+    loading = "Ýüklenýär…", noData = "Maglumat ýok",
 
-    goodMorning = "Günaydın,", goodAfternoon = "İyi günler,", goodEvening = "İyi akşamlar,",
+    goodMorning = "Ertiriň haýyrly bolsun,", goodAfternoon = "Günüň haýyrly bolsun,", goodEvening = "Agşamyň haýyrly bolsun,",
 
-    checkedIn = "Giriş Yapıldı", dayComplete = "Gün Tamamlandı", notCheckedIn = "Giriş Yapılmadı",
-    checkInTime = "Giriş saati", checkIn = "Giriş", checkOut = "Çıkış",
-    duration = "Süre", total = "Toplam", working = "Çalışıyor",
-    waitingForScan = "NFC taraması bekleniyor…", lastSevenDays = "Son 7 Gün",
-    ofShift = "% 8 saatlik vardiyadan", workingFor = "Çalışıyor",
+    checkedIn = "Giriş edildi", dayComplete = "Gün tamamlandy", notCheckedIn = "Giriş edilmedi",
+    checkInTime = "Giriş wagty", checkIn = "Giriş", checkOut = "Çykyş",
+    duration = "Dowam", total = "Jemi", working = "Işleýär",
+    waitingForScan = "NFC skany garaşylýar…", lastSevenDays = "Soňky 7 gün",
+    ofShift = "% 8 sagat çalşykdan", workingFor = "Işleýär",
 
-    workCalendar = "Çalışma Takvimi", daysPresent = "Mevcut Günler", totalHours = "Toplam Saat",
-    present = "Mevcut", partial = "Kısmi", noRecord = "Kayıt yok",
-    noAttendanceRecorded = "Bu gün için devam kaydı bulunamadı", inProgress = "Devam Ediyor",
-    dayHeaders = listOf("Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"),
+    workCalendar = "Iş senenamasy", daysPresent = "Gelen günler", totalHours = "Jemi sagat",
+    present = "Geldi", partial = "Bölekleýin", noRecord = "Maglumat ýok",
+    noAttendanceRecorded = "Bu gün üçin gatnaşyk ýazgysy ýok", inProgress = "Dowam edýär",
+    dayHeaders = listOf("Db", "Sl", "Çr", "Pb", "An", "Şb", "Ýk"),
 
-    todaysScans = "Bugünkü Taramalar", currentlyWorking = "Çalışıyor",
-    checkedOut = "Çıkış yapıldı", noScansToday = "Bugün tarama kaydedilmedi",
-    noScansDesc = "NFC tarama olaylarınız burada görünecek",
-    waitingCheckOut = "Çıkış bekleniyor…", break_ = "Mola",
+    todaysScans = "Şu günki skanlar", currentlyWorking = "Häzir işleýär",
+    checkedOut = "Çykyş edildi", noScansToday = "Şu gün skan ýazgylanmady",
+    noScansDesc = "NFC skan wakalaryňyz bu ýerde görüner",
+    waitingCheckOut = "Çykyş skany garaşylýar…", break_ = "Arakesme",
 
-    workDetails = "İş Bilgileri", workerId = "Sicil Numarası", profession = "Meslek",
-    brigade = "Ekip", shift = "Vardiya", workSystem = "Çalışma Sistemi", status = "Durum",
-    account = "Hesap", role = "Rol", server = "Sunucu", day = "Gündüz", night = "Gece",
-    signOutConfirmTitle = "Çıkış Yap",
-    signOutConfirmText = "Çıkış yapmak istediğinizden emin misiniz?",
+    workDetails = "Iş maglumatlary", workerId = "Sicil belgisi", profession = "Hünär",
+    brigade = "Bölüm", shift = "Çalşyk", workSystem = "Iş ulgamy", status = "Ýagdaý",
+    account = "Hasap", role = "Rol", server = "Serwer", day = "Gündizip", night = "Gijeki",
+    signOutConfirmTitle = "Çykyş et",
+    signOutConfirmText = "Çykmagy hakykatdan isleýärsiňizmi?",
 
-    language = "Dil", appearance = "Görünüm", security = "Güvenlik",
-    changePassword = "Şifre Değiştir", currentPassword = "Mevcut Şifre",
-    newPassword = "Yeni Şifre", confirmPassword = "Şifre Onay",
-    updatePassword = "Şifreyi Güncelle",
-    passwordChanged = "Şifre başarıyla değiştirildi",
-    passwordsDoNotMatch = "Şifreler eşleşmiyor",
-    passwordTooShort = "Şifre en az 4 karakter olmalıdır",
-    wrongPassword = "Mevcut şifre yanlış",
-    about = "Hakkında", appVersion = "Sürüm 1.0",
+    language = "Dil", theme = "Tema", darkMode = "Garaňky", lightMode = "Ýagty",
+    appearance = "Görünüş", security = "Howpsuzlyk",
+    changePassword = "Paroly üýtget", currentPassword = "Häzirki parol",
+    newPassword = "Täze parol", confirmPassword = "Paroly tassykla",
+    updatePassword = "Paroly täzele",
+    passwordChanged = "Parol üstünlikli üýtgedildi",
+    passwordsDoNotMatch = "Parollar gabat gelmeýär",
+    passwordTooShort = "Parol azyndan 4 belgiden ybarat bolmaly",
+    wrongPassword = "Häzirki parol nädogry",
+    about = "Barada", appVersion = "Wersiýa 1.1",
 
-    signInWithCredentials = "İş bilgilerinizle giriş yapın",
-    username = "Kullanıcı Adı", password = "Şifre",
-    invalidCredentials = "Geçersiz kullanıcı adı veya şifre",
-    serverUnreachable = "Sunucuya ulaşılamıyor. Adres ve ağı kontrol edin.",
-    workersOnlyWarning = "Bu uygulama yalnızca işçiler içindir.\nUstabaşı ve şantiye şefleri lütfen WorkForce uygulamasını kullanın.",
-    changeServer = "Sunucuyu değiştir",
-    connectToWorkHour = "WorkHour'a Bağlan",
-    enterServerAddress = "Yöneticinizin verdiği sunucu adresini girin",
-    continue_ = "Devam Et",
-    invalidServerAddress = "Lütfen geçerli bir sunucu adresi girin",
-    addressMustStartHttp = "Adres http:// veya https:// ile başlamalıdır",
+    signInWithCredentials = "Iş maglumatlaňyz bilen giriş ediň",
+    username = "Ulanyjy ady", password = "Parol",
+    invalidCredentials = "Ulanyjy ady ýa-da parol nädogry",
+    serverUnreachable = "Serwere bağlanyp bolmaýar. Adres we tory barlaň.",
+    workersOnlyWarning = "Bu programma diňe işçiler üçindir.\nUstalar we ýolbaşçylar WorkForce programmasyny ulansyn.",
+    changeServer = "Serweri üýtget",
+    connectToWorkHour = "WorkHour-a bağlan",
+    enterServerAddress = "Dolandyryjyňyzyň berlen serwer adresini giriziň",
+    continue_ = "Dowam et",
+    invalidServerAddress = "Dogry serwer adresini giriziň",
+    addressMustStartHttp = "Adres http:// ýa-da https:// bilen başlamaly",
 )
 
 val LocalStrings = compositionLocalOf<AppStrings> { EnStrings }

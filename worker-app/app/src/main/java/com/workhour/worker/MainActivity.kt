@@ -18,7 +18,6 @@ import com.workhour.worker.ui.auth.LoginScreen
 import com.workhour.worker.ui.auth.SetupScreen
 import com.workhour.worker.ui.navigation.MainNavigation
 import com.workhour.worker.ui.theme.AccentPurple
-import com.workhour.worker.ui.theme.BgDeep
 import com.workhour.worker.ui.theme.WorkHourTheme
 
 class MainActivity : ComponentActivity() {
@@ -31,15 +30,17 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun App() {
-    val vm: AppViewModel = viewModel()
-    val state    by vm.state.collectAsStateWithLifecycle()
+    val vm        : AppViewModel = viewModel()
+    val state     by vm.state.collectAsStateWithLifecycle()
     val serverUrl by vm.serverUrl.collectAsStateWithLifecycle()
     val language  by vm.language.collectAsStateWithLifecycle()
+    val theme     by vm.theme.collectAsStateWithLifecycle()
 
-    WorkHourTheme(language = language) {
+    WorkHourTheme(language = language, theme = theme) {
+        val bgColor = com.workhour.worker.ui.theme.LocalAppColors.current.bgDeep
         when (val s = state) {
             is AppUiState.Loading -> Box(
-                modifier = Modifier.fillMaxSize().background(BgDeep),
+                modifier = Modifier.fillMaxSize().background(bgColor),
                 contentAlignment = Alignment.Center,
             ) {
                 CircularProgressIndicator(color = AccentPurple)

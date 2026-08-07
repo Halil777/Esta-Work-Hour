@@ -1,0 +1,184 @@
+import { apiFetch } from './http'
+
+export type AdjustmentType = 'ADD' | 'SUBTRACT' | 'SET' | 'MINIMUM' | 'BONUS'
+export type AdjustmentStatus = 'ACTIVE' | 'CANCELLED'
+
+export interface AdjustmentReason {
+  id: string
+  tenantId: string
+  name: string
+  description: string | null
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface WorkAdjustment {
+  id: string
+  workerEntityId: string
+  workDate: string
+  adjustmentType: AdjustmentType
+  minutes: number
+  reasonId: string | null
+  reasonLabel: string | null
+  description: string | null
+  sourceType: string
+  bulkId: string | null
+  status: AdjustmentStatus
+  createdBy: string
+  updatedBy: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface WorkerSummaryRow {
+  workerEntityId: string
+  workerId: string
+  name: string
+  profession: string
+  brigade: string
+  shift: 'day' | 'night' | null
+  actualMinutes: number
+  adjustmentMinutes: number
+  creditedMinutes: number
+}
+
+export interface MonthSummary {
+  month: string
+  totals: {
+    actualMinutes: number
+    adjustmentMinutes: number
+    creditedMinutes: number
+  }
+  workers: WorkerSummaryRow[]
+}
+
+export interface DayRow {
+  workDate: string
+  actualMinutes: number
+  adjustmentMinutes: number
+  creditedMinutes: number
+  checkIn: number | null
+  checkOut: number | null
+  adjustments: WorkAdjustment[]
+}
+
+export interface WorkerTimesheet {
+  workerEntityId: string
+  workerId: string
+  name: string
+  profession: string
+  brigade: string
+  shift: 'day' | 'night' | null
+  month: string
+  totalActualMinutes: number
+  totalAdjustmentMinutes: number
+  totalCreditedMinutes: number
+  days: DayRow[]
+}
+
+export interface AdjustmentLog {
+  id: string
+  adjustmentId: string
+  workerEntityId: string
+  workDate: string
+  action: 'CREATED' | 'UPDATED' | 'CANCELLED'
+  oldValue: any
+  newValue: any
+  changedBy: string
+  changeReason: string | null
+  changedAt: string
+}
+
+// ── Work Time ──────────────────────────────────────────────────────────────────
+
+export const workTimeApi = {
+  getMonthSummary: (month: string) =>
+    apiFetch<MonthSummary>(`/admin/work-time/month-summary?month=${month}`),
+
+  getWorkerTimesheet: (workerEntityId: string, month: string) =>
+    apiFetch<WorkerTimesheet>(
+      `/admin/work-time/timesheet?workerEntityId=${workerEntityId}&month=${month}`,
+    ),
+}
+
+// ── Adjustment Reasons ─────────────────────────────────────────────────────────
+
+export const reasonsApi = {
+  getAll: () =>
+    apiFetch<AdjustmentReason[]>('/admin/adjustment-reasons'),
+
+  create: (data: { name: string; description?: string }) =>
+    apiFetch<AdjustmentReason>('/admin/adjustment-reasons', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: string, data: { name?: string; description?: string | null; isActive?: boolean }) =>
+    apiFetch<AdjustmentReason>(`/admin/adjustment-reasons/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
+}
+
+// ── Work Adjustments ───────────────────────────────────────────────────────────
+
+export const adjustmentsApi = {
+  create: (data: {
+    workerEntityId: string
+    workDate: string
+    adjustmentType: AdjustmentType
+    minutes: number
+    reasonId?: string
+    description?: string
+  }) =>
+    apiFetch<WorkAdjustment>('/admin/work-adjustments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
+
+  createBulk: (data: {
+    workerEntityIds: string[]
+    workDate: string
+    adjustmentType: AdjustmentType
+    minutes: number
+    reasonId?: string
+    description?: string
+  }) =>
+    apiFetch<WorkAdjustment[]>('/admin/work-adjustments/bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: string, data: {
+    adjustmentType?: AdjustmentType
+    minutes?: number
+    reasonId?: string | null
+    description?: string | null
+    changeReason?: string
+  }) =>
+    apiFetch<WorkAdjustment>(`/admin/work-adjustments/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
+
+  cancel: (id: string, reason?: string) => {
+    const q = reason ? `?reason=${encodeURIComponent(reason)}` : ''
+    return apiFetch<void>(`/admin/work-adjustments/${id}${q}`, { method: 'DELETE' })
+  },
+
+  getLogs: (params: { workerEntityId?: string; month?: string; page?: number }) => {
+    const q = new URLSearchParams()
+    if (params.workerEntityId) q.set('workerEntityId', params.workerEntityId)
+    if (params.month) q.set('month', params.month)
+    if (params.page) q.set('page', String(params.page))
+    return apiFetch<{ data: AdjustmentLog[]; total: number }>(
+      `/admin/work-adjustments/logs?${q}`,
+    )
+  },
+}
