@@ -41,7 +41,7 @@ export class WorkAdjustment {
   reasonId: string | null;
 
   /** Snapshot of reason name at time of creation */
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   reasonLabel: string | null;
 
   @Column({ type: 'text', nullable: true })
@@ -61,7 +61,7 @@ export class WorkAdjustment {
   @Column()
   createdBy: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   updatedBy: string | null;
 
   @CreateDateColumn()
