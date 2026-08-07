@@ -1,9 +1,8 @@
 /**
  * Application timezone — read from TZ env var (set in .env or PM2 config).
- * Defaults to Asia/Ashgabat if not set.
+ * Defaults to Europe/Moscow (UTC+3, Tatarstan) if not set.
  */
-export const APP_TZ: string = process.env.TZ || 'Asia/Ashgabat';
-
+export const APP_TZ: string = process.env.TZ || 'Europe/Moscow';
 /**
  * Returns today's date as YYYY-MM-DD in the local timezone.
  * Relies on process.env.TZ being set before app start (done in main.ts).

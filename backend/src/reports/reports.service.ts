@@ -11,15 +11,17 @@ import { AttendanceOverridesService } from '../attendance-overrides/attendance-o
 
 // ─── Formatters ────────────────────────────────────────────────────────────────
 
-function fmtMs(ms: number): string {
+function fmtMs(ms: number, lang: Lang = 'tr'): string {
   if (!ms || ms <= 0) return '—';
   const h = Math.floor(ms / 3600000);
   const m = Math.floor((ms % 3600000) / 60000);
-  return m > 0 ? `${h} sag ${m} min` : `${h} sag`;
+  const hLabel = lang === 'ru' ? 'ч' : lang === 'en' ? 'h' : 'sa';
+  const mLabel = lang === 'ru' ? 'мин' : lang === 'en' ? 'min' : 'dk';
+  return m > 0 ? `${h} ${hLabel} ${m} ${mLabel}` : `${h} ${hLabel}`;
 }
 
-// Asia/Ashgabat = UTC+5, no DST. Computed manually to avoid Windows IANA-tz issues.
-const TZ_OFFSET_MS = 5 * 60 * 60 * 1000;
+// Europe/Moscow = UTC+3, no DST since 2014. Computed manually to avoid Windows IANA-tz issues.
+const TZ_OFFSET_MS = 3 * 60 * 60 * 1000;
 
 function fmtTime(ms: number | null): string {
   if (!ms) return '—';
@@ -46,6 +48,11 @@ function getL(lang: Lang = 'tr', tenantName = 'WorkForce') {
       footer: 'TOTAL',
       came: 'Present', notCame: 'Absent', pct: 'Percentage',
       total: 'Total', days: (n: number) => `${n} days`,
+      reportLabels: {
+        daily_all: 'All Workers', daily_staff: 'Staff Only',
+        daily_shift_day: 'Day Shift', daily_shift_night: 'Night Shift',
+        daily_attended: 'Present Only', daily_absent: 'Absent Only',
+      },
     },
     ru: {
       dailyTitle: `${tenantName} — Ежедневный отчёт`,
@@ -60,50 +67,38 @@ function getL(lang: Lang = 'tr', tenantName = 'WorkForce') {
       sectionAbsent: (n: number) => `ОТСУТСТВОВАЛИ  (${n} чел.)`,
       shiftDay: 'День', shiftNight: 'Ночь',
       footer: 'ИТОГО',
-      came: 'Пришли', notCame: 'Не пришли', pct: 'Процент',
+      came: 'Пришёл', notCame: 'Не пришёл', pct: 'Процент',
       total: 'Всего', days: (n: number) => `${n} дн.`,
+      reportLabels: {
+        daily_all: 'Все работники', daily_staff: 'Только персонал',
+        daily_shift_day: 'Дневная смена', daily_shift_night: 'Ночная смена',
+        daily_attended: 'Только присутствующие', daily_absent: 'Только отсутствующие',
+      },
     },
     tr: {
-      dailyTitle: `${tenantName} — Günlük Hasabat`,
-      rangeTitle: (monthly: boolean) => `${tenantName} — ${monthly ? 'Aýlyk' : 'İş Sagatlaryny'} Hasabaty`,
-      period: 'Döwür', date: 'Sene', report: 'Hasabat',
-      totalWorkers: 'Jemi işçi', workedWorkers: 'İşlän işçi',
-      totalHours: 'Jemi sagat', avgPerWorker: 'Ortaça (işçi başyna)',
-      colWorker: 'İşçi adı', colTabNo: 'Sicil No', colProfession: 'Görev', colTeam: 'Ekip',
-      colShift: 'Shift', colCheckIn: 'Giriş', colCheckOut: 'Çykyş', colTotalHours: 'Jemi sag',
-      colDaysWorked: 'İşlän gün', colAvgDay: 'Ortaça gün',
-      sectionPresent: (n: number) => `GELENLER  (${n} adam)`,
-      sectionAbsent: (n: number) => `GELMEDIKLER  (${n} adam)`,
-      shiftDay: 'Gündiz', shiftNight: 'Gije',
-      footer: 'JEMI',
-      came: 'Geldi', notCame: 'Gelmedi', pct: 'Göterimi',
-      total: 'Jemi', days: (n: number) => `${n} gün`,
+      dailyTitle: `${tenantName} — Günlük Devam Raporu`,
+      rangeTitle: (monthly: boolean) => `${tenantName} — ${monthly ? 'Aylık' : 'Çalışma Saatleri'} Raporu`,
+      period: 'Dönem', date: 'Tarih', report: 'Rapor',
+      totalWorkers: 'Toplam İşçi', workedWorkers: 'Çalışan İşçi',
+      totalHours: 'Toplam Saat', avgPerWorker: 'İşçi Başına Ortalama',
+      colWorker: 'İşçi Adı', colTabNo: 'Sicil No', colProfession: 'Meslek', colTeam: 'Ekip',
+      colShift: 'Vardiya', colCheckIn: 'Giriş', colCheckOut: 'Çıkış', colTotalHours: 'Toplam Saat',
+      colDaysWorked: 'Çalışılan Gün', colAvgDay: 'Günlük Ort.',
+      sectionPresent: (n: number) => `GELDİ  (${n} kişi)`,
+      sectionAbsent: (n: number) => `GELMEDİ  (${n} kişi)`,
+      shiftDay: 'Gündüz', shiftNight: 'Gece',
+      footer: 'TOPLAM',
+      came: 'Geldi', notCame: 'Gelmedi', pct: 'Yüzde',
+      total: 'Toplam', days: (n: number) => `${n} gün`,
+      reportLabels: {
+        daily_all: 'Tüm İşçiler', daily_staff: 'Sadece Personel',
+        daily_shift_day: 'Gündüz Vardiyası', daily_shift_night: 'Gece Vardiyası',
+        daily_attended: 'Sadece Gelenler', daily_absent: 'Sadece Gelmeyenler',
+      },
     },
   };
   return L[lang] ?? L.tr;
 }
-
-function fmtDateTm(turkmenMonth: boolean, dateStr: string): string {
-  if (!dateStr) return dateStr;
-  const [, m, d] = dateStr.split('-');
-  if (!turkmenMonth) return dateStr;
-  const months = [
-    'Ýanwar', 'Fewral', 'Mart', 'Aprel', 'Maý', 'Iýun',
-    'Iýul', 'Awgust', 'Sentýabr', 'Oktýabr', 'Noýabr', 'Dekabr',
-  ];
-  return `${parseInt(d)} ${months[parseInt(m) - 1]}`;
-}
-
-// ─── Daily report types ─────────────────────────────────────────────────────────
-
-const REPORT_LABELS: Record<ReportType, string> = {
-  daily_all: 'Ähli işçiler',
-  daily_staff: 'Staff Personal',
-  daily_shift_day: 'Gündiz Shift',
-  daily_shift_night: 'Gije Shift',
-  daily_attended: 'Diňe gelenler',
-  daily_absent: 'Diňe gelmedikler',
-};
 
 type Row = {
   name: string;
@@ -294,7 +289,7 @@ export class ReportsService {
     titleRow.height = 30;
 
     const statsRow = ws.addRow([
-      `${L.date}: ${date}   |   ${L.report}: ${REPORT_LABELS[reportType]}   |   ${L.total}: ${rows.length}   |   ${L.came}: ${attended.length}   |   ${L.notCame}: ${absent.length}   |   ${L.pct}: ${pct}%`,
+      `${L.date}: ${date}   |   ${L.report}: ${L.reportLabels[reportType]}   |   ${L.total}: ${rows.length}   |   ${L.came}: ${attended.length}   |   ${L.notCame}: ${absent.length}   |   ${L.pct}: ${pct}%`,
     ]);
     ws.mergeCells(statsRow.number, 1, statsRow.number, COLS);
     const statsCell = statsRow.getCell(1);
@@ -338,7 +333,7 @@ export class ReportsService {
           row.shift === 'day' ? L.shiftDay : row.shift === 'night' ? L.shiftNight : '—',
           fmtTime(row.checkIn),
           fmtTime(row.checkOut),
-          fmtMs(row.totalMs),
+          fmtMs(row.totalMs, lang),
         ]);
         const bg = i % 2 === 0 ? 'FFFAFAFA' : 'FFFFFFFF';
         r.eachCell((cell: any) => {
@@ -384,7 +379,7 @@ export class ReportsService {
         <td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;font-size:11px">${r.workerId}</td>
         <td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;font-size:11px">${r.profession}</td>
         <td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;font-size:11px;font-weight:600;color:${r.checkIn ? '#16a34a' : '#dc2626'}">${r.checkIn ? fmtTime(r.checkIn) : '—'}</td>
-        <td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;font-size:11px;font-weight:600;color:${r.checkIn ? '#16a34a' : '#dc2626'}">${r.checkIn ? 'Geldi' : 'Gelmedi'}</td>
+        <td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;font-size:11px;font-weight:600;color:${r.checkIn ? '#16a34a' : '#dc2626'}">${r.checkIn ? L.came : L.notCame}</td>
       </tr>`).join('');
 
     return `<!DOCTYPE html>
@@ -393,7 +388,7 @@ export class ReportsService {
 <div style="max-width:680px;margin:24px auto">
   <div style="background:#1e3a5f;padding:22px 28px;border-radius:10px 10px 0 0">
     <div style="color:#ffffff;font-size:22px;font-weight:700">${tenantName}</div>
-    <div style="color:#93c5fd;font-size:13px;margin-top:4px">${L.date}: ${date} — ${REPORT_LABELS[reportType]}</div>
+    <div style="color:#93c5fd;font-size:13px;margin-top:4px">${L.date}: ${date} — ${L.reportLabels[reportType]}</div>
   </div>
   <div style="background:#ffffff;padding:24px 28px">
     <div style="display:flex;gap:12px;margin-bottom:22px">
@@ -520,7 +515,7 @@ export class ReportsService {
       arr.push({
         eventType: ev.eventType,
         eventTime: Number(ev.eventTime),
-        date: new Date(Number(ev.eventTime)).toISOString().split('T')[0],
+        date: new Date(Number(ev.eventTime) + TZ_OFFSET_MS).toISOString().split('T')[0],
       });
       byWorker.set(ev.employeeNumber, arr);
     }
@@ -671,8 +666,8 @@ export class ReportsService {
     const statsData = [
       [L.totalWorkers, rows.length],
       [L.workedWorkers, worked.length],
-      [L.totalHours, fmtMs(totalMs)],
-      [L.avgPerWorker, fmtMs(avgMs)],
+      [L.totalHours, fmtMs(totalMs, lang)],
+      [L.avgPerWorker, fmtMs(avgMs, lang)],
     ];
     for (let i = 0; i < statsData.length; i += 2) {
       const pair = statsData.slice(i, i + 2);
@@ -713,8 +708,8 @@ export class ReportsService {
         row.profession,
         row.brigade,
         row.daysPresent > 0 ? L.days(row.daysPresent) : '—',
-        fmtMs(row.totalMs),
-        fmtMs(avgDayMs),
+        fmtMs(row.totalMs, lang),
+        fmtMs(avgDayMs, lang),
       ]);
       const bg = i % 2 === 0 ? 'FFFAFAFA' : 'FFFFFFFF';
       r.eachCell((c: any) => {
@@ -735,7 +730,7 @@ export class ReportsService {
     const footRow = ws.addRow([
       '', L.footer, '', '', '',
       `${maxDays} (max)`,
-      fmtMs(totalMs), '',
+      fmtMs(totalMs, lang), '',
     ]);
     footRow.eachCell((c: any) => {
       c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
@@ -769,24 +764,24 @@ export class ReportsService {
         <td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;font-size:11px">${r.profession}</td>
         <td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;font-size:11px">${r.brigade}</td>
         <td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;font-size:11px;text-align:center">${r.daysPresent > 0 ? L.days(r.daysPresent) : '—'}</td>
-        <td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;font-size:11px;font-weight:700;color:${r.totalMs > 0 ? '#1e3a5f' : '#94a3b8'}">${fmtMs(r.totalMs)}</td>
+        <td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;font-size:11px;font-weight:700;color:${r.totalMs > 0 ? '#1e3a5f' : '#94a3b8'}">${fmtMs(r.totalMs, lang)}</td>
       </tr>`).join('');
 
     const autoSentLabel = lang === 'ru'
       ? 'Этот отчёт отправлен автоматически'
       : lang === 'en'
         ? 'This report was sent automatically'
-        : 'Bu hasabat awtomatik usulda iberildi';
+        : 'Bu rapor otomatik olarak gönderildi';
     const manualSentLabel = lang === 'ru'
       ? 'Этот отчёт отправлен вручную'
       : lang === 'en'
         ? 'This report was sent manually'
-        : 'Bu hasabat el bilen iberildi';
+        : 'Bu rapor manuel olarak gönderildi';
     const detailLabel = lang === 'ru'
       ? `Подробный список${rows.length > 50 ? ` (первые 50 из ${rows.length})` : ''}:`
       : lang === 'en'
         ? `Detailed list${rows.length > 50 ? ` (first 50 of ${rows.length})` : ''}:`
-        : `Jikme-jik sanawy${rows.length > 50 ? ` (ilkinji 50, jemi ${rows.length})` : ''}:`;
+        : `Ayrıntılı liste${rows.length > 50 ? ` (ilk 50, toplam ${rows.length})` : ''}:`;
 
     return `<!DOCTYPE html>
 <html>
@@ -810,11 +805,11 @@ export class ReportsService {
         <div style="font-size:11px;color:#64748b;margin-top:3px">${L.workedWorkers}</div>
       </div>
       <div style="flex:1;background:#eef2ff;border-radius:8px;padding:16px;text-align:center">
-        <div style="font-size:20px;font-weight:700;color:#4f46e5">${fmtMs(totalMs)}</div>
+        <div style="font-size:20px;font-weight:700;color:#4f46e5">${fmtMs(totalMs, lang)}</div>
         <div style="font-size:11px;color:#64748b;margin-top:3px">${L.totalHours}</div>
       </div>
       <div style="flex:1;background:#fef9c3;border-radius:8px;padding:16px;text-align:center">
-        <div style="font-size:20px;font-weight:700;color:#854d0e">${fmtMs(avgMs)}</div>
+        <div style="font-size:20px;font-weight:700;color:#854d0e">${fmtMs(avgMs, lang)}</div>
         <div style="font-size:11px;color:#64748b;margin-top:3px">${L.avgPerWorker}</div>
       </div>
     </div>
@@ -882,7 +877,7 @@ export class ReportsService {
         { text: r.brigade, fontSize: 8 },
         { text: fmtTime(r.checkIn), fontSize: 8, color: r.checkIn ? '#16a34a' : '#ef4444' },
         { text: fmtTime(r.checkOut), fontSize: 8 },
-        { text: fmtMs(r.totalMs), fontSize: 8 },
+        { text: fmtMs(r.totalMs, lang), fontSize: 8 },
       ]),
     ];
 
