@@ -48,11 +48,7 @@ fun WorkHourTheme(
     theme: AppTheme = AppTheme.DARK,
     content: @Composable () -> Unit,
 ) {
-    val strings = when (language) {
-        AppLanguage.EN -> EnStrings
-        AppLanguage.RU -> RuStrings
-        AppLanguage.TR -> TrStrings
-    }
+    val strings = stringsFor(language)
     val palette     = if (theme == AppTheme.DARK) DarkPalette else LightPalette
     val colorScheme = if (theme == AppTheme.DARK) DarkColorScheme else LightColorScheme
 

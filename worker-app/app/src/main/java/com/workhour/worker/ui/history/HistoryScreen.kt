@@ -32,6 +32,7 @@ private val parseDateFmt = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 @Composable
 fun HistoryScreen(serverUrl: String, workerEntityId: String) {
     val c  = LocalAppColors.current
+    val s  = LocalStrings.current
     val vm: HistoryViewModel = viewModel()
     val state by vm.state.collectAsStateWithLifecycle()
 
@@ -43,7 +44,7 @@ fun HistoryScreen(serverUrl: String, workerEntityId: String) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Attendance History", style = MaterialTheme.typography.titleLarge, color = c.textPrimary)
+            Text(s.workCalendar, style = MaterialTheme.typography.titleLarge, color = c.textPrimary)
         }
 
         Row(
@@ -73,8 +74,8 @@ fun HistoryScreen(serverUrl: String, workerEntityId: String) {
                 modifier = Modifier.padding(horizontal = 20.dp).fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                SummaryChip("${state.presentDays}", "Days Present", GreenSuccess, c.greenDim.copy(0.3f), Modifier.weight(1f))
-                SummaryChip("${state.totalMinutes / 60}h ${state.totalMinutes % 60}m", "Total Hours", AccentPurple, AccentPurpleDim.copy(0.3f), Modifier.weight(1f))
+                SummaryChip("${state.presentDays}", s.daysPresent, GreenSuccess, c.greenDim.copy(0.3f), Modifier.weight(1f))
+                SummaryChip("${state.totalMinutes / 60}h ${state.totalMinutes % 60}m", s.totalHours, AccentPurple, AccentPurpleDim.copy(0.3f), Modifier.weight(1f))
             }
             Spacer(Modifier.height(16.dp))
         }
@@ -88,14 +89,14 @@ fun HistoryScreen(serverUrl: String, workerEntityId: String) {
                     Icon(Icons.Outlined.CloudOff, null, tint = c.textMuted, modifier = Modifier.size(40.dp))
                     Text(state.error, style = MaterialTheme.typography.bodySmall, color = c.textMuted)
                     TextButton(onClick = { vm.load(serverUrl, state.workerEntityId, state.month) }) {
-                        Text("Retry", color = AccentPurple)
+                        Text(s.retry, color = AccentPurple)
                     }
                 }
             }
             state.records.isEmpty() -> Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(Icons.Outlined.EventBusy, null, tint = c.textMuted, modifier = Modifier.size(40.dp))
-                    Text("No attendance records", color = c.textMuted, style = MaterialTheme.typography.bodyMedium)
+                    Text(s.noAttendanceRecorded, color = c.textMuted, style = MaterialTheme.typography.bodyMedium)
                 }
             }
             else -> LazyColumn(
@@ -125,50 +126,85 @@ private fun SummaryChip(value: String, label: String, color: Color, bg: Color, m
 
 @Composable
 private fun AttendanceItem(record: AttendanceRecord, c: AppColors) {
+    val s = LocalStrings.current
     val (statusColor, statusBg, statusLabel) = when (record.status) {
-        "present" -> Triple(GreenSuccess, c.greenDim.copy(0.25f), "Present")
-        "partial"  -> Triple(OrangeWarning, c.orangeDim.copy(0.25f), "Partial")
-        else       -> Triple(c.textMuted, c.borderSubtle.copy(0.3f), "Absent")
+        "present" -> Triple(GreenSuccess, c.greenDim.copy(0.25f), s.present)
+        "partial"  -> Triple(OrangeWarning, c.orangeDim.copy(0.25f), s.partial)
+        else       -> Triple(c.textMuted, c.borderSubtle.copy(0.3f), s.noRecord)
     }
     val dateLabel = try { dayDisp.format(parseDateFmt.parse(record.date)!!) } catch (_: Exception) { record.date }
+    val corrected = record.adminCorrected == true
 
-    Row(
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(c.bgCard).border(1.dp, c.borderSubtle, RoundedCornerShape(12.dp)).padding(14.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+    Column(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(c.bgCard)
+            .border(1.dp, if (corrected) AccentPurple.copy(0.35f) else c.borderSubtle, RoundedCornerShape(12.dp))
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(statusBg),
-                contentAlignment = Alignment.Center,
-            ) {
-                val icon = when (record.status) {
-                    "present" -> Icons.Outlined.CheckCircleOutline
-                    "partial"  -> Icons.Outlined.Schedule
-                    else       -> Icons.Outlined.RemoveCircleOutline
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(statusBg),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    val icon = when (record.status) {
+                        "present" -> Icons.Outlined.CheckCircleOutline
+                        "partial"  -> Icons.Outlined.Schedule
+                        else       -> Icons.Outlined.RemoveCircleOutline
+                    }
+                    Icon(icon, null, tint = statusColor, modifier = Modifier.size(18.dp))
                 }
-                Icon(icon, null, tint = statusColor, modifier = Modifier.size(18.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(dateLabel, style = MaterialTheme.typography.titleSmall, color = c.textPrimary)
+                    if (record.checkIn != null) {
+                        Text(
+                            buildString {
+                                append(timeFmt.format(Date(record.checkIn)))
+                                if (record.checkOut != null) append(" → ${timeFmt.format(Date(record.checkOut))}")
+                            },
+                            style = MaterialTheme.typography.bodySmall, color = c.textSecondary,
+                        )
+                    } else {
+                        Text(s.noRecord, style = MaterialTheme.typography.bodySmall, color = c.textMuted)
+                    }
+                }
             }
-            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(dateLabel, style = MaterialTheme.typography.titleSmall, color = c.textPrimary)
-                if (record.checkIn != null) {
-                    Text(
-                        buildString {
-                            append(timeFmt.format(Date(record.checkIn)))
-                            if (record.checkOut != null) append(" → ${timeFmt.format(Date(record.checkOut))}")
-                        },
-                        style = MaterialTheme.typography.bodySmall, color = c.textSecondary,
-                    )
-                } else {
-                    Text("No scan", style = MaterialTheme.typography.bodySmall, color = c.textMuted)
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (record.totalMinutes != null && record.totalMinutes > 0) {
+                    Text("${record.totalMinutes / 60}h ${record.totalMinutes % 60}m", style = MaterialTheme.typography.titleSmall, color = c.textPrimary, fontWeight = FontWeight.SemiBold)
                 }
+                Text(statusLabel, style = MaterialTheme.typography.labelSmall, color = statusColor)
             }
         }
-        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            if (record.totalMinutes != null && record.totalMinutes > 0) {
-                Text("${record.totalMinutes / 60}h ${record.totalMinutes % 60}m", style = MaterialTheme.typography.titleSmall, color = c.textPrimary, fontWeight = FontWeight.SemiBold)
+        if (corrected) {
+            Row(
+                modifier = Modifier.fillMaxWidth()
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(AccentPurple.copy(alpha = 0.08f))
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Outlined.Edit, null, tint = AccentPurple, modifier = Modifier.size(11.dp))
+                Text(s.adminEdited, style = MaterialTheme.typography.labelSmall, color = AccentPurple, fontWeight = FontWeight.SemiBold)
+                val origIn  = record.originalCheckIn
+                val origOut = record.originalCheckOut
+                if (origIn != null || origOut != null) {
+                    Text("·", style = MaterialTheme.typography.labelSmall, color = AccentPurple.copy(0.5f))
+                    Text(
+                        buildString {
+                            append(s.originalTime + ": ")
+                            if (origIn != null) append(timeFmt.format(Date(origIn)))
+                            if (origOut != null) append(" → ${timeFmt.format(Date(origOut))}")
+                        },
+                        style = MaterialTheme.typography.labelSmall, color = AccentPurple.copy(0.7f),
+                    )
+                }
             }
-            Text(statusLabel, style = MaterialTheme.typography.labelSmall, color = statusColor)
         }
     }
 }

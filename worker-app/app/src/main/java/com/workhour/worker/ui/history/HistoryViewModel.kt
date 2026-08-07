@@ -93,7 +93,7 @@ class HistoryViewModel(app: Application) : AndroidViewModel(app) {
 }
 
 private fun AttendanceRecordEntity.toModel() =
-    AttendanceRecord(date, checkIn, checkOut, totalMinutes, status)
+    AttendanceRecord(date, checkIn, checkOut, totalMinutes, status, adminCorrected, originalCheckIn, originalCheckOut)
 
 private fun AttendanceRecord.toEntity(wid: String) =
-    AttendanceRecordEntity(wid, date, checkIn, checkOut, totalMinutes, status)
+    AttendanceRecordEntity(wid, date, checkIn, checkOut, totalMinutes, status, adminCorrected ?: false, originalCheckIn, originalCheckOut)

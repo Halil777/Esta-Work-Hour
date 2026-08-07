@@ -39,7 +39,14 @@ class PrefsDataStore(context: Context) {
     val languageFlow: Flow<AppLanguage> = store.data.map { prefs ->
         when (prefs[KEY_LANGUAGE]) {
             "RU" -> AppLanguage.RU
+            "TK" -> AppLanguage.TK
             "TR" -> AppLanguage.TR
+            "UZ" -> AppLanguage.UZ
+            "TG" -> AppLanguage.TG
+            "HI" -> AppLanguage.HI
+            "KK" -> AppLanguage.KK
+            "KY" -> AppLanguage.KY
+            "ZH" -> AppLanguage.ZH
             else -> AppLanguage.EN
         }
     }

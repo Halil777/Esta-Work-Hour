@@ -34,10 +34,13 @@ data class WorkerProfile(
 
 data class AttendanceRecord(
     val date: String,          // "YYYY-MM-DD"
-    val checkIn: Long?,        // Unix ms timestamp
-    val checkOut: Long?,       // Unix ms timestamp
+    val checkIn: Long?,        // Unix ms timestamp (corrected if admin edited)
+    val checkOut: Long?,       // Unix ms timestamp (corrected if admin edited)
     val totalMinutes: Int?,
     val status: String,        // "present" | "partial" | "absent"
+    val adminCorrected: Boolean? = null,
+    val originalCheckIn: Long? = null,
+    val originalCheckOut: Long? = null,
 )
 
 data class MonthSummary(

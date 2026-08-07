@@ -24,6 +24,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.workhour.worker.ui.AppViewModel
 import com.workhour.worker.ui.theme.*
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(serverUrl: String) {
     val appVm    : AppViewModel      = viewModel()
@@ -55,33 +56,45 @@ fun SettingsScreen(serverUrl: String) {
                 // Language
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(s.language, style = MaterialTheme.typography.labelMedium, color = c.textSecondary)
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        AppLanguage.entries.forEach { lang ->
-                            val selected = language == lang
-                            FilterChip(
-                                selected = selected,
-                                onClick  = { appVm.setLanguage(lang) },
-                                label    = {
-                                    Text(
-                                        "${lang.flag}  ${lang.displayName}",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                                    )
-                                },
-                                modifier = Modifier.weight(1f),
-                                colors   = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = AccentPurple,
-                                    selectedLabelColor     = androidx.compose.ui.graphics.Color.White,
-                                    containerColor         = c.bgElevated,
-                                    labelColor             = c.textSecondary,
-                                ),
-                                border = FilterChipDefaults.filterChipBorder(
-                                    enabled             = true,
-                                    selected            = selected,
-                                    borderColor         = c.borderSubtle,
-                                    selectedBorderColor = AccentPurple,
-                                ),
-                            )
+                    var langExpanded by remember { mutableStateOf(false) }
+                    ExposedDropdownMenuBox(
+                        expanded         = langExpanded,
+                        onExpandedChange = { langExpanded = it },
+                        modifier         = Modifier.fillMaxWidth(),
+                    ) {
+                        OutlinedTextField(
+                            value          = "${language.flag}  ${language.displayName}",
+                            onValueChange  = {},
+                            readOnly       = true,
+                            singleLine     = true,
+                            trailingIcon   = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = langExpanded) },
+                            modifier       = Modifier.menuAnchor().fillMaxWidth(),
+                            colors         = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor      = AccentPurple,
+                                unfocusedBorderColor    = c.borderSubtle,
+                                focusedTextColor        = c.textPrimary,
+                                unfocusedTextColor      = c.textPrimary,
+                                unfocusedContainerColor = c.bgElevated,
+                                focusedContainerColor   = c.bgElevated,
+                            ),
+                        )
+                        ExposedDropdownMenu(
+                            expanded         = langExpanded,
+                            onDismissRequest = { langExpanded = false },
+                        ) {
+                            AppLanguage.entries.forEach { lang ->
+                                DropdownMenuItem(
+                                    text    = {
+                                        Text(
+                                            "${lang.flag}  ${lang.displayName}",
+                                            style      = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = if (language == lang) FontWeight.Bold else FontWeight.Normal,
+                                            color      = if (language == lang) AccentPurple else c.textPrimary,
+                                        )
+                                    },
+                                    onClick = { appVm.setLanguage(lang); langExpanded = false },
+                                )
+                            }
                         }
                     }
                 }

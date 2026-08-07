@@ -1,10 +1,11 @@
 import { Injectable, NotFoundException, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Between, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { Worker } from '../workers/worker.entity';
 import { AttendanceEvent } from '../attendance-events/attendance-event.entity';
 import { MobileCredential } from '../mobile-auth/mobile-credential.entity';
+import { AttendanceOverride } from '../attendance-overrides/attendance-override.entity';
 
 const TZ_OFFSET_MS = 3 * 60 * 60 * 1000; // UTC+3 Moscow/Tatarstan
 
@@ -21,6 +22,8 @@ export class MobileWorkerService {
     private readonly eventRepo: Repository<AttendanceEvent>,
     @InjectRepository(MobileCredential)
     private readonly credRepo: Repository<MobileCredential>,
+    @InjectRepository(AttendanceOverride)
+    private readonly overrideRepo: Repository<AttendanceOverride>,
   ) {}
 
   async getMe(workerEntityId: string) {
@@ -71,14 +74,51 @@ export class MobileWorkerService {
       else day.outs.push(ms);
     }
 
-    const records: { date: string; checkIn: number | null; checkOut: number | null; totalMinutes: number | null; status: string }[] = [];
+    const scanRecords: { date: string; checkIn: number | null; checkOut: number | null; totalMinutes: number | null; status: string; adminCorrected?: boolean; originalCheckIn?: number | null; originalCheckOut?: number | null }[] = [];
     for (const [date, { ins, outs }] of byDate) {
       const checkIn = ins.length ? Math.min(...ins) : null;
       const checkOut = outs.length ? Math.max(...outs) : null;
       const totalMinutes =
         checkIn && checkOut ? Math.round((checkOut - checkIn) / 60000) : null;
       const status = !checkIn ? 'absent' : !checkOut ? 'partial' : 'present';
-      records.push({ date, checkIn, checkOut, totalMinutes, status });
+      scanRecords.push({ date, checkIn, checkOut, totalMinutes, status });
+    }
+
+    // Merge admin overrides
+    const overrides = await this.overrideRepo.find({
+      where: { workerEntityId, date: Between(startDate, endDate) },
+    });
+    const overrideMap = new Map(overrides.map(o => [o.date, o]));
+
+    const records = [...scanRecords];
+    for (const [date, ov] of overrideMap) {
+      const existing = records.find(r => r.date === date);
+      const effectiveCheckIn  = ov.checkInMs  ?? (existing?.checkIn  ?? null);
+      const effectiveCheckOut = ov.checkOutMs ?? (existing?.checkOut ?? null);
+      const correctedMinutes  = effectiveCheckIn && effectiveCheckOut
+        ? Math.round((Number(effectiveCheckOut) - Number(effectiveCheckIn)) / 60000)
+        : null;
+      const correctedStatus = !effectiveCheckIn ? 'absent' : !effectiveCheckOut ? 'partial' : 'present';
+      if (existing) {
+        existing.adminCorrected  = true;
+        existing.originalCheckIn  = existing.checkIn;
+        existing.originalCheckOut = existing.checkOut;
+        existing.checkIn          = effectiveCheckIn ? Number(effectiveCheckIn) : null;
+        existing.checkOut         = effectiveCheckOut ? Number(effectiveCheckOut) : null;
+        existing.totalMinutes     = correctedMinutes;
+        existing.status           = correctedStatus;
+      } else {
+        records.push({
+          date,
+          checkIn:        effectiveCheckIn  ? Number(effectiveCheckIn)  : null,
+          checkOut:       effectiveCheckOut ? Number(effectiveCheckOut) : null,
+          totalMinutes:   correctedMinutes,
+          status:         correctedStatus,
+          adminCorrected: true,
+          originalCheckIn:  null,
+          originalCheckOut: null,
+        });
+      }
     }
 
     return records.sort((a, b) => b.date.localeCompare(a.date));

@@ -11,6 +11,9 @@ data class AttendanceRecordEntity(
     val checkOut: Long?,
     val totalMinutes: Int?,
     val status: String,
+    val adminCorrected: Boolean = false,
+    val originalCheckIn: Long? = null,
+    val originalCheckOut: Long? = null,
 )
 
 @Entity(tableName = "scan_events", primaryKeys = ["workerEntityId", "eventTime", "eventType"])
