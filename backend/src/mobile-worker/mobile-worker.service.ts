@@ -40,19 +40,23 @@ export class MobileWorkerService {
   }
 
   async getAttendance(workerEntityId: string, startDate: string, endDate: string) {
+    const worker = await this.workerRepo.findOneBy({ id: workerEntityId });
+    if (!worker) throw new NotFoundException('Worker tapylmady');
+
     // Expand date range by 1 day on each side to account for timezone
     const startMs = new Date(startDate).getTime() - TZ_OFFSET_MS;
     const endMs = new Date(endDate).getTime() + 24 * 60 * 60 * 1000 + TZ_OFFSET_MS;
 
+    // Match by employeeNumber (Sicil No) OR workerServerId (UUID) — events may have either
     const events: { eventType: string; eventTime: string }[] =
       await this.eventRepo.query(
         `SELECT "eventType", "eventTime"
          FROM attendance_events
-         WHERE "workerServerId" = $1
-           AND CAST("eventTime" AS BIGINT) >= $2
-           AND CAST("eventTime" AS BIGINT) <= $3
+         WHERE ("employeeNumber" = $1 OR "workerServerId" = $2)
+           AND CAST("eventTime" AS BIGINT) >= $3
+           AND CAST("eventTime" AS BIGINT) <= $4
          ORDER BY "eventTime" ASC`,
-        [workerEntityId, startMs, endMs],
+        [worker.workerId, workerEntityId, startMs, endMs],
       );
 
     // Group events by local date (UTC+3)
@@ -96,6 +100,9 @@ export class MobileWorkerService {
   }
 
   async getTodayEvents(workerEntityId: string) {
+    const worker = await this.workerRepo.findOneBy({ id: workerEntityId });
+    if (!worker) throw new NotFoundException('Worker tapylmady');
+
     const todayStr = localDate(Date.now());
     const startMs  = new Date(todayStr).getTime() - TZ_OFFSET_MS;
     const endMs    = startMs + 24 * 60 * 60 * 1000 + TZ_OFFSET_MS * 2;
@@ -104,11 +111,11 @@ export class MobileWorkerService {
       await this.eventRepo.query(
         `SELECT "eventType", "eventTime", "source"
          FROM attendance_events
-         WHERE "workerServerId" = $1
-           AND CAST("eventTime" AS BIGINT) >= $2
-           AND CAST("eventTime" AS BIGINT) <= $3
+         WHERE ("employeeNumber" = $1 OR "workerServerId" = $2)
+           AND CAST("eventTime" AS BIGINT) >= $3
+           AND CAST("eventTime" AS BIGINT) <= $4
          ORDER BY "eventTime" ASC`,
-        [workerEntityId, startMs, endMs],
+        [worker.workerId, workerEntityId, startMs, endMs],
       );
 
     return events

@@ -66,7 +66,7 @@ fun SettingsScreen(serverUrl: String) {
                             onClick  = { appVm.setLanguage(lang) },
                             label    = {
                                 Text(
-                                    lang.displayName,
+                                    "${lang.flag}  ${lang.displayName}",
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
                                 )

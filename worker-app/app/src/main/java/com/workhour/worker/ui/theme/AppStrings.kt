@@ -3,10 +3,10 @@ package com.workhour.worker.ui.theme
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.compositionLocalOf
 
-enum class AppLanguage(val displayName: String) {
-    EN("English"),
-    RU("Русский"),
-    TR("Türkçe"),
+enum class AppLanguage(val displayName: String, val flag: String) {
+    EN("English", "🇬🇧"),
+    RU("Русский", "🇷🇺"),
+    TR("Türkçe", "🇹🇲"),
 }
 
 @Stable
