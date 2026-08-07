@@ -7,6 +7,7 @@ import { AttendanceEvent } from '../attendance-events/attendance-event.entity';
 import { Worker } from '../workers/worker.entity';
 import { APP_TZ } from '../common/date-utils';
 import { ReportType } from '../report-config/report-config.entity';
+import { AttendanceOverridesService } from '../attendance-overrides/attendance-overrides.service';
 
 // ─── Formatters ────────────────────────────────────────────────────────────────
 
@@ -137,6 +138,7 @@ export class ReportsService {
     private readonly eventRepo: Repository<AttendanceEvent>,
     @InjectRepository(Worker)
     private readonly workerRepo: Repository<Worker>,
+    private readonly attendanceOverridesService: AttendanceOverridesService,
   ) {}
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -169,24 +171,42 @@ export class ReportsService {
       byWorker.set(ev.employeeNumber, arr);
     }
 
+    // Load overrides for this date (keyed by workerEntityId)
+    const overridesForDate = await this.attendanceOverridesService.getForDate(date, tenantId);
+    const overrideByEntityId = new Map<string, { checkInMs: number | null; checkOutMs: number | null }>(
+      overridesForDate.map(o => [o.workerEntityId, { checkInMs: o.checkInMs ? Number(o.checkInMs) : null, checkOutMs: o.checkOutMs ? Number(o.checkOutMs) : null }]),
+    );
+
     for (const [empNum, evList] of byWorker) {
       const w = workerMap.get(empNum);
       if (w) presentEntityIds.add(w.id);
 
-      let firstIn: number | null = null;
-      let lastOut: number | null = null;
-      let totalMs = 0;
-      let clockIn: number | null = null;
+      // Apply override if one exists for this worker+date
+      const ov = w ? overrideByEntityId.get(w.id) : undefined;
+      let firstIn: number | null;
+      let lastOut: number | null;
+      let totalMs: number;
 
-      for (const ev of evList) {
-        if (ev.eventType === 'CHECK_IN') {
-          if (firstIn === null) firstIn = ev.eventTime;
-          if (clockIn === null) clockIn = ev.eventTime;
-        } else {
-          if (clockIn !== null) { totalMs += ev.eventTime - clockIn; clockIn = null; }
-          lastOut = ev.eventTime;
+      if (ov) {
+        firstIn = ov.checkInMs;
+        lastOut = ov.checkOutMs;
+        totalMs = (ov.checkInMs && ov.checkOutMs) ? ov.checkOutMs - ov.checkInMs : 0;
+      } else {
+        firstIn = null;
+        lastOut = null;
+        totalMs = 0;
+        let clockIn: number | null = null;
+        for (const ev of evList) {
+          if (ev.eventType === 'CHECK_IN') {
+            if (firstIn === null) firstIn = ev.eventTime;
+            if (clockIn === null) clockIn = ev.eventTime;
+          } else {
+            if (clockIn !== null) { totalMs += ev.eventTime - clockIn; clockIn = null; }
+            lastOut = ev.eventTime;
+          }
         }
       }
+
       rows.push({
         name: w?.name ?? empNum,
         workerId: empNum,
@@ -204,6 +224,8 @@ export class ReportsService {
     const allActive = await this.workerRepo.find({ where: { status: 'Active' as any, ...(tenantId ? { tenantId } : {}) } });
     for (const w of allActive) {
       if (!presentEntityIds.has(w.id)) {
+        // Check if override exists for this absent worker
+        const ov = overrideByEntityId.get(w.id);
         rows.push({
           name: w.name,
           workerId: w.workerId,
@@ -211,9 +233,9 @@ export class ReportsService {
           brigade: w.brigadeName ?? '—',
           shift: w.shift ?? '—',
           isStaff: w.isStaff ?? false,
-          checkIn: null,
-          checkOut: null,
-          totalMs: 0,
+          checkIn: ov?.checkInMs ?? null,
+          checkOut: ov?.checkOutMs ?? null,
+          totalMs: ov && ov.checkInMs && ov.checkOutMs ? ov.checkOutMs - ov.checkInMs : 0,
         });
       }
     }
@@ -483,6 +505,14 @@ export class ReportsService {
       : [];
     const workerMap = new Map(workers.map(w => [w.workerId, w]));
 
+    // Load all overrides for this date range
+    const workerEntityIds = workers.map(w => w.id);
+    const overrides = await this.attendanceOverridesService.getForWorkerIdsRange(workerEntityIds, startDate, endDate, tenantId);
+    // Key: `${workerEntityId}:${date}` → { checkInMs, checkOutMs }
+    const overrideMap = new Map(
+      overrides.map(o => [`${o.workerEntityId}:${o.date}`, { checkInMs: o.checkInMs ? Number(o.checkInMs) : null, checkOutMs: o.checkOutMs ? Number(o.checkOutMs) : null }]),
+    );
+
     // Group events per worker
     type Ev = { eventType: string; eventTime: number; date: string };
     const byWorker = new Map<string, Ev[]>();
@@ -506,19 +536,44 @@ export class ReportsService {
 
       const w = workerMap.get(empNum);
 
-      // Compute total hours + unique days present
+      // Group events by date
+      const byDate = new Map<string, Ev[]>();
+      for (const ev of evList) {
+        const arr = byDate.get(ev.date) ?? [];
+        arr.push(ev);
+        byDate.set(ev.date, arr);
+      }
+
+      // Compute total hours + unique days present, applying overrides per day
       let totalMs = 0;
-      let clockIn: number | null = null;
       const uniqueDates = new Set<string>();
 
-      for (const ev of evList) {
-        uniqueDates.add(ev.date);
-        if (ev.eventType === 'CHECK_IN') {
-          if (clockIn === null) clockIn = ev.eventTime;
+      for (const [date, dayEvs] of byDate) {
+        uniqueDates.add(date);
+        const ovKey = w ? `${w.id}:${date}` : null;
+        const ov = ovKey ? overrideMap.get(ovKey) : undefined;
+        if (ov) {
+          totalMs += (ov.checkInMs && ov.checkOutMs) ? ov.checkOutMs - ov.checkInMs : 0;
         } else {
-          if (clockIn !== null) {
-            totalMs += ev.eventTime - clockIn;
-            clockIn = null;
+          let clockIn: number | null = null;
+          for (const ev of dayEvs) {
+            if (ev.eventType === 'CHECK_IN') {
+              if (clockIn === null) clockIn = ev.eventTime;
+            } else {
+              if (clockIn !== null) { totalMs += ev.eventTime - clockIn; clockIn = null; }
+            }
+          }
+        }
+      }
+
+      // Also add days covered by overrides but not in scan events
+      if (w) {
+        for (const [key, ov] of overrideMap) {
+          if (!key.startsWith(`${w.id}:`)) continue;
+          const ovDate = key.split(':')[1];
+          if (!uniqueDates.has(ovDate)) {
+            uniqueDates.add(ovDate);
+            totalMs += (ov.checkInMs && ov.checkOutMs) ? ov.checkOutMs - ov.checkInMs : 0;
           }
         }
       }
@@ -540,13 +595,18 @@ export class ReportsService {
       if (missing.length > 0) {
         const missingWorkers = await this.workerRepo.find({ where: missing.map(workerId => ({ workerId, ...(tenantId ? { tenantId } : {}) })) });
         for (const w of missingWorkers) {
+          // Check if this worker has overrides in the range
+          const workerOverrides = overrides.filter(o => o.workerEntityId === w.id);
+          const overrideTotalMs = workerOverrides.reduce((sum, o) => {
+            return sum + ((o.checkInMs && o.checkOutMs) ? Number(o.checkOutMs) - Number(o.checkInMs) : 0);
+          }, 0);
           rows.push({
             workerId: w.workerId,
             name: w.name,
             profession: w.profession,
             brigade: w.brigadeName ?? '—',
-            totalMs: 0,
-            daysPresent: 0,
+            totalMs: overrideTotalMs,
+            daysPresent: workerOverrides.filter(o => o.checkInMs || o.checkOutMs).length,
           });
         }
       }

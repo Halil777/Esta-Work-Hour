@@ -8,6 +8,7 @@ import { SyncEventsDto } from './dto/sync-events.dto';
 import { APP_TZ } from '../common/date-utils';
 import { LateArrivalsService } from './late-arrivals.service';
 import { MissingCheckoutsService } from './missing-checkouts.service';
+import { AttendanceOverridesService } from '../attendance-overrides/attendance-overrides.service';
 
 @Injectable()
 export class AttendanceEventsService {
@@ -18,6 +19,7 @@ export class AttendanceEventsService {
     private readonly workerRepo: Repository<Worker>,
     private readonly lateArrivalsService: LateArrivalsService,
     private readonly missingCheckoutsService: MissingCheckoutsService,
+    private readonly attendanceOverridesService: AttendanceOverridesService,
   ) {}
 
   getLateArrivals(foremanWorkerEntityId?: string, staffFilter?: 'staff' | 'workers', tenantId?: string) {
@@ -284,6 +286,48 @@ export class AttendanceEventsService {
 
     days.sort((a, b) => (a.date as string).localeCompare(b.date as string));
 
+    // Apply attendance overrides (admin-corrected check-in/check-out times)
+    const overrides = await this.attendanceOverridesService.getForWorkerRange(workerEntityId, startDate, endDate);
+    const overrideMap = new Map(overrides.map(o => [o.date, o]));
+
+    let correctedTotalMs = 0;
+    const correctedDays = days.map(day => {
+      const ov = overrideMap.get(day.date);
+      if (!ov) {
+        correctedTotalMs += day.totalMs;
+        return { ...day, overrideApplied: false };
+      }
+      const overrideMs = (ov.checkInMs && ov.checkOutMs) ? ov.checkOutMs - ov.checkInMs : 0;
+      correctedTotalMs += overrideMs;
+      return {
+        date: day.date,
+        totalMs: overrideMs,
+        checkIn: ov.checkInMs ?? null,
+        checkOut: ov.checkOutMs ?? null,
+        sessions: day.sessions,
+        overrideApplied: true,
+        overrideNote: ov.note,
+      };
+    });
+
+    // Also add override-only days (overrides for dates with no scan events)
+    for (const [date, ov] of overrideMap) {
+      if (!correctedDays.find(d => d.date === date)) {
+        const overrideMs = (ov.checkInMs && ov.checkOutMs) ? ov.checkOutMs - ov.checkInMs : 0;
+        correctedTotalMs += overrideMs;
+        correctedDays.push({
+          date,
+          totalMs: overrideMs,
+          checkIn: ov.checkInMs ?? null,
+          checkOut: ov.checkOutMs ?? null,
+          sessions: [],
+          overrideApplied: true,
+          overrideNote: ov.note,
+        });
+      }
+    }
+    correctedDays.sort((a, b) => a.date.localeCompare(b.date));
+
     return {
       worker: {
         id: worker.id,
@@ -300,8 +344,8 @@ export class AttendanceEventsService {
         extraSaat: worker.extraSaat,
         nfcCardUid: worker.nfcCardUid,
       },
-      days,
-      totalMs,
+      days: correctedDays,
+      totalMs: correctedTotalMs,
     };
   }
 

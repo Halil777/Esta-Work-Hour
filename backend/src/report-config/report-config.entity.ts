@@ -34,8 +34,11 @@ export interface DashboardSchedule {
 export interface AnomalySchedule {
   missingCheckInEnabled: boolean;   // daily 9 AM email for checkout-without-checkin
   shiftAlertEnabled: boolean;        // email after grace period for missing shift check-in
+  checkOutAlertEnabled: boolean;     // email after shift end for missing check-out
   dayShiftLastAlertDate: string | null;   // YYYY-MM-DD last sent
   nightShiftLastAlertDate: string | null; // YYYY-MM-DD last sent
+  checkOutDayLastAlertDate: string | null;
+  checkOutNightLastAlertDate: string | null;
 }
 
 @Entity('report_config')
@@ -66,7 +69,7 @@ export class ReportConfig {
 
   @Column({
     type: 'text',
-    default: '{"missingCheckInEnabled":false,"shiftAlertEnabled":false,"dayShiftLastAlertDate":null,"nightShiftLastAlertDate":null}',
+    default: '{"missingCheckInEnabled":false,"shiftAlertEnabled":false,"checkOutAlertEnabled":false,"dayShiftLastAlertDate":null,"nightShiftLastAlertDate":null,"checkOutDayLastAlertDate":null,"checkOutNightLastAlertDate":null}',
   })
   anomalyScheduleJson: string; // JSON AnomalySchedule
 

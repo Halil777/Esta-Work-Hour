@@ -24,13 +24,22 @@ const fmtDate = (s: string) =>
   });
 
 const IGNORED_FIELDS = new Set(["createdAt", "updatedAt"]);
+const TIME_MS_FIELDS = new Set(["checkInMs", "checkOutMs"]);
 
-function DiffView({ before, after, action }: { before: any; after: any; action: string }) {
-  if (action === "CREATE") {
+function fmtMsVal(v: any): string {
+  const n = Number(v);
+  if (!n) return "—";
+  return new Date(n).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function DiffView({ before, after, action, entityType }: { before: any; after: any; action: string; entityType?: string }) {
+  const isOverride = entityType === "attendance_override";
+
+  if (action === "CREATE" && !isOverride) {
     const name = after?.name;
     return name ? <span style={{ color: "#10B981", fontSize: 12 }}>+{name}</span> : null;
   }
-  if (action === "DELETE") {
+  if (action === "DELETE" && !isOverride) {
     const name = before?.name;
     return name ? <span style={{ color: "#EF4444", fontSize: 12, textDecoration: "line-through" }}>{name}</span> : null;
   }
@@ -51,19 +60,22 @@ function DiffView({ before, after, action }: { before: any; after: any; action: 
 
   return (
     <div style={{ fontSize: 12, display: "flex", flexDirection: "column", gap: 2 }}>
-      {changed.map((c) => (
-        <div key={c.field}>
-          <span style={{ color: "var(--text-muted)", marginRight: 4 }}>{c.field}:</span>
-          {c.before !== undefined && c.before !== null && (
-            <span style={{ color: "#EF4444", textDecoration: "line-through", marginRight: 6 }}>
-              {String(c.before)}
-            </span>
-          )}
-          {c.after !== undefined && c.after !== null && (
-            <span style={{ color: "#10B981" }}>{String(c.after)}</span>
-          )}
-        </div>
-      ))}
+      {changed.map((c) => {
+        const display = (v: any) => TIME_MS_FIELDS.has(c.field) ? fmtMsVal(v) : String(v);
+        return (
+          <div key={c.field}>
+            <span style={{ color: "var(--text-muted)", marginRight: 4 }}>{c.field}:</span>
+            {c.before !== undefined && c.before !== null && (
+              <span style={{ color: "#EF4444", textDecoration: "line-through", marginRight: 6 }}>
+                {display(c.before)}
+              </span>
+            )}
+            {c.after !== undefined && c.after !== null && (
+              <span style={{ color: "#10B981" }}>{display(c.after)}</span>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -249,16 +261,24 @@ export function HistoryPage() {
                         </span>
                       </td>
                       <td style={{ fontSize: 13 }}>
-                        <span style={{ fontWeight: 600 }}>
-                          {log.before?.name || log.after?.name || "—"}
-                        </span>
-                        <span className="td-muted" style={{ marginLeft: 6, fontSize: 11 }}>
-                          {log.before?.workerId || log.after?.workerId}
-                        </span>
+                        {log.entityType === "attendance_override" ? (
+                          <span style={{ color: "var(--text-muted)", fontSize: 12 }}>
+                            {log.entityId?.split(":")[1] || log.entityId}
+                          </span>
+                        ) : (
+                          <>
+                            <span style={{ fontWeight: 600 }}>
+                              {log.before?.name || log.after?.name || "—"}
+                            </span>
+                            <span className="td-muted" style={{ marginLeft: 6, fontSize: 11 }}>
+                              {log.before?.workerId || log.after?.workerId}
+                            </span>
+                          </>
+                        )}
                       </td>
                       <td style={{ fontSize: 13 }}>{log.changedBy}</td>
                       <td>
-                        <DiffView before={log.before} after={log.after} action={log.action} />
+                        <DiffView before={log.before} after={log.after} action={log.action} entityType={log.entityType} />
                       </td>
                     </tr>
                   ))

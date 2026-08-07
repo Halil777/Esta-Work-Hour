@@ -17,6 +17,13 @@ export interface MissingCheckInWorker {
   checkOutTime: number; // ms timestamp
 }
 
+export interface MissingCheckOutWorker {
+  workerId: string;
+  name: string;
+  team: string;
+  checkInTime: number; // ms timestamp
+}
+
 export interface ShiftAlertData {
   startTime: string;
   graceEndTime: string;
@@ -153,6 +160,85 @@ export class AttendanceAnomaliesService {
     return { day, night };
   }
 
+  // ─── Core query: workers with CHECK_IN but no CHECK_OUT (shift ended) ────────
+
+  async getMissingCheckOutWorkers(tenantId?: string): Promise<MissingCheckOutWorker[]> {
+    const today = todayLocal();
+    const nowMinutes = currentLocalMinutes();
+    const startMs = new Date(`${today}T00:00:00`).getTime();
+    const endMs   = new Date(`${today}T23:59:59.999`).getTime();
+
+    const shifts = await this.shiftSettingsService.getAll(tenantId);
+
+    // Determine which shifts have ended
+    const endedShiftTypes = new Set<string>();
+    for (const shift of shifts) {
+      const [h, m] = shift.endTime.split(':').map(Number);
+      if (nowMinutes >= h * 60 + m) endedShiftTypes.add(shift.shiftType);
+    }
+    if (endedShiftTypes.size === 0) return [];
+
+    // Default day end minutes (for workers without assigned shift)
+    const daySetting = shifts.find(s => s.shiftType === 'day');
+    let dayEndMins = 17 * 60; // 17:00 default
+    if (daySetting) {
+      const [h, m] = daySetting.endTime.split(':').map(Number);
+      dayEndMins = h * 60 + m;
+    }
+
+    // 1. All CHECK_INs for today
+    const ciQb = this.eventRepo.createQueryBuilder('e')
+      .where('e."eventTime" BETWEEN :start AND :end', { start: startMs, end: endMs })
+      .andWhere('e."eventType" = :t', { t: EventType.CHECK_IN });
+    if (tenantId) ciQb.andWhere('e."tenantId" = :tid', { tid: tenantId });
+    else ciQb.andWhere('e."tenantId" IS NULL');
+    const checkIns = await ciQb.getMany();
+    if (!checkIns.length) return [];
+
+    const empNos = [...new Set(checkIns.map(e => e.employeeNumber).filter(Boolean))];
+
+    // 2. CHECK_OUTs for same employees
+    const coQb = this.eventRepo.createQueryBuilder('e')
+      .where('e."eventTime" BETWEEN :start AND :end', { start: startMs, end: endMs })
+      .andWhere('e."eventType" = :t', { t: EventType.CHECK_OUT })
+      .andWhere('e."employeeNumber" IN (:...empNos)', { empNos });
+    if (tenantId) coQb.andWhere('e."tenantId" = :tid', { tid: tenantId });
+    else coQb.andWhere('e."tenantId" IS NULL');
+    const checkOuts = await coQb.getMany();
+    const coSet = new Set(checkOuts.map(e => e.employeeNumber));
+
+    const missingNos = empNos.filter(e => !coSet.has(e));
+    if (!missingNos.length) return [];
+
+    // 3. Worker details filtered by ended shifts
+    const wFilter: any = { workerId: In(missingNos) };
+    if (tenantId) wFilter.tenantId = tenantId;
+    const workers = await this.workerRepo.find({ where: wFilter });
+
+    const filteredWorkers = workers.filter(w => {
+      if (w.shift === 'day') return endedShiftTypes.has('day');
+      if (w.shift === 'night') return endedShiftTypes.has('night');
+      return nowMinutes >= dayEndMins; // no shift assigned — use day end
+    });
+    if (!filteredWorkers.length) return [];
+
+    // Latest CHECK_IN per employee
+    const latestIn = new Map<string, number>();
+    for (const e of checkIns) {
+      const ts = Number(e.eventTime);
+      if (!latestIn.has(e.employeeNumber) || ts > latestIn.get(e.employeeNumber)!) {
+        latestIn.set(e.employeeNumber, ts);
+      }
+    }
+
+    return filteredWorkers.map(w => ({
+      workerId: w.workerId,
+      name: w.name,
+      team: w.brigadeName ?? '',
+      checkInTime: latestIn.get(w.workerId) ?? 0,
+    })).sort((a, b) => a.name.localeCompare(b.name));
+  }
+
   // ─── Email: missing check-in ──────────────────────────────────────────────────
 
   private async sendMissingCheckInEmail(
@@ -253,6 +339,60 @@ export class AttendanceAnomaliesService {
       from: `"${tenantName}" <${process.env.MAIL_USER}>`,
       to: emails.join(', '),
       subject: `🔔 ${tenantName} — ${shiftLabel}: ${workers.length} worker(s) not checked in · ${today}`,
+      html,
+    });
+  }
+
+  // ─── Email: missing check-out ────────────────────────────────────────────────
+
+  private async sendMissingCheckOutEmail(
+    tenantName: string,
+    date: string,
+    workers: MissingCheckOutWorker[],
+    emails: string[],
+  ): Promise<void> {
+    const rows = workers.map(w => {
+      const inTime = w.checkInTime
+        ? new Date(w.checkInTime).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: process.env.TZ || 'Asia/Ashgabat' })
+        : '—';
+      return `<tr>
+        <td style="padding:8px 12px;border-bottom:1px solid #f1f5f9">${w.name}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;color:#64748b">${w.workerId}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;color:#64748b">${w.team}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;color:#ef4444;font-weight:600">${inTime}</td>
+      </tr>`;
+    }).join('');
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="font-family:sans-serif;background:#f8fafc;margin:0;padding:24px">
+<div style="max-width:640px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
+  <div style="background:linear-gradient(135deg,#ef4444,#dc2626);padding:24px 32px">
+    <h1 style="color:#fff;margin:0;font-size:20px">🚪 ${tenantName}</h1>
+    <p style="color:rgba(255,255,255,0.9);margin:6px 0 0;font-size:14px">Missing check-out alert · ${date}</p>
+  </div>
+  <div style="padding:24px 32px">
+    <p style="color:#374151;margin:0 0 16px">The following workers have a <strong>check-in record but no check-out</strong> on <strong>${date}</strong> even though their shift has ended. Please enter their departure times manually.</p>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="background:#fef2f2">
+        <th style="padding:8px 12px;text-align:left;font-size:11px;color:#991b1b;text-transform:uppercase">Worker</th>
+        <th style="padding:8px 12px;text-align:left;font-size:11px;color:#991b1b;text-transform:uppercase">ID</th>
+        <th style="padding:8px 12px;text-align:left;font-size:11px;color:#991b1b;text-transform:uppercase">Team</th>
+        <th style="padding:8px 12px;text-align:left;font-size:11px;color:#991b1b;text-transform:uppercase">Check-in</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <p style="color:#64748b;font-size:12px;margin-top:20px">Total: <strong>${workers.length}</strong> worker(s) affected</p>
+  </div>
+  <div style="padding:12px 32px;background:#f8fafc;font-size:11px;color:#94a3b8;text-align:center">
+    Sent automatically by ${tenantName} · WorkHour System
+  </div>
+</div>
+</body></html>`;
+
+    await this.transporter.sendMail({
+      from: `"${tenantName}" <${process.env.MAIL_USER}>`,
+      to: emails.join(', '),
+      subject: `🚪 ${tenantName} — Missing check-out: ${workers.length} worker(s) · ${date}`,
       html,
     });
   }
@@ -364,6 +504,99 @@ export class AttendanceAnomaliesService {
           this.logger.log(`Shift alert sent: ${shift.shiftType} · tenant ${tenantId ?? 'global'} · ${missing.length} workers`);
         } catch (err) {
           this.logger.error(`Shift alert failed: ${shift.shiftType} · tenant ${tenantId}: ${err}`);
+        }
+      }
+    }
+  }
+
+  // ─── Cron: every minute — check-out missing alerts ───────────────────────────
+
+  @Cron(CronExpression.EVERY_MINUTE)
+  async checkShiftCheckoutAlerts(): Promise<void> {
+    const allConfigs = await this.reportConfigService.getAllConfigs();
+    const today = todayLocal();
+    const nowMinutes = currentLocalMinutes();
+
+    for (const cfg of allConfigs) {
+      const anomaly = this.reportConfigService.parseAnomalySchedule(cfg);
+      if (!anomaly.checkOutAlertEnabled) continue;
+
+      const emails: string[] = JSON.parse(cfg.emailsJson ?? '[]');
+      if (!emails.length) continue;
+
+      const tenantId = cfg.tenantId ?? undefined;
+      const shifts = await this.shiftSettingsService.getAll(tenantId);
+
+      for (const shift of shifts) {
+        const lastKey = shift.shiftType === 'day'
+          ? 'checkOutDayLastAlertDate'
+          : 'checkOutNightLastAlertDate';
+        if (anomaly[lastKey] === today) continue; // already sent today
+
+        const [h, m] = shift.endTime.split(':').map(Number);
+        const endMins = h * 60 + m;
+
+        // Fire in the 1-minute window right after shift ends
+        if (nowMinutes < endMins || nowMinutes > endMins + 1) continue;
+
+        try {
+          const wFilter: any = { shift: shift.shiftType, status: WorkerStatus.Active };
+          if (tenantId) wFilter.tenantId = tenantId;
+          const shiftWorkers = await this.workerRepo.find({ where: wFilter });
+          if (!shiftWorkers.length) continue;
+
+          const workerIds = shiftWorkers.map(w => w.workerId).filter(Boolean);
+          const startMs = new Date(`${today}T00:00:00`).getTime();
+          const endMs   = new Date(`${today}T23:59:59.999`).getTime();
+
+          // Workers with CHECK_IN
+          const ciQb = this.eventRepo.createQueryBuilder('e')
+            .where('e."eventTime" BETWEEN :start AND :end', { start: startMs, end: endMs })
+            .andWhere('e."eventType" = :t', { t: EventType.CHECK_IN })
+            .andWhere('e."employeeNumber" IN (:...wids)', { wids: workerIds });
+          if (tenantId) ciQb.andWhere('e."tenantId" = :tid', { tid: tenantId });
+          else ciQb.andWhere('e."tenantId" IS NULL');
+          const checkIns = await ciQb.getMany();
+          const ciSet = new Set(checkIns.map(e => e.employeeNumber));
+
+          // Workers with CHECK_OUT
+          const coQb = this.eventRepo.createQueryBuilder('e')
+            .where('e."eventTime" BETWEEN :start AND :end', { start: startMs, end: endMs })
+            .andWhere('e."eventType" = :t', { t: EventType.CHECK_OUT })
+            .andWhere('e."employeeNumber" IN (:...wids)', { wids: workerIds });
+          if (tenantId) coQb.andWhere('e."tenantId" = :tid', { tid: tenantId });
+          else coQb.andWhere('e."tenantId" IS NULL');
+          const checkOuts = await coQb.getMany();
+          const coSet = new Set(checkOuts.map(e => e.employeeNumber));
+
+          // Workers who checked in but didn't check out
+          const missing: MissingCheckOutWorker[] = [];
+          const latestIn = new Map<string, number>();
+          for (const e of checkIns) {
+            const ts = Number(e.eventTime);
+            if (!latestIn.has(e.employeeNumber) || ts > latestIn.get(e.employeeNumber)!) {
+              latestIn.set(e.employeeNumber, ts);
+            }
+          }
+          for (const w of shiftWorkers) {
+            if (ciSet.has(w.workerId) && !coSet.has(w.workerId)) {
+              missing.push({ workerId: w.workerId, name: w.name, team: w.brigadeName ?? '', checkInTime: latestIn.get(w.workerId) ?? 0 });
+            }
+          }
+
+          if (!missing.length) continue;
+
+          const tenantName = await this.getTenantName(tenantId);
+          await this.sendMissingCheckOutEmail(tenantName, today, missing, emails);
+
+          await this.reportConfigService.updateAnomalySchedule(
+            { [lastKey]: today },
+            tenantId,
+          );
+
+          this.logger.log(`Checkout alert sent: ${shift.shiftType} · tenant ${tenantId ?? 'global'} · ${missing.length} workers`);
+        } catch (err) {
+          this.logger.error(`Checkout alert failed: ${shift.shiftType} · tenant ${tenantId}: ${err}`);
         }
       }
     }

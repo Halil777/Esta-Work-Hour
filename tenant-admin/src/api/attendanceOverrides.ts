@@ -23,6 +23,9 @@ export const attendanceOverridesApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ workerEntityId, date, checkInMs, checkOutMs, note, createdBy }),
     }),
-  remove: (workerEntityId: string, date: string) =>
-    req<void>(`/attendance-overrides?workerEntityId=${workerEntityId}&date=${date}`, { method: 'DELETE' }),
+  remove: (workerEntityId: string, date: string, deletedBy?: string) => {
+    const qs = new URLSearchParams({ workerEntityId, date });
+    if (deletedBy) qs.set('deletedBy', deletedBy);
+    return req<void>(`/attendance-overrides?${qs}`, { method: 'DELETE' });
+  },
 };

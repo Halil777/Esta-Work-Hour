@@ -1,4 +1,4 @@
-import { Controller, Post, Delete, Get, Body, Query, UseGuards } from '@nestjs/common';
+import { Controller, Post, Delete, Get, Body, Query, UseGuards, Request } from '@nestjs/common';
 import { AttendanceOverridesService } from './attendance-overrides.service';
 import { AdminJwtGuard } from '../admin-auth/admin-auth.guard';
 
@@ -18,6 +18,7 @@ export class AttendanceOverridesController {
 
   @Post()
   upsert(
+    @Request() req: any,
     @Body('workerEntityId') workerEntityId: string,
     @Body('date') date: string,
     @Body('checkInMs') checkInMs: number | null,
@@ -25,6 +26,7 @@ export class AttendanceOverridesController {
     @Body('note') note: string | null,
     @Body('createdBy') createdBy: string,
   ) {
+    const tenantId: string | undefined = req.adminUser?.tenantId;
     return this.service.upsert(
       workerEntityId,
       date,
@@ -32,14 +34,18 @@ export class AttendanceOverridesController {
       checkOutMs ? Number(checkOutMs) : null,
       note ?? null,
       createdBy ?? 'Admin',
+      tenantId,
     );
   }
 
   @Delete()
   remove(
+    @Request() req: any,
     @Query('workerEntityId') workerEntityId: string,
     @Query('date') date: string,
+    @Query('deletedBy') deletedBy?: string,
   ) {
-    return this.service.delete(workerEntityId, date);
+    const tenantId: string | undefined = req.adminUser?.tenantId;
+    return this.service.delete(workerEntityId, date, deletedBy ?? 'Admin', tenantId);
   }
 }

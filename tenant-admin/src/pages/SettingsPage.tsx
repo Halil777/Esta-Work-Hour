@@ -512,7 +512,7 @@ function AnomalyAlertCard() {
   })
 
   const mutation = useMutation({
-    mutationFn: (patch: { missingCheckInEnabled?: boolean; shiftAlertEnabled?: boolean }) =>
+    mutationFn: (patch: { missingCheckInEnabled?: boolean; shiftAlertEnabled?: boolean; checkOutAlertEnabled?: boolean }) =>
       anomaliesApi.updateSchedule(patch),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['anomaly-schedule'] })
@@ -521,7 +521,7 @@ function AnomalyAlertCard() {
     },
   })
 
-  const toggle = (key: 'missingCheckInEnabled' | 'shiftAlertEnabled') => {
+  const toggle = (key: 'missingCheckInEnabled' | 'shiftAlertEnabled' | 'checkOutAlertEnabled') => {
     if (!schedule) return
     mutation.mutate({ [key]: !schedule[key] })
   }
@@ -571,6 +571,11 @@ function AnomalyAlertCard() {
               label={t.anomaly.enableShiftAlert}
               value={schedule.shiftAlertEnabled}
               onToggle={() => toggle('shiftAlertEnabled')}
+            />
+            <ToggleRow
+              label={t.anomaly.enableCheckOutAlert}
+              value={schedule.checkOutAlertEnabled}
+              onToggle={() => toggle('checkOutAlertEnabled')}
             />
             {saved && (
               <span style={{ fontSize: 12, color: 'var(--success)', marginTop: 10 }}>{t.anomaly.saved}</span>

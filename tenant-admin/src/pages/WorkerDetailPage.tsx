@@ -174,7 +174,7 @@ function OverrideModal({ workerEntityId, date, existing, actualCheckIn, actualCh
   });
 
   const remove = useMutation({
-    mutationFn: () => attendanceOverridesApi.remove(workerEntityId, date),
+    mutationFn: () => attendanceOverridesApi.remove(workerEntityId, date, adminName),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["workerSummary", workerEntityId] });
       qc.invalidateQueries({ queryKey: ["overrides", workerEntityId] });

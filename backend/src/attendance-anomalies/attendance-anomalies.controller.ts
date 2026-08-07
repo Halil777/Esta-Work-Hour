@@ -29,6 +29,13 @@ export class AttendanceAnomaliesController {
     return this.service.getShiftAlerts(tenantId);
   }
 
+  @Get('missing-checkout')
+  async getMissingCheckOut(@Request() req: any) {
+    const tenantId: string | undefined = req.adminUser?.tenantId;
+    const workers = await this.service.getMissingCheckOutWorkers(tenantId);
+    return { count: workers.length, workers };
+  }
+
   @Get('schedule')
   async getSchedule(@Request() req: any) {
     const tenantId: string | undefined = req.adminUser?.tenantId;
@@ -38,9 +45,9 @@ export class AttendanceAnomaliesController {
   @Patch('schedule')
   async updateSchedule(@Request() req: any, @Body() body: any) {
     const tenantId: string | undefined = req.adminUser?.tenantId;
-    const { missingCheckInEnabled, shiftAlertEnabled } = body;
+    const { missingCheckInEnabled, shiftAlertEnabled, checkOutAlertEnabled } = body;
     return this.reportConfigService.updateAnomalySchedule(
-      { missingCheckInEnabled, shiftAlertEnabled },
+      { missingCheckInEnabled, shiftAlertEnabled, checkOutAlertEnabled },
       tenantId,
     );
   }

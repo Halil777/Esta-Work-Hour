@@ -140,8 +140,11 @@ export class ReportConfigService {
   private readonly DEFAULT_ANOMALY: AnomalySchedule = {
     missingCheckInEnabled: false,
     shiftAlertEnabled: false,
+    checkOutAlertEnabled: false,
     dayShiftLastAlertDate: null,
     nightShiftLastAlertDate: null,
+    checkOutDayLastAlertDate: null,
+    checkOutNightLastAlertDate: null,
   };
 
   parseAnomalySchedule(cfg: ReportConfig): AnomalySchedule {

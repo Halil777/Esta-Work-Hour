@@ -2,6 +2,7 @@ import { Outlet, useLocation, Navigate } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import { AttendanceAnomalyBanner } from '../AttendanceAnomalyBanner'
+import { MissingCheckOutBanner } from '../MissingCheckOutBanner'
 import { ShiftAlertPopup } from '../ShiftAlertPopup'
 import { useUiPreferences } from '../../app/providers/useUiPreferences'
 import { useTranslation } from '../../i18n/useTranslation'
@@ -40,6 +41,7 @@ export function AppShell() {
         <Header title={getPageTitle(location.pathname, t)} />
         <main className="page-content">
           <AttendanceAnomalyBanner />
+          <MissingCheckOutBanner />
           <Outlet />
         </main>
         <ShiftAlertPopup />

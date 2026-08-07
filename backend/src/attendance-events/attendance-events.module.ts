@@ -6,9 +6,10 @@ import { AttendanceEventsController, MobileForemanAttendanceController } from '.
 import { AttendanceEventsService } from './attendance-events.service';
 import { LateArrivalsService } from './late-arrivals.service';
 import { MissingCheckoutsService } from './missing-checkouts.service';
+import { AttendanceOverridesModule } from '../attendance-overrides/attendance-overrides.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AttendanceEvent, Worker])],
+  imports: [TypeOrmModule.forFeature([AttendanceEvent, Worker]), AttendanceOverridesModule],
   controllers: [AttendanceEventsController, MobileForemanAttendanceController],
   providers: [AttendanceEventsService, LateArrivalsService, MissingCheckoutsService],
   exports: [AttendanceEventsService],
