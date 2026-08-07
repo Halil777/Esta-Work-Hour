@@ -36,6 +36,7 @@ export class ReportConfigService {
     emails: string[];
     schedules: ReportScheduleItem[];
     monthlySchedule: MonthlySchedule;
+    lang: string;
   }> {
     const cfg = await this.getSingleton(tenantId);
     return {
@@ -44,6 +45,7 @@ export class ReportConfigService {
       monthlySchedule: cfg.monthlyScheduleJson
         ? JSON.parse(cfg.monthlyScheduleJson)
         : DEFAULT_MONTHLY,
+      lang: cfg.lang ?? 'tr',
     };
   }
 
@@ -85,10 +87,12 @@ export class ReportConfigService {
     schedules: ReportScheduleItem[],
     monthlySchedule?: MonthlySchedule,
     tenantId?: string,
+    lang?: string,
   ): Promise<void> {
     const cfg = await this.getSingleton(tenantId);
     cfg.emailsJson = JSON.stringify(emails);
     cfg.schedulesJson = JSON.stringify(schedules);
+    if (lang) cfg.lang = lang;
     if (monthlySchedule !== undefined) {
       // Preserve lastSentMonth — never reset it from the frontend
       const existing: MonthlySchedule = cfg.monthlyScheduleJson

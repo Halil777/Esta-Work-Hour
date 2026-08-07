@@ -136,6 +136,7 @@ function ShiftSettingsCard() {
 
 function ReportEmailsCard() {
   const { t } = useTranslation()
+  const { language } = useUiPreferences()
   const qc = useQueryClient()
 
   const { data: config, isLoading } = useQuery({
@@ -160,7 +161,7 @@ function ReportEmailsCard() {
   }
 
   const saveMutation = useMutation({
-    mutationFn: () => reportConfigApi.saveAll(emails, schedules),
+    mutationFn: () => reportConfigApi.saveAll(emails, schedules, undefined, language),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['report-config'] })
       setSaved(true)
@@ -205,7 +206,7 @@ function ReportEmailsCard() {
     try {
       // Pass today's date so manual test sends use current-day scan data
       const today = new Date().toISOString().split('T')[0]
-      await reportConfigApi.sendNow(today, 'daily_all')
+      await reportConfigApi.sendNow(today, 'daily_all', language)
       setSendMsg(t.reportEmails.sent)
     } catch {
       setSendMsg(t.reportEmails.failed)

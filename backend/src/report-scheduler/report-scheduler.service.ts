@@ -31,7 +31,7 @@ export class ReportSchedulerService {
     const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     const today = todayLocal();
 
-    const { emails, schedules } = await this.reportConfigService.getConfig();
+    const { emails, schedules, lang } = await this.reportConfigService.getConfig();
     if (emails.length === 0) return;
 
     for (const schedule of schedules) {
@@ -42,7 +42,7 @@ export class ReportSchedulerService {
       try {
         const reportDate = yesterdayLocal();
         const reportType: ReportType = schedule.reportType ?? 'daily_all';
-        const { xlsx, html } = await this.reportsService.generateReport(reportDate, reportType, false);
+        const { xlsx, html } = await this.reportsService.generateReport(reportDate, reportType, false, undefined, undefined, lang as any);
 
         await this.transporter.sendMail({
           from: `"Esta WorkForce" <${process.env.MAIL_USER}>`,
@@ -77,7 +77,7 @@ export class ReportSchedulerService {
     // triggerMonth = YYYY-MM of TODAY (i.e., the month we are in when we trigger)
     const triggerMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-    const { monthlySchedule, emails: defaultEmails } = await this.reportConfigService.getConfig();
+    const { monthlySchedule, emails: defaultEmails, lang } = await this.reportConfigService.getConfig();
     if (!monthlySchedule.enabled) return;
     if (monthlySchedule.time !== currentTime) return;
     if (monthlySchedule.lastSentMonth === triggerMonth) return; // already sent this month
@@ -99,7 +99,7 @@ export class ReportSchedulerService {
 
     try {
       const { xlsx, html, subject } = await this.reportsService.generateRangeReport(
-        startDate, endDate, undefined, true,
+        startDate, endDate, undefined, true, undefined, undefined, lang as any,
       );
 
       await this.transporter.sendMail({

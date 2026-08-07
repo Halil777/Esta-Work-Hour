@@ -19,7 +19,8 @@ export class ReportConfigController {
     @Body('emails') emails: string[],
     @Body('schedules') schedules: ReportScheduleItem[],
     @Body('monthlySchedule') monthlySchedule?: MonthlySchedule,
+    @Body('lang') lang?: string,
   ) {
-    return this.service.saveAll(emails ?? [], schedules ?? [], monthlySchedule, req.adminUser?.tenantId);
+    return this.service.saveAll(emails ?? [], schedules ?? [], monthlySchedule, req.adminUser?.tenantId, lang);
   }
 }

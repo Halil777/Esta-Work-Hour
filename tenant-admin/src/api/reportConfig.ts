@@ -37,6 +37,7 @@ export interface ReportConfigDto {
   emails: string[];
   schedules: ReportScheduleItem[];
   monthlySchedule: MonthlySchedule;
+  lang: string;
 }
 
 export interface RangeRow {
@@ -66,18 +67,20 @@ export const reportConfigApi = {
     emails: string[],
     schedules: ReportScheduleItem[],
     monthlySchedule?: MonthlySchedule,
+    lang?: string,
   ) =>
     req<void>('/report-config', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ emails, schedules, monthlySchedule }),
+      body: JSON.stringify({ emails, schedules, monthlySchedule, lang }),
     }),
 
   // Daily send-now
-  sendNow: (date?: string, reportType: ReportType = 'daily_all') => {
+  sendNow: (date?: string, reportType: ReportType = 'daily_all', lang?: string) => {
     const params = new URLSearchParams();
     if (date) params.set('date', date);
     params.set('reportType', reportType);
+    if (lang) params.set('lang', lang);
     return req<{ ok: boolean }>(`/report-config/send-now?${params.toString()}`, { method: 'POST' });
   },
 

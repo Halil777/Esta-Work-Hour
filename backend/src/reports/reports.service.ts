@@ -18,14 +18,13 @@ function fmtMs(ms: number): string {
   return m > 0 ? `${h} sag ${m} min` : `${h} sag`;
 }
 
+// Asia/Ashgabat = UTC+5, no DST. Computed manually to avoid Windows IANA-tz issues.
+const TZ_OFFSET_MS = 5 * 60 * 60 * 1000;
+
 function fmtTime(ms: number | null): string {
   if (!ms) return '—';
-  return new Date(ms).toLocaleString('en-GB', {
-    timeZone: APP_TZ,
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
+  const d = new Date(Number(ms) + TZ_OFFSET_MS);
+  return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
 }
 
 type Lang = 'en' | 'ru' | 'tr';
@@ -271,7 +270,7 @@ export class ReportsService {
     const pct = rows.length > 0 ? Math.round((attended.length / rows.length) * 100) : 0;
 
     const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet('Hasabat');
+    const ws = wb.addWorksheet(L.report);
     const COLS = 9;
 
     ws.columns = [

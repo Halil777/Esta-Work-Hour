@@ -73,6 +73,9 @@ export class ReportConfig {
   })
   anomalyScheduleJson: string; // JSON AnomalySchedule
 
+  @Column({ type: 'varchar', length: 5, default: 'tr' })
+  lang: string; // report language: 'tr' | 'ru' | 'en'
+
   @UpdateDateColumn()
   updatedAt: Date;
 }
