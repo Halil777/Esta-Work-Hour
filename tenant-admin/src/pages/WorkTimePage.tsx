@@ -5,7 +5,7 @@ import {
   ChevronLeft, ChevronRight, Clock, TrendingUp, Plus,
   CheckSquare, Square, Tag, ExternalLink, RotateCcw,
 } from 'lucide-react'
-import { workTimeApi, adjustmentsApi, reasonsApi, type AdjustmentType } from '../api/workTime'
+import { workTimeApi, adjustmentsApi, reasonsApi, type AdjustmentType, type WorkAdjustment } from '../api/workTime'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -68,7 +68,7 @@ function AdjustmentModal({ workers, workDate, onClose, onSaved }: AdjModalProps)
   const [error, setError] = useState('')
 
   const qc = useQueryClient()
-  const createMut = useMutation({
+  const createMut = useMutation<WorkAdjustment | WorkAdjustment[], Error>({
     mutationFn: () => {
       if (workers.length === 1) {
         return adjustmentsApi.create({
