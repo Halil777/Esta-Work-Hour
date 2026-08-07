@@ -36,6 +36,37 @@ export type TenantDto = {
   updatedAt: string;
 };
 
+export type TenantStat = {
+  tenantId: string;
+  tenantName: string;
+  isActive: boolean;
+  totalWorkers: number;
+  activeWorkers: number;
+  checkedInToday: number;
+  lastActivityAt: string | null;
+};
+
+export type SuperAdminStats = {
+  totalTenants: number;
+  activeTenants: number;
+  totalWorkers: number;
+  activeWorkers: number;
+  checkedInToday: number;
+  tenants: TenantStat[];
+  trend7d: { date: string; scans: number; workers: number }[];
+};
+
+export type SuperAdminWorker = {
+  workerId: string;
+  name: string;
+  profession: string;
+  brigadeName: string;
+  tenantId: string;
+  tenantName: string;
+  status: string;
+  shift: string | null;
+};
+
 export type CreateTenantPayload = {
   name: string;
   adminUsername: string;
@@ -65,6 +96,9 @@ export const superAdminApi = {
     }
     return res.json() as Promise<{ token: string; user: { name: string; role: string } }>;
   },
+
+  stats: () => apiFetch<SuperAdminStats>('/super-admin/tenants/stats'),
+  workforce: () => apiFetch<SuperAdminWorker[]>('/super-admin/tenants/workforce'),
 
   tenants: {
     list: () => apiFetch<TenantDto[]>('/super-admin/tenants'),

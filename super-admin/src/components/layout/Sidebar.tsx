@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Building2, Users, ShieldCheck, ScanLine, FileSpreadsheet, Fingerprint, Settings2, Globe, LogOut } from 'lucide-react'
+import { LayoutDashboard, Building2, Users, ShieldCheck, FileSpreadsheet, Settings2, Globe, LogOut } from 'lucide-react'
 import { useUiPreferences } from '../../app/providers/useUiPreferences'
 import { getTranslation } from '../../i18n/translations'
 
@@ -13,9 +13,7 @@ export function Sidebar() {
     { path: '/tenants', icon: Building2, label: 'Tenantlar' },
     { path: '/workforce', icon: Users, label: t.nav.workforce },
     { path: '/roles', icon: ShieldCheck, label: t.nav.roles },
-    { path: '/qr-control', icon: ScanLine, label: t.nav.qrControl },
     { path: '/reports', icon: FileSpreadsheet, label: t.nav.reports },
-    { path: '/audit', icon: Fingerprint, label: t.nav.audit },
     { path: '/settings', icon: Settings2, label: t.nav.settings },
   ]
 

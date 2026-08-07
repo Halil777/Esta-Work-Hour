@@ -18,14 +18,8 @@ const WorkforcePage = lazy(() =>
 const RolesPage = lazy(() =>
   import('../pages/RolesPage').then((module) => ({ default: module.RolesPage })),
 )
-const QrControlPage = lazy(() =>
-  import('../pages/QrControlPage').then((module) => ({ default: module.QrControlPage })),
-)
 const ReportsPage = lazy(() =>
   import('../pages/ReportsPage').then((module) => ({ default: module.ReportsPage })),
-)
-const AuditPage = lazy(() =>
-  import('../pages/AuditPage').then((module) => ({ default: module.AuditPage })),
 )
 const SettingsPage = lazy(() =>
   import('../pages/SettingsPage').then((module) => ({ default: module.SettingsPage })),
@@ -47,9 +41,7 @@ export const router = createBrowserRouter([
       { path: 'objects', element: withSuspense(<ObjectsPage />) },
       { path: 'workforce', element: withSuspense(<WorkforcePage />) },
       { path: 'roles', element: withSuspense(<RolesPage />) },
-      { path: 'qr-control', element: withSuspense(<QrControlPage />) },
       { path: 'reports', element: withSuspense(<ReportsPage />) },
-      { path: 'audit', element: withSuspense(<AuditPage />) },
       { path: 'settings', element: withSuspense(<SettingsPage />) },
     ],
   },

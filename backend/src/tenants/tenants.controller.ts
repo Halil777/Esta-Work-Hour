@@ -14,6 +14,16 @@ export class TenantsController {
     return this.service.findAll();
   }
 
+  @Get('stats')
+  getStats() {
+    return this.service.getStats();
+  }
+
+  @Get('workforce')
+  getWorkforce() {
+    return this.service.getWorkforce();
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);

@@ -1,0 +1,5 @@
+-keepattributes Signature
+-keepattributes *Annotation*
+-keep class com.workhour.worker.data.model.** { *; }
+-dontwarn okhttp3.**
+-dontwarn retrofit2.**

@@ -1,0 +1,34 @@
+# Android build outputs
+/build/
+app/build/
+*.apk
+*.aab
+*.ap_
+
+# Local configuration (contains SDK path — never commit)
+local.properties
+
+# Keystore & signing (NEVER commit)
+*.jks
+*.keystore
+*.p12
+*.pfx
+keystore.properties
+release-keystore.jks
+upload-keystore.jks
+
+# Gradle caches
+.gradle/
+gradle/wrapper/gradle-wrapper.jar
+
+# IDE files
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Proguard mapping (release only, keep separately)
+app/src/main/resources/META-INF/
+
+# Generated files
+app/src/main/gen/
