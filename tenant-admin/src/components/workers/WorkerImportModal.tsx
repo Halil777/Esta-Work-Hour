@@ -108,7 +108,7 @@ export function WorkerImportModal({ onClose, onDone, changedBy }: WorkerImportMo
                 {t.workerImport.columnsLabel}
               </p>
               <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8, lineHeight: 1.6 }}>
-                <code>Sicil No · İnsan Adı · Görev · EKIP · Mesai Sistemi</code>
+                <code>Sicil No · İnsan Adı · Görev · EKIP · Mesai Sistemi · VARDIYA</code>
               </p>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, padding: '8px 12px', background: 'var(--warning-light, #FFF7ED)', borderRadius: 6, marginBottom: 12, fontSize: 12, color: 'var(--warning, #F59E0B)' }}>
                 <AlertCircle size={13} style={{ flexShrink: 0, marginTop: 1 }} />

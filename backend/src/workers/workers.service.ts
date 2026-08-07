@@ -543,6 +543,10 @@ export class WorkersService {
       const phone = String(row['phone'] || row['Phone'] || row['Телефон'] || '').trim();
       const hireDate = String(row['hireDate'] || row['Hire Date'] || row['Дата найма'] || '').trim();
 
+      // VARDIYA column: GUNDUZ → day, GECE → night
+      const vardiyaRaw = String(row['VARDIYA'] || row['Vardiya'] || row['vardiya'] || row['shift'] || '').trim().toUpperCase();
+      const shift = vardiyaRaw === 'GUNDUZ' ? 'day' : vardiyaRaw === 'GECE' ? 'night' : undefined;
+
       const profUpper = profession.toUpperCase().replace(/İ/g, 'I').replace(/Ş/g, 'S');
       const isSectionChief = profUpper.endsWith('SEFI') || profUpper.endsWith('SEF');
       const isForeman = profUpper.includes('FORMENI');
@@ -571,6 +575,7 @@ export class WorkersService {
           phone: phone || undefined,
           hireDate: hireDate || undefined,
           mesaiSistemi: mesaiSistemi || 'Saatlik',
+          ...(shift !== undefined ? { shift } : {}),
           ...(autoRole ? { mobileRole: autoRole } : {}),
         },
       });
