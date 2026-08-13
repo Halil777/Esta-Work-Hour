@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ChevronLeft, ChevronRight, Clock, TrendingUp, Plus,
-  CheckSquare, Square, Tag, ExternalLink, RotateCcw,
+  CheckSquare, Square, Tag, ExternalLink, RotateCcw, Download,
 } from 'lucide-react'
 import { workTimeApi, adjustmentsApi, reasonsApi, type AdjustmentType, type WorkAdjustment } from '../api/workTime'
 
@@ -270,6 +270,118 @@ function AdjustmentModal({ workers, workDate, onClose, onSaved }: AdjModalProps)
   )
 }
 
+// ── Export Modal ──────────────────────────────────────────────────────────────
+
+type ExportMode = 'times' | 'hours' | 'both'
+
+function ExportModal({ month, onClose }: { month: string; onClose: () => void }) {
+  const [mode, setMode] = useState<ExportMode>('both')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const OPTIONS: { value: ExportMode; label: string; desc: string }[] = [
+    {
+      value: 'times',
+      label: 'Diňe Giriş / Çykyş Wagtlary',
+      desc:  'Her günde işçiniň geleniň we gideniniň wagty görkezi\u0307ler',
+    },
+    {
+      value: 'hours',
+      label: 'Diňe İşlenen Sagatlar',
+      desc:  'Her günde işçiniň işlän sagatlarynyň jemi görkezi\u0307ler',
+    },
+    {
+      value: 'both',
+      label: 'Ikisi hem (Giriş / Çykyş + Sagat)',
+      desc:  'Her günde giriş, çykyş wagty we işlän sagatlarynyň jemi',
+    },
+  ]
+
+  const handleExport = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      await workTimeApi.exportXlsx(month, mode)
+      onClose()
+    } catch (e: any) {
+      setError(e.message ?? 'Export ýalňyşlygy')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }}>
+      <div style={{
+        background: 'var(--bg-card)', borderRadius: 16, padding: 28, width: 480,
+        boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
+      }}>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Download size={18} color="var(--accent)" />
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Excel Export</h3>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: 'var(--text-muted)' }}>✕</button>
+        </div>
+        <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text-muted)' }}>
+          Haýsy maglumatlary export etmeli? (<strong>{month}</strong>)
+        </p>
+
+        {/* Options */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
+          {OPTIONS.map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => setMode(opt.value)}
+              style={{
+                display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 14px',
+                borderRadius: 10, border: `2px solid ${mode === opt.value ? 'var(--accent)' : 'var(--border)'}`,
+                background: mode === opt.value ? 'rgba(139,92,246,0.07)' : 'var(--bg-surface)',
+                cursor: 'pointer', textAlign: 'left',
+              }}
+            >
+              {/* Radio indicator */}
+              <div style={{
+                width: 16, height: 16, borderRadius: '50%', flexShrink: 0, marginTop: 2,
+                border: `2px solid ${mode === opt.value ? 'var(--accent)' : 'var(--border)'}`,
+                background: mode === opt.value ? 'var(--accent)' : 'transparent',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                {mode === opt.value && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} />}
+              </div>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 13, color: mode === opt.value ? 'var(--accent)' : 'var(--text-primary)' }}>
+                  {opt.label}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>{opt.desc}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {error && <div style={{ color: '#ef4444', fontSize: 13, marginBottom: 12 }}>{error}</div>}
+
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} className="btn btn-ghost" disabled={loading}>Ýatyr</button>
+          <button
+            onClick={handleExport}
+            disabled={loading}
+            className="btn btn-primary"
+            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <Download size={14} />
+            {loading ? 'Taýýarlanýar...' : 'Excel göçür'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export function WorkTimePage() {
@@ -278,6 +390,7 @@ export function WorkTimePage() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [adjModal, setAdjModal] = useState<{ workDate: string } | null>(null)
   const [search, setSearch] = useState('')
+  const [exportModal, setExportModal] = useState(false)
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['work-time-summary', month],
@@ -330,6 +443,14 @@ export function WorkTimePage() {
           >
             <Tag size={14} />
             Reasons
+          </button>
+          <button
+            onClick={() => setExportModal(true)}
+            className="btn btn-ghost"
+            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <Download size={14} />
+            Excel Export
           </button>
           <button
             onClick={() => setAdjModal({ workDate: `${month}-01` })}
@@ -509,6 +630,11 @@ export function WorkTimePage() {
           onClose={() => setAdjModal(null)}
           onSaved={() => setSelected(new Set())}
         />
+      )}
+
+      {/* Export Modal */}
+      {exportModal && (
+        <ExportModal month={month} onClose={() => setExportModal(false)} />
       )}
     </div>
   )

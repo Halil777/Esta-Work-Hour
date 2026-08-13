@@ -100,6 +100,28 @@ export const workTimeApi = {
     apiFetch<WorkerTimesheet>(
       `/admin/work-time/timesheet?workerEntityId=${workerEntityId}&month=${month}`,
     ),
+
+  exportXlsx: async (month: string, mode: 'times' | 'hours' | 'both'): Promise<void> => {
+    const token = localStorage.getItem('adminJwt');
+    const res = await fetch(`/api/admin/work-time/export-xlsx?month=${month}&mode=${mode}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (res.status === 401) {
+      localStorage.removeItem('adminJwt');
+      window.location.href = '/login';
+      throw new Error('Sesiýa tamam boldy');
+    }
+    if (!res.ok) throw new Error(`Export ýalňyşlyk: ${res.status}`);
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `is-wagty-${month}-${mode}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
 }
 
 // ── Adjustment Reasons ─────────────────────────────────────────────────────────

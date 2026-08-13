@@ -221,6 +221,342 @@ export class WorkTimeService {
   //  Monthly timesheet for a single worker (day-by-day breakdown)
   // ─────────────────────────────────────────────────────────────────────────────
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  Monthly Excel timesheet — per-worker × per-day matrix
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  private fmtTimeMs(ms: number | null): string {
+    if (!ms) return '';
+    const d = new Date(Number(ms) + TZ_OFFSET_MS);
+    return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+  }
+
+  private fmtHoursMs(ms: number): string {
+    if (!ms || ms <= 0) return '';
+    const h  = Math.floor(ms / 3600000);
+    const mi = Math.floor((ms % 3600000) / 60000);
+    return `${h}:${String(mi).padStart(2, '0')}`;
+  }
+
+  async generateMonthXlsx(month: string, tenantId: string, mode: 'times' | 'hours' | 'both'): Promise<Buffer> {
+    const [startDate, endDate] = monthRange(month);
+    const [y, m] = month.split('-').map(Number);
+    const daysInMonth = new Date(y, m, 0).getDate();
+
+    const workers = await this.workerRepo.find({
+      where: { tenantId, status: 'Active' as any },
+      order: { name: 'ASC' },
+    });
+
+    const workerIds = workers.map(w => w.workerId);
+    const entityIds = workers.map(w => w.id);
+
+    const events: { employeeNumber: string; eventType: string; eventTime: string }[] =
+      workerIds.length > 0
+        ? await this.eventRepo.query(
+            `SELECT "employeeNumber", "eventType", "eventTime"
+             FROM attendance_events
+             WHERE "employeeNumber" = ANY($1)
+               AND DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE '${APP_TZ}') BETWEEN $2 AND $3
+             ORDER BY "employeeNumber", "eventTime" ASC`,
+            [workerIds, startDate, endDate],
+          )
+        : [];
+
+    const overrides = entityIds.length > 0
+      ? await this.overrideRepo
+          .createQueryBuilder('o')
+          .where('o.workerEntityId = ANY(:ids)', { ids: entityIds })
+          .andWhere('o.date BETWEEN :s AND :e', { s: startDate, e: endDate })
+          .getMany()
+      : [];
+
+    const overrideMap     = new Map(overrides.map(o => [`${o.workerEntityId}:${o.date}`, o]));
+    const workerIdToEntity = new Map(workers.map(w => [w.workerId, w.id]));
+
+    // Group events by entityId → date → event list
+    type Ev = { eventType: string; eventTime: number };
+    const byWorkerDate = new Map<string, Map<string, Ev[]>>();
+    for (const ev of events) {
+      const entityId = workerIdToEntity.get(ev.employeeNumber);
+      if (!entityId) continue;
+      const date = new Date(Number(ev.eventTime) + TZ_OFFSET_MS).toISOString().split('T')[0];
+      if (!byWorkerDate.has(entityId)) byWorkerDate.set(entityId, new Map());
+      const dm = byWorkerDate.get(entityId)!;
+      if (!dm.has(date)) dm.set(date, []);
+      dm.get(date)!.push({ eventType: ev.eventType, eventTime: Number(ev.eventTime) });
+    }
+
+    // Build per-worker per-day map
+    type DayData = { checkIn: number | null; checkOut: number | null; actualMs: number };
+    const workerDayMap = new Map<string, Map<string, DayData>>();
+    for (const w of workers) workerDayMap.set(w.id, new Map());
+
+    for (const [entityId, dateMap] of byWorkerDate) {
+      const wdm = workerDayMap.get(entityId)!;
+      for (const [date, evList] of dateMap) {
+        const ov = overrideMap.get(`${entityId}:${date}`);
+        if (ov) {
+          const ci = ov.checkInMs  ? Number(ov.checkInMs)  : null;
+          const co = ov.checkOutMs ? Number(ov.checkOutMs) : null;
+          wdm.set(date, { checkIn: ci, checkOut: co, actualMs: (ci && co) ? co - ci : 0 });
+        } else {
+          let firstIn: number | null = null;
+          let lastOut: number | null = null;
+          let totalMs = 0;
+          let clockIn: number | null = null;
+          for (const ev of evList) {
+            if (ev.eventType === 'CHECK_IN') {
+              if (firstIn === null) firstIn = ev.eventTime;
+              if (clockIn === null) clockIn  = ev.eventTime;
+            } else {
+              if (clockIn !== null) { totalMs += ev.eventTime - clockIn; clockIn = null; }
+              lastOut = ev.eventTime;
+            }
+          }
+          wdm.set(date, { checkIn: firstIn, checkOut: lastOut, actualMs: totalMs });
+        }
+      }
+    }
+
+    // Override-only days (no scan events)
+    for (const [key, ov] of overrideMap) {
+      const colonIdx = key.indexOf(':');
+      const entityId = key.slice(0, colonIdx);
+      const date     = key.slice(colonIdx + 1);
+      const wdm = workerDayMap.get(entityId);
+      if (!wdm || wdm.has(date)) continue;
+      const ci = ov.checkInMs  ? Number(ov.checkInMs)  : null;
+      const co = ov.checkOutMs ? Number(ov.checkOutMs) : null;
+      if (ci || co) wdm.set(date, { checkIn: ci, checkOut: co, actualMs: (ci && co) ? co - ci : 0 });
+    }
+
+    return this.buildTimesheetXlsx(month, y, m, daysInMonth, workers, workerDayMap, mode);
+  }
+
+  private async buildTimesheetXlsx(
+    month: string,
+    year: number,
+    monthNum: number,
+    daysInMonth: number,
+    workers: Worker[],
+    workerDayMap: Map<string, Map<string, { checkIn: number | null; checkOut: number | null; actualMs: number }>>,
+    mode: 'times' | 'hours' | 'both',
+  ): Promise<Buffer> {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const ExcelJS = require('exceljs');
+
+    const TM_MONTHS = ['Ýanwar', 'Fewral', 'Mart', 'Aprel', 'Maý', 'Iýun', 'Iýul', 'Awgust', 'Sentýabr', 'Oktýabr', 'Noýabr', 'Dekabr'];
+    const TM_DAYS   = ['Ýek', 'Duş', 'Siş', 'Çar', 'Per', 'An', 'Şen']; // 0=Sun..6=Sat
+
+    const subCols   = mode === 'hours' ? 1 : mode === 'times' ? 2 : 3;
+    const fixedCols = 3; // #, Sicil No, Ad Familiýa
+    const totalCols = fixedCols + daysInMonth * subCols + 1;
+    const jemiCol   = totalCols;
+    const hasSubHdr = mode !== 'hours';
+    const frozenRows = hasSubHdr ? 4 : 3;
+
+    const dayFirstCol = (d: number) => fixedCols + (d - 1) * subCols + 1;
+
+    const solidFill = (argb: string) => ({ type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb } });
+    const thinBd    = (argb = 'FF94A3B8') => ({ style: 'thin'   as const, color: { argb } });
+    const medBd     = (argb = 'FF93C5FD') => ({ style: 'medium' as const, color: { argb } });
+    const hairBd    = (argb = 'FFE2E8F0') => ({ style: 'hair'   as const, color: { argb } });
+
+    const BG = {
+      title:     'FF1E3A5F',
+      subtitle:  'FF2D5E8E',
+      dayHdr:    'FF1E3A5F',
+      wkndHdr:   'FF7F1D1D',
+      subHdr:    'FF334155',
+      wkndSub:   'FF6B2020',
+      jemiHdr:   'FF0F2D4A',
+      even:      'FFFAFAFA',
+      odd:       'FFFFFFFF',
+      wkndData:  'FFFFF8F8',
+      jemiData:  'FFEFF6FF',
+      white:     'FFFFFFFF',
+    };
+
+    const wb = new ExcelJS.Workbook();
+    wb.created = new Date();
+    const ws = wb.addWorksheet('İş Wagty', {
+      views:     [{ state: 'frozen', xSplit: fixedCols, ySplit: frozenRows }],
+      pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1 },
+    });
+
+    // Column widths
+    const colDefs: { width: number }[] = [{ width: 4 }, { width: 11 }, { width: 26 }];
+    for (let i = 0; i < daysInMonth * subCols; i++) colDefs.push({ width: 6.5 });
+    colDefs.push({ width: 10 });
+    ws.columns = colDefs;
+
+    // ── Row 1: Title ─────────────────────────────────────────────────────────
+    const modeLabel = { times: 'Giriş / Çykyş Wagtlary', hours: 'İşlenen Sagatlar', both: 'Giriş / Çykyş + İşlenen Sagatlar' }[mode];
+    const titleRow = ws.addRow([`İşgärleriň Gatnaşyk Hasabaty — ${TM_MONTHS[monthNum - 1]} ${year}  (${modeLabel})`]);
+    ws.mergeCells(1, 1, 1, totalCols);
+    Object.assign(titleRow.getCell(1), {
+      fill:      solidFill(BG.title),
+      font:      { bold: true, size: 13, color: { argb: BG.white } },
+      alignment: { horizontal: 'center', vertical: 'middle' },
+    });
+    titleRow.height = 30;
+
+    // ── Row 2: Subtitle ──────────────────────────────────────────────────────
+    const endDay = String(daysInMonth).padStart(2, '0');
+    const subRow = ws.addRow([`Döwür: ${month}-01 — ${month}-${endDay}   |   Işgär sany: ${workers.length}`]);
+    ws.mergeCells(2, 1, 2, totalCols);
+    Object.assign(subRow.getCell(1), {
+      fill:      solidFill(BG.subtitle),
+      font:      { size: 10, color: { argb: 'FFBFDBFE' } },
+      alignment: { horizontal: 'center', vertical: 'middle' },
+    });
+    subRow.height = 18;
+
+    // ── Row 3: Day-group headers ─────────────────────────────────────────────
+    const dayHdrRow = ws.addRow(new Array(totalCols).fill(''));
+    dayHdrRow.height = 34;
+
+    const styleFixedHdr = (col: number, label: string) => {
+      if (hasSubHdr) ws.mergeCells(3, col, 4, col);
+      const c = dayHdrRow.getCell(col);
+      c.value = label;
+      c.fill  = solidFill(BG.dayHdr);
+      c.font  = { bold: true, size: 9, color: { argb: BG.white } };
+      c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      c.border    = { top: thinBd(), left: thinBd(), right: thinBd(), bottom: thinBd() };
+    };
+    styleFixedHdr(1, '#');
+    styleFixedHdr(2, 'Sicil\nNo');
+    styleFixedHdr(3, 'Ad Familiýa');
+
+    // Jemi header (merged rows 3-4 if needed)
+    if (hasSubHdr) ws.mergeCells(3, jemiCol, 4, jemiCol);
+    const jemiHdrC = dayHdrRow.getCell(jemiCol);
+    jemiHdrC.value = 'Jemi\nSagat';
+    jemiHdrC.fill  = solidFill(BG.jemiHdr);
+    jemiHdrC.font  = { bold: true, size: 9, color: { argb: BG.white } };
+    jemiHdrC.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    jemiHdrC.border    = { top: thinBd(), left: medBd(), right: thinBd(), bottom: thinBd() };
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dow    = new Date(year, monthNum - 1, d).getDay();
+      const isWknd = dow === 0 || dow === 6;
+      const fc     = dayFirstCol(d);
+      if (subCols > 1) ws.mergeCells(3, fc, 3, fc + subCols - 1);
+      const c = dayHdrRow.getCell(fc);
+      c.value = `${d}\n${TM_DAYS[dow]}`;
+      c.fill  = solidFill(isWknd ? BG.wkndHdr : BG.dayHdr);
+      c.font  = { bold: true, size: 9, color: { argb: BG.white } };
+      c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      c.border    = { left: medBd(), right: hairBd('FF4B5563'), top: thinBd(), bottom: thinBd() };
+    }
+
+    // ── Row 4: Sub-headers (times / both only) ───────────────────────────────
+    if (hasSubHdr) {
+      const subHdrRow = ws.addRow(new Array(totalCols).fill(''));
+      subHdrRow.height = 15;
+      const subLabels = mode === 'times' ? ['Giriş', 'Çykyş'] : ['Giriş', 'Çykyş', 'Sagat'];
+
+      for (let col = 1; col <= totalCols; col++) {
+        const c = subHdrRow.getCell(col);
+        let bg = BG.jemiHdr;
+        if (col > fixedCols && col < jemiCol) {
+          const dayIdx = Math.ceil((col - fixedCols) / subCols);
+          const dow    = new Date(year, monthNum - 1, dayIdx).getDay();
+          bg           = (dow === 0 || dow === 6) ? BG.wkndSub : BG.subHdr;
+          const subIdx = (col - fixedCols - 1) % subCols;
+          c.value      = subLabels[subIdx];
+        }
+        c.fill      = solidFill(bg);
+        c.font      = { bold: true, size: 8, color: { argb: BG.white } };
+        c.alignment = { horizontal: 'center', vertical: 'middle' };
+        const isFirstSub = col > fixedCols && col < jemiCol && (col - fixedCols - 1) % subCols === 0;
+        c.border = {
+          left:   isFirstSub ? medBd() : hairBd('FF4B5563'),
+          bottom: { style: 'medium' as const, color: { argb: 'FF93C5FD' } },
+        };
+      }
+    }
+
+    // ── Data rows ────────────────────────────────────────────────────────────
+    workers.forEach((worker, idx) => {
+      const dayMap  = workerDayMap.get(worker.id) ?? new Map();
+      const rowData: (string | number)[] = [idx + 1, worker.workerId, worker.name];
+      let jemiMs = 0;
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = `${month}-${String(d).padStart(2, '0')}`;
+        const dd      = dayMap.get(dateStr);
+        const ams     = dd?.actualMs ?? 0;
+        jemiMs += ams;
+        if (mode === 'times') {
+          rowData.push(
+            dd?.checkIn  ? this.fmtTimeMs(dd.checkIn)  : '',
+            dd?.checkOut ? this.fmtTimeMs(dd.checkOut) : '',
+          );
+        } else if (mode === 'hours') {
+          rowData.push(ams > 0 ? this.fmtHoursMs(ams) : '');
+        } else {
+          rowData.push(
+            dd?.checkIn  ? this.fmtTimeMs(dd.checkIn)  : '',
+            dd?.checkOut ? this.fmtTimeMs(dd.checkOut) : '',
+            ams > 0      ? this.fmtHoursMs(ams)        : '',
+          );
+        }
+      }
+      rowData.push(jemiMs > 0 ? this.fmtHoursMs(jemiMs) : '—');
+
+      const r  = ws.addRow(rowData);
+      r.height = 15;
+      const bg = idx % 2 === 0 ? BG.even : BG.odd;
+
+      r.eachCell((cell: any, col: number) => {
+        let isWknd = false;
+        if (col > fixedCols && col < jemiCol) {
+          const dayIdx = Math.ceil((col - fixedCols) / subCols);
+          const dow    = new Date(year, monthNum - 1, dayIdx).getDay();
+          isWknd       = dow === 0 || dow === 6;
+        }
+        const cellBg = col === jemiCol ? BG.jemiData : (isWknd ? BG.wkndData : bg);
+        cell.fill      = solidFill(cellBg);
+        cell.font      = { size: 9 };
+        cell.alignment = { horizontal: col === 3 ? 'left' : 'center', vertical: 'middle' };
+        cell.border    = { bottom: hairBd() };
+        const isFirstSub = col > fixedCols && col < jemiCol && (col - fixedCols - 1) % subCols === 0;
+        if (isFirstSub)       cell.border = { ...cell.border, left: medBd('FFD1D5DB') };
+        if (col === jemiCol)  cell.border = { ...cell.border, left: medBd('FFD1D5DB') };
+        if (col === jemiCol)  cell.font   = { size: 9, bold: true, color: { argb: 'FF1E3A5F' } };
+        if (col === 2)        cell.font   = { size: 9, color: { argb: 'FF475569' } };
+      });
+    });
+
+    // ── Footer ───────────────────────────────────────────────────────────────
+    const footData: (string | number)[] = ['', 'JEMI', `${workers.length} işgär`];
+    let grandTotalMs = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${month}-${String(d).padStart(2, '0')}`;
+      let dayMs = 0;
+      for (const w of workers) dayMs += (workerDayMap.get(w.id) ?? new Map()).get(dateStr)?.actualMs ?? 0;
+      grandTotalMs += dayMs;
+      if (mode === 'times')       { footData.push('', ''); }
+      else if (mode === 'hours')  { footData.push(dayMs > 0 ? this.fmtHoursMs(dayMs) : ''); }
+      else                        { footData.push('', '', dayMs > 0 ? this.fmtHoursMs(dayMs) : ''); }
+    }
+    footData.push(grandTotalMs > 0 ? this.fmtHoursMs(grandTotalMs) : '—');
+
+    const footRow = ws.addRow(footData);
+    footRow.height = 20;
+    footRow.eachCell((c: any, col: number) => {
+      c.fill      = solidFill(BG.jemiHdr);
+      c.font      = { bold: true, size: 9, color: { argb: BG.white } };
+      c.alignment = { horizontal: col === 3 ? 'left' : 'center', vertical: 'middle' };
+    });
+
+    const buf = await wb.xlsx.writeBuffer();
+    return Buffer.from(buf as ArrayBuffer);
+  }
+
   async getWorkerTimesheet(workerEntityId: string, month: string, tenantId: string) {
     const worker = await this.workerRepo.findOne({ where: { id: workerEntityId, tenantId } });
     if (!worker) throw new NotFoundException('Worker not found');
