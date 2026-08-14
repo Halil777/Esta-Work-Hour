@@ -16,11 +16,17 @@ export class ReportSchedulerController {
     @Query('reportType') reportType?: string,
     @Query('lang') lang?: string,
   ) {
+    const l = lang || 'tr';
     await this.service.sendNow(
       date, (reportType as ReportType) ?? 'daily_all',
-      req.adminUser?.tenantId, req.adminUser?.tenantName, lang || 'tr',
+      req.adminUser?.tenantId, req.adminUser?.tenantName, l,
     );
-    return { ok: true, message: 'Günlük hasabat iberildi' };
+    const msg: Record<string, string> = {
+      en: 'Daily report sent',
+      ru: 'Ежедневный отчёт отправлен',
+      tr: 'Günlük rapor gönderildi',
+    };
+    return { ok: true, message: msg[l] ?? 'Günlük rapor gönderildi' };
   }
 
   /** Manually send range (date-range + optional worker filter) */
@@ -36,10 +42,16 @@ export class ReportSchedulerController {
     if (!startDate || !endDate) {
       throw new Error('startDate and endDate are required');
     }
+    const l = lang || 'tr';
     await this.service.sendRange(
       startDate, endDate, workerIds, customEmails,
-      req.adminUser?.tenantId, req.adminUser?.tenantName, lang || 'tr',
+      req.adminUser?.tenantId, req.adminUser?.tenantName, l,
     );
-    return { ok: true, message: `Hasabat iberildi (${startDate} — ${endDate})` };
+    const msg: Record<string, string> = {
+      en: `Report sent (${startDate} — ${endDate})`,
+      ru: `Отчёт отправлен (${startDate} — ${endDate})`,
+      tr: `Rapor gönderildi (${startDate} — ${endDate})`,
+    };
+    return { ok: true, message: msg[l] ?? `Rapor gönderildi (${startDate} — ${endDate})` };
   }
 }

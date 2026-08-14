@@ -238,7 +238,7 @@ export class WorkTimeService {
     return `${h}:${String(mi).padStart(2, '0')}`;
   }
 
-  async generateMonthXlsx(month: string, tenantId: string, mode: 'times' | 'hours' | 'both'): Promise<Buffer> {
+  async generateMonthXlsx(month: string, tenantId: string, mode: 'times' | 'hours' | 'both', lang = 'tr'): Promise<Buffer> {
     const [startDate, endDate] = monthRange(month);
     const [y, m] = month.split('-').map(Number);
     const daysInMonth = new Date(y, m, 0).getDate();
@@ -331,7 +331,7 @@ export class WorkTimeService {
       if (ci || co) wdm.set(date, { checkIn: ci, checkOut: co, actualMs: (ci && co) ? co - ci : 0 });
     }
 
-    return this.buildTimesheetXlsx(month, y, m, daysInMonth, workers, workerDayMap, mode);
+    return this.buildTimesheetXlsx(month, y, m, daysInMonth, workers, workerDayMap, mode, lang);
   }
 
   private async buildTimesheetXlsx(
@@ -342,12 +342,54 @@ export class WorkTimeService {
     workers: Worker[],
     workerDayMap: Map<string, Map<string, { checkIn: number | null; checkOut: number | null; actualMs: number }>>,
     mode: 'times' | 'hours' | 'both',
+    lang = 'tr',
   ): Promise<Buffer> {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const ExcelJS = require('exceljs');
 
-    const TM_MONTHS = ['Ýanwar', 'Fewral', 'Mart', 'Aprel', 'Maý', 'Iýun', 'Iýul', 'Awgust', 'Sentýabr', 'Oktýabr', 'Noýabr', 'Dekabr'];
-    const TM_DAYS   = ['Ýek', 'Duş', 'Siş', 'Çar', 'Per', 'An', 'Şen']; // 0=Sun..6=Sat
+    // ── i18n labels ────────────────────────────────────────────────────────────
+    const I18N: Record<string, {
+      months: string[]; days: string[]; sheetName: string;
+      title: string; period: string; workerCount: string;
+      modeLabel: Record<string, string>;
+      regNo: string; name: string; total: string;
+      checkIn: string; checkOut: string; hours: string;
+    }> = {
+      en: {
+        months: ['January','February','March','April','May','June','July','August','September','October','November','December'],
+        days:   ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
+        sheetName: 'Work Time',
+        title: 'Employee Attendance Report',
+        period: 'Period', workerCount: 'Workers',
+        modeLabel: { times: 'Check In / Check Out', hours: 'Hours Worked', both: 'Times + Hours Worked' },
+        regNo: 'Reg\nNo', name: 'Full Name', total: 'Total\nHours',
+        checkIn: 'In', checkOut: 'Out', hours: 'Hrs',
+      },
+      ru: {
+        months: ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'],
+        days:   ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'],
+        sheetName: 'Рабочее время',
+        title: 'Отчёт посещаемости работников',
+        period: 'Период', workerCount: 'Работников',
+        modeLabel: { times: 'Приход / Уход', hours: 'Отработано часов', both: 'Приход / Уход + Часы' },
+        regNo: 'Таб.\n№', name: 'Имя', total: 'Итого\nчасов',
+        checkIn: 'Прих.', checkOut: 'Уход', hours: 'Ч.',
+      },
+      tr: {
+        months: ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'],
+        days:   ['Paz','Pzt','Sal','Çar','Per','Cum','Cmt'],
+        sheetName: 'Mesai Takibi',
+        title: 'Çalışan Devam Raporu',
+        period: 'Dönem', workerCount: 'Çalışan sayısı',
+        modeLabel: { times: 'Giriş / Çıkış Zamanları', hours: 'Çalışılan Saatler', both: 'Giriş / Çıkış + Saatler' },
+        regNo: 'Sicil\nNo', name: 'Ad Soyad', total: 'Toplam\nSaat',
+        checkIn: 'Giriş', checkOut: 'Çıkış', hours: 'Saat',
+      },
+    };
+    const L = I18N[lang] ?? I18N['tr'];
+
+    const MONTHS = L.months;
+    const DAYS   = L.days;
 
     const subCols   = mode === 'hours' ? 1 : mode === 'times' ? 2 : 3;
     const fixedCols = 3; // #, Sicil No, Ad Familiýa
@@ -380,7 +422,7 @@ export class WorkTimeService {
 
     const wb = new ExcelJS.Workbook();
     wb.created = new Date();
-    const ws = wb.addWorksheet('İş Wagty', {
+    const ws = wb.addWorksheet(L.sheetName, {
       views:     [{ state: 'frozen', xSplit: fixedCols, ySplit: frozenRows }],
       pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1 },
     });
@@ -392,8 +434,8 @@ export class WorkTimeService {
     ws.columns = colDefs;
 
     // ── Row 1: Title ─────────────────────────────────────────────────────────
-    const modeLabel = { times: 'Giriş / Çykyş Wagtlary', hours: 'İşlenen Sagatlar', both: 'Giriş / Çykyş + İşlenen Sagatlar' }[mode];
-    const titleRow = ws.addRow([`İşgärleriň Gatnaşyk Hasabaty — ${TM_MONTHS[monthNum - 1]} ${year}  (${modeLabel})`]);
+    const modeLabel = L.modeLabel[mode];
+    const titleRow = ws.addRow([`${L.title} — ${MONTHS[monthNum - 1]} ${year}  (${modeLabel})`]);
     ws.mergeCells(1, 1, 1, totalCols);
     Object.assign(titleRow.getCell(1), {
       fill:      solidFill(BG.title),
@@ -404,7 +446,7 @@ export class WorkTimeService {
 
     // ── Row 2: Subtitle ──────────────────────────────────────────────────────
     const endDay = String(daysInMonth).padStart(2, '0');
-    const subRow = ws.addRow([`Döwür: ${month}-01 — ${month}-${endDay}   |   Işgär sany: ${workers.length}`]);
+    const subRow = ws.addRow([`${L.period}: ${month}-01 — ${month}-${endDay}   |   ${L.workerCount}: ${workers.length}`]);
     ws.mergeCells(2, 1, 2, totalCols);
     Object.assign(subRow.getCell(1), {
       fill:      solidFill(BG.subtitle),
@@ -427,13 +469,13 @@ export class WorkTimeService {
       c.border    = { top: thinBd(), left: thinBd(), right: thinBd(), bottom: thinBd() };
     };
     styleFixedHdr(1, '#');
-    styleFixedHdr(2, 'Sicil\nNo');
-    styleFixedHdr(3, 'Ad Familiýa');
+    styleFixedHdr(2, L.regNo);
+    styleFixedHdr(3, L.name);
 
     // Jemi header (merged rows 3-4 if needed)
     if (hasSubHdr) ws.mergeCells(3, jemiCol, 4, jemiCol);
     const jemiHdrC = dayHdrRow.getCell(jemiCol);
-    jemiHdrC.value = 'Jemi\nSagat';
+    jemiHdrC.value = L.total;
     jemiHdrC.fill  = solidFill(BG.jemiHdr);
     jemiHdrC.font  = { bold: true, size: 9, color: { argb: BG.white } };
     jemiHdrC.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
@@ -445,7 +487,7 @@ export class WorkTimeService {
       const fc     = dayFirstCol(d);
       if (subCols > 1) ws.mergeCells(3, fc, 3, fc + subCols - 1);
       const c = dayHdrRow.getCell(fc);
-      c.value = `${d}\n${TM_DAYS[dow]}`;
+      c.value = `${d}\n${DAYS[dow]}`;
       c.fill  = solidFill(isWknd ? BG.wkndHdr : BG.dayHdr);
       c.font  = { bold: true, size: 9, color: { argb: BG.white } };
       c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
@@ -456,7 +498,7 @@ export class WorkTimeService {
     if (hasSubHdr) {
       const subHdrRow = ws.addRow(new Array(totalCols).fill(''));
       subHdrRow.height = 15;
-      const subLabels = mode === 'times' ? ['Giriş', 'Çykyş'] : ['Giriş', 'Çykyş', 'Sagat'];
+      const subLabels = mode === 'times' ? [L.checkIn, L.checkOut] : [L.checkIn, L.checkOut, L.hours];
 
       for (let col = 1; col <= totalCols; col++) {
         const c = subHdrRow.getCell(col);

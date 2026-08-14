@@ -6,6 +6,7 @@ import {
   CheckSquare, Square, Tag, ExternalLink, RotateCcw, Download,
 } from 'lucide-react'
 import { workTimeApi, adjustmentsApi, reasonsApi, type AdjustmentType, type WorkAdjustment } from '../api/workTime'
+import { useUiPreferences } from '../app/providers/useUiPreferences'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -275,6 +276,7 @@ function AdjustmentModal({ workers, workDate, onClose, onSaved }: AdjModalProps)
 type ExportMode = 'times' | 'hours' | 'both'
 
 function ExportModal({ month, onClose }: { month: string; onClose: () => void }) {
+  const { language } = useUiPreferences()
   const [mode, setMode] = useState<ExportMode>('both')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -301,7 +303,7 @@ function ExportModal({ month, onClose }: { month: string; onClose: () => void })
     setLoading(true)
     setError('')
     try {
-      await workTimeApi.exportXlsx(month, mode)
+      await workTimeApi.exportXlsx(month, mode, language)
       onClose()
     } catch (e: any) {
       setError(e.message ?? 'Export ýalňyşlygy')

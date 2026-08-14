@@ -101,9 +101,11 @@ export const workTimeApi = {
       `/admin/work-time/timesheet?workerEntityId=${workerEntityId}&month=${month}`,
     ),
 
-  exportXlsx: async (month: string, mode: 'times' | 'hours' | 'both'): Promise<void> => {
+  exportXlsx: async (month: string, mode: 'times' | 'hours' | 'both', lang?: string): Promise<void> => {
     const token = localStorage.getItem('adminJwt');
-    const res = await fetch(`/api/admin/work-time/export-xlsx?month=${month}&mode=${mode}`, {
+    const params = new URLSearchParams({ month, mode });
+    if (lang) params.set('lang', lang);
+    const res = await fetch(`/api/admin/work-time/export-xlsx?${params}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
     if (res.status === 401) {
@@ -113,10 +115,12 @@ export const workTimeApi = {
     }
     if (!res.ok) throw new Error(`Export ýalňyşlyk: ${res.status}`);
     const blob = await res.blob();
+    const prefixes: Record<string, string> = { en: 'work-time', ru: 'rabochee-vremya', tr: 'mesai-takibi' };
+    const prefix = prefixes[lang ?? ''] ?? 'mesai-takibi';
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
     a.href     = url;
-    a.download = `is-wagty-${month}-${mode}.xlsx`;
+    a.download = `${prefix}-${month}-${mode}.xlsx`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

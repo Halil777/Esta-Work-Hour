@@ -3,8 +3,23 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import * as nodemailer from 'nodemailer';
 import { ReportConfigService } from '../report-config/report-config.service';
 import { ReportsService } from '../reports/reports.service';
-import { ReportType } from '../report-config/report-config.entity';
+import { ReportType, MonthlySchedule, ReportScheduleItem } from '../report-config/report-config.entity';
 import { yesterdayLocal, todayLocal } from '../common/date-utils';
+
+// Filename prefix by language (used for all email attachments)
+const FILE_PREFIXES: Record<string, string> = {
+  en: 'work-hours',
+  ru: 'rabochie-chasy',
+  tr: 'calisma-saatleri',
+};
+function filePrefix(lang: string): string {
+  return FILE_PREFIXES[lang] ?? 'calisma-saatleri';
+}
+
+// Format a Date as YYYY-MM-DD using LOCAL date components (avoids toISOString UTC shift)
+function fmtDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 @Injectable()
 export class ReportSchedulerService {
@@ -23,7 +38,8 @@ export class ReportSchedulerService {
     private readonly reportsService: ReportsService,
   ) {}
 
-  // ─── Daily scheduled send ────────────────────────────────────────────────────
+  // ─── Daily scheduled send ─────────────────────────────────────────────────────
+  // Iterates ALL tenant configs so every tenant's schedule is checked.
 
   @Cron(CronExpression.EVERY_MINUTE)
   async checkAndSend() {
@@ -31,37 +47,45 @@ export class ReportSchedulerService {
     const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     const today = todayLocal();
 
-    const { emails, schedules, lang } = await this.reportConfigService.getConfig();
-    if (emails.length === 0) return;
+    const allConfigs = await this.reportConfigService.getAllConfigs();
 
-    for (const schedule of schedules) {
-      if (!schedule.enabled) continue;
-      if (schedule.time !== currentTime) continue;
-      if (schedule.lastSentDate === today) continue;
+    for (const cfg of allConfigs) {
+      const tenantId = cfg.tenantId ?? undefined;
+      const emails: string[] = JSON.parse(cfg.emailsJson ?? '[]');
+      if (emails.length === 0) continue;
 
-      try {
-        const reportDate = yesterdayLocal();
-        const reportType: ReportType = schedule.reportType ?? 'daily_all';
-        const { xlsx, html } = await this.reportsService.generateReport(reportDate, reportType, false, undefined, undefined, lang as any);
+      const schedules: ReportScheduleItem[] = JSON.parse(cfg.schedulesJson ?? '[]');
+      const lang = cfg.lang ?? 'tr';
 
-        await this.transporter.sendMail({
-          from: `"Esta WorkForce" <${process.env.MAIL_USER}>`,
-          to: emails.join(', '),
-          subject: `Esta WorkForce — ${schedule.label} (${reportDate})`,
-          html,
-          attachments: [
-            {
-              filename: `hasabat-${reportDate}.xlsx`,
+      for (const schedule of schedules) {
+        if (!schedule.enabled) continue;
+        if (schedule.time !== currentTime) continue;
+        if (schedule.lastSentDate === today) continue;
+
+        try {
+          const reportDate = yesterdayLocal();
+          const reportType: ReportType = schedule.reportType ?? 'daily_all';
+          const { xlsx, html } = await this.reportsService.generateReport(
+            reportDate, reportType, false, tenantId, undefined, lang as any,
+          );
+
+          await this.transporter.sendMail({
+            from: `"Esta WorkForce" <${process.env.MAIL_USER}>`,
+            to: emails.join(', '),
+            subject: `Esta WorkForce — ${schedule.label} (${reportDate})`,
+            html,
+            attachments: [{
+              filename: `${filePrefix(lang)}-${reportDate}.xlsx`,
               content: xlsx,
               contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            },
-          ],
-        });
+            }],
+          });
 
-        await this.reportConfigService.updateScheduleLastSent(schedule.id, today);
-        this.logger.log(`Daily report [${reportType}] sent for ${reportDate} → ${emails.join(', ')}`);
-      } catch (err) {
-        this.logger.error(`Failed to send daily report for schedule ${schedule.id}: ${err}`);
+          await this.reportConfigService.updateScheduleLastSent(schedule.id, today, tenantId);
+          this.logger.log(`Daily [${reportType}] sent for ${reportDate} → ${emails.join(', ')} [tenant:${tenantId ?? 'global'}]`);
+        } catch (err) {
+          this.logger.error(`Daily report failed schedule ${schedule.id} [tenant:${tenantId ?? 'global'}]: ${err}`);
+        }
       }
     }
   }
@@ -74,53 +98,59 @@ export class ReportSchedulerService {
     if (now.getDate() !== 1) return; // only fire on 1st of month
 
     const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    // triggerMonth = YYYY-MM of TODAY (i.e., the month we are in when we trigger)
+    // triggerMonth = YYYY-MM of the current month (the one we send from, i.e. previous month's report)
     const triggerMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-    const { monthlySchedule, emails: defaultEmails, lang } = await this.reportConfigService.getConfig();
-    if (!monthlySchedule.enabled) return;
-    if (monthlySchedule.time !== currentTime) return;
-    if (monthlySchedule.lastSentMonth === triggerMonth) return; // already sent this month
-
-    // Previous month date range — use local date components (not toISOString which is UTC)
+    // Previous month date range — use local components, never toISOString (UTC shift bug)
     const prevFirst = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const prevLast  = new Date(now.getFullYear(), now.getMonth(), 0);
-    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    const startDate = fmt(prevFirst);
-    const endDate   = fmt(prevLast);
+    const startDate = fmtDate(prevFirst);
+    const endDate   = fmtDate(prevLast);
 
-    const recipients = monthlySchedule.emails.length > 0
-      ? monthlySchedule.emails
-      : defaultEmails;
+    const allConfigs = await this.reportConfigService.getAllConfigs();
 
-    if (recipients.length === 0) {
-      this.logger.warn('Monthly report: no recipient emails configured, skipping');
-      return;
-    }
+    for (const cfg of allConfigs) {
+      const tenantId = cfg.tenantId ?? undefined;
+      const lang = cfg.lang ?? 'tr';
 
-    try {
-      const { xlsx, html, subject } = await this.reportsService.generateRangeReport(
-        startDate, endDate, undefined, true, undefined, undefined, lang as any,
-      );
+      const monthlySchedule: MonthlySchedule = cfg.monthlyScheduleJson
+        ? JSON.parse(cfg.monthlyScheduleJson)
+        : { enabled: false, time: '08:00', emails: [], lastSentMonth: null };
 
-      await this.transporter.sendMail({
-        from: `"Esta WorkForce" <${process.env.MAIL_USER}>`,
-        to: recipients.join(', '),
-        subject,
-        html,
-        attachments: [
-          {
-            filename: `ayylik-hasabat-${startDate}-${endDate}.xlsx`,
+      if (!monthlySchedule.enabled) continue;
+      if (monthlySchedule.time !== currentTime) continue;
+      if (monthlySchedule.lastSentMonth === triggerMonth) continue; // already sent this month
+
+      const defaultEmails: string[] = JSON.parse(cfg.emailsJson ?? '[]');
+      const recipients = monthlySchedule.emails.length > 0 ? monthlySchedule.emails : defaultEmails;
+
+      if (recipients.length === 0) {
+        this.logger.warn(`Monthly report: no recipients [tenant:${tenantId ?? 'global'}], skipping`);
+        continue;
+      }
+
+      try {
+        const { xlsx, html, subject } = await this.reportsService.generateRangeReport(
+          startDate, endDate, undefined, true, tenantId, undefined, lang as any,
+        );
+
+        await this.transporter.sendMail({
+          from: `"Esta WorkForce" <${process.env.MAIL_USER}>`,
+          to: recipients.join(', '),
+          subject,
+          html,
+          attachments: [{
+            filename: `${filePrefix(lang)}-${startDate}-${endDate}.xlsx`,
             content: xlsx,
             contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          },
-        ],
-      });
+          }],
+        });
 
-      await this.reportConfigService.updateMonthlyLastSent(triggerMonth);
-      this.logger.log(`Monthly report sent for ${startDate}..${endDate} → ${recipients.join(', ')}`);
-    } catch (err) {
-      this.logger.error(`Monthly report failed: ${err}`);
+        await this.reportConfigService.updateMonthlyLastSent(triggerMonth, tenantId);
+        this.logger.log(`Monthly report sent ${startDate}..${endDate} → ${recipients.join(', ')} [tenant:${tenantId ?? 'global'}]`);
+      } catch (err) {
+        this.logger.error(`Monthly report failed [tenant:${tenantId ?? 'global'}]: ${err}`);
+      }
     }
   }
 
@@ -136,15 +166,13 @@ export class ReportSchedulerService {
     await this.transporter.sendMail({
       from: `"${tenantName}" <${process.env.MAIL_USER}>`,
       to: emails.join(', '),
-      subject: `${tenantName} — Günlük Hasabat (${reportDate})`,
+      subject: `${tenantName} — ${reportDate}`,
       html,
-      attachments: [
-        {
-          filename: `hasabat-${reportDate}.xlsx`,
-          content: xlsx,
-          contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        },
-      ],
+      attachments: [{
+        filename: `${filePrefix(lang)}-${reportDate}.xlsx`,
+        content: xlsx,
+        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      }],
     });
   }
 
@@ -172,15 +200,13 @@ export class ReportSchedulerService {
       to: recipients.join(', '),
       subject,
       html,
-      attachments: [
-        {
-          filename: `is-sagatlary-${startDate}-${endDate}.xlsx`,
-          content: xlsx,
-          contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        },
-      ],
+      attachments: [{
+        filename: `${filePrefix(lang)}-${startDate}-${endDate}.xlsx`,
+        content: xlsx,
+        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      }],
     });
 
-    this.logger.log(`Range report sent [${startDate}..${endDate}] → ${recipients.join(', ')}`);
+    this.logger.log(`Range report sent [${startDate}..${endDate}] → ${recipients.join(', ')} [tenant:${tenantId ?? 'global'}]`);
   }
 }

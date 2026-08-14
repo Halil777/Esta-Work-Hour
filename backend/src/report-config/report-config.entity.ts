@@ -11,7 +11,7 @@ export type ReportType =
 export interface ReportScheduleItem {
   id: string;
   label: string;
-  time: string;         // HH:MM in server local time (Asia/Ashgabat)
+  time: string;         // HH:MM in server local time (Europe/Moscow = UTC+3, Tatarstan)
   enabled: boolean;
   reportType: ReportType;
   lastSentDate: string | null; // YYYY-MM-DD, set after sending

@@ -57,7 +57,7 @@ export class ReportsController {
       ru: 'rabochie-chasy',
       tr: 'calisma-saatleri',
     };
-    const prefix = filenamePrefixes[resolvedLang] ?? 'is-sagatlary';
+    const prefix = filenamePrefixes[resolvedLang] ?? 'calisma-saatleri';
     const filename = `${prefix}-${sd}-${ed}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);

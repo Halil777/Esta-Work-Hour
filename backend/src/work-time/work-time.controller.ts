@@ -27,12 +27,16 @@ export class WorkTimeController {
     @Req() req: any,
     @Query('month') month: string,
     @Query('mode') mode: string,
+    @Query('lang') lang: string,
     @Res() res: Response,
   ) {
     const m    = month ?? new Date().toISOString().slice(0, 7);
     const md   = (['times', 'hours', 'both'].includes(mode) ? mode : 'hours') as 'times' | 'hours' | 'both';
-    const buf  = await this.svc.generateMonthXlsx(m, req.adminUser.tenantId, md);
-    const name = `is-wagty-${m}-${md}.xlsx`;
+    const l    = lang || 'tr';
+    const buf  = await this.svc.generateMonthXlsx(m, req.adminUser.tenantId, md, l);
+    const prefixes: Record<string, string> = { en: 'work-time', ru: 'rabochee-vremya', tr: 'mesai-takibi' };
+    const prefix = prefixes[l] ?? 'mesai-takibi';
+    const name = `${prefix}-${m}-${md}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${name}"`);
     res.send(buf);

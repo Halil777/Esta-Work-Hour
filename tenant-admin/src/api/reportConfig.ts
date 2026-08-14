@@ -132,7 +132,7 @@ export const reportsApi = {
       ru: 'rabochie-chasy',
       tr: 'calisma-saatleri',
     };
-    const prefix = filenamePrefixes[lang ?? ''] ?? 'is-sagatlary';
+    const prefix = filenamePrefixes[lang ?? ''] ?? 'calisma-saatleri';
     const a = document.createElement('a');
     a.href = url;
     a.download = `${prefix}-${startDate}-${endDate}.xlsx`;
