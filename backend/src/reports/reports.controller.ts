@@ -47,11 +47,18 @@ export class ReportsController {
       ? workerIdsParam.split(',').map(s => s.trim()).filter(Boolean)
       : undefined;
 
+    const resolvedLang = (lang as any) || 'tr';
     const { xlsx } = await this.service.generateRangeReport(
       sd, ed, workerIds, false, req.adminUser?.tenantId,
-      req.adminUser?.tenantName, (lang as any) || 'tr',
+      req.adminUser?.tenantName, resolvedLang,
     );
-    const filename = `is-sagatlary-${sd}-${ed}.xlsx`;
+    const filenamePrefixes: Record<string, string> = {
+      en: 'work-hours',
+      ru: 'rabochie-chasy',
+      tr: 'calisma-saatleri',
+    };
+    const prefix = filenamePrefixes[resolvedLang] ?? 'is-sagatlary';
+    const filename = `${prefix}-${sd}-${ed}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(xlsx);

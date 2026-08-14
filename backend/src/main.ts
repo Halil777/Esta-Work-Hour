@@ -1,5 +1,6 @@
 // Set timezone BEFORE any other imports so new Date() uses local time
-process.env.TZ = process.env.TZ || 'Asia/Ashgabat';
+// Tatarstan = UTC+3 (Europe/Moscow)
+process.env.TZ = process.env.TZ || 'Europe/Moscow';
 
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';

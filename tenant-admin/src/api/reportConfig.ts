@@ -127,9 +127,15 @@ export const reportsApi = {
 
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
+    const filenamePrefixes: Record<string, string> = {
+      en: 'work-hours',
+      ru: 'rabochie-chasy',
+      tr: 'calisma-saatleri',
+    };
+    const prefix = filenamePrefixes[lang ?? ''] ?? 'is-sagatlary';
     const a = document.createElement('a');
     a.href = url;
-    a.download = `is-sagatlary-${startDate}-${endDate}.xlsx`;
+    a.download = `${prefix}-${startDate}-${endDate}.xlsx`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

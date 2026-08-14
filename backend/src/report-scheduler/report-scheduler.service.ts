@@ -82,11 +82,12 @@ export class ReportSchedulerService {
     if (monthlySchedule.time !== currentTime) return;
     if (monthlySchedule.lastSentMonth === triggerMonth) return; // already sent this month
 
-    // Previous month date range
+    // Previous month date range — use local date components (not toISOString which is UTC)
     const prevFirst = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const prevLast  = new Date(now.getFullYear(), now.getMonth(), 0);
-    const startDate = prevFirst.toISOString().split('T')[0];
-    const endDate   = prevLast.toISOString().split('T')[0];
+    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const startDate = fmt(prevFirst);
+    const endDate   = fmt(prevLast);
 
     const recipients = monthlySchedule.emails.length > 0
       ? monthlySchedule.emails
