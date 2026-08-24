@@ -4,8 +4,8 @@ import { Repository } from 'typeorm';
 import { ShiftSetting } from './shift-setting.entity';
 
 const DEFAULTS = {
-  day:   { startTime: '07:00', endTime: '19:00', graceMinutes: 60 },
-  night: { startTime: '19:00', endTime: '07:00', graceMinutes: 60 },
+  day:   { startTime: '06:30', endTime: '19:30', graceMinutes: 60 },
+  night: { startTime: '19:30', endTime: '06:30', graceMinutes: 60 },
 };
 
 @Injectable()

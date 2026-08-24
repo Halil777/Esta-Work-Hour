@@ -21,7 +21,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      TZ: Asia/Ashgabat
+      TZ: Europe/Moscow
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USERNAME: ${DB_USERNAME:-postgres}

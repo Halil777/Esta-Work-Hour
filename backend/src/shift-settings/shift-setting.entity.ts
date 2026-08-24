@@ -9,10 +9,10 @@ export class ShiftSetting {
   @Column({ type: 'varchar' })
   shiftType: 'day' | 'night';
 
-  @Column({ type: 'varchar', default: '07:00' })
+  @Column({ type: 'varchar', default: '06:30' })
   startTime: string; // HH:mm
 
-  @Column({ type: 'varchar', default: '19:00' })
+  @Column({ type: 'varchar', default: '19:30' })
   endTime: string; // HH:mm
 
   @Column({ type: 'int', default: 60 })
