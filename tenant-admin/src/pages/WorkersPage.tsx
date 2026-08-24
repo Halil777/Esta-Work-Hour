@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { Download, History, Plus, Upload } from 'lucide-react'
 import { useUiPreferences } from '../app/providers/useUiPreferences'
 import { foremansApi } from '../api/foremans'
@@ -23,6 +23,7 @@ import { WorkersFilterPanel } from '../components/workers/WorkersFilterPanel'
 import { useTranslation } from '../i18n/useTranslation'
 import type { WorkerStatus } from '../types/tenant'
 import { todayIso } from '../utils/dateTime'
+import { useDebouncedValue } from '../utils/useDebouncedValue'
 
 export function WorkersPage() {
   const { t } = useTranslation()
@@ -55,10 +56,14 @@ export function WorkersPage() {
     staleTime: 60_000,
   })
 
+  // Debounced so typing in the search box doesn't fire a request per
+  // keystroke — the input itself stays bound to `search` so it feels instant.
+  const debouncedSearch = useDebouncedValue(search, 300)
+
   const { data: workers = [], isLoading, error } = useQuery({
-    queryKey: ['workers', search, mesaiSistemi, statusFilter, foremanFilter, roleFilter, shiftFilter, startDate, endDate, noScanFilter, hasScanFilter],
+    queryKey: ['workers', debouncedSearch, mesaiSistemi, statusFilter, foremanFilter, roleFilter, shiftFilter, startDate, endDate, noScanFilter, hasScanFilter],
     queryFn: () => workersApi.list({
-      search: search || undefined,
+      search: debouncedSearch || undefined,
       mesaiSistemi: mesaiSistemi !== 'all' ? mesaiSistemi : undefined,
       status: statusFilter !== 'all' ? statusFilter : undefined,
       foremanId: foremanFilter !== 'all' ? foremanFilter : undefined,
@@ -71,6 +76,9 @@ export function WorkersPage() {
     }),
     refetchInterval: 30_000,
     staleTime: 15_000,
+    // Keep showing the previous filter/tab's rows while the new ones load,
+    // instead of flashing to a blank loading state on every tab/filter click.
+    placeholderData: keepPreviousData,
   })
 
   // Shift start/end times shown on the tabs come from Settings → Shift Settings

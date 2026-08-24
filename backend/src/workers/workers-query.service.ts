@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { ILike, Not, Repository } from 'typeorm';
 import { Worker, WorkerStatus } from './worker.entity';
 import { AttendanceEvent } from '../attendance-events/attendance-event.entity';
-import { APP_TZ, todayLocal, yesterdayLocal } from '../common/date-utils';
+import { todayLocal, yesterdayLocal, localDayRangeMs, localDateRangeMs } from '../common/date-utils';
 import { computeWorkStats, WorkStats } from './utils/work-stats.util';
 
 export type WorkerWithTodayStats = Worker & {
@@ -80,27 +80,34 @@ export class WorkersQueryService {
 
     let allRecentEvents: { employeeNumber: string; eventType: string; eventTime: string }[];
 
+    // Both branches filter "eventTime" (bigint, epoch ms) with a plain numeric
+    // range instead of DATE(to_timestamp(...) AT TIME ZONE ...) = $date. The
+    // old function-wrapped form can't use an index — Postgres has to evaluate
+    // it row-by-row over the whole attendance_events table, which is why this
+    // got slower every day as scan history grew. A numeric range against
+    // "eventTime" is sargable and uses the (employeeNumber, eventTime) index.
     if (startDate && endDate) {
       // Date range filter: get events within the given range
+      const { startMs, endMs } = localDateRangeMs(startDate, endDate);
       allRecentEvents = await this.attendanceRepo.query(
         `SELECT "employeeNumber", "eventType", "eventTime"
          FROM attendance_events
          WHERE "employeeNumber" = ANY($1)
-           AND DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE '${APP_TZ}') >= $2
-           AND DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE '${APP_TZ}') <= $3
+           AND "eventTime" BETWEEN $2 AND $3
          ORDER BY "employeeNumber", "eventTime" ASC`,
-        [workerIds, startDate, endDate],
+        [workerIds, startMs, endMs],
       );
     } else {
       // Current work day: today if local hour >= 07:00, else yesterday
       const workDate = new Date().getHours() >= 7 ? todayLocal() : yesterdayLocal();
+      const { startMs, endMs } = localDayRangeMs(workDate);
       allRecentEvents = await this.attendanceRepo.query(
         `SELECT "employeeNumber", "eventType", "eventTime"
          FROM attendance_events
          WHERE "employeeNumber" = ANY($1)
-           AND DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE '${APP_TZ}') = $2
+           AND "eventTime" BETWEEN $2 AND $3
          ORDER BY "employeeNumber", "eventTime" ASC`,
-        [workerIds, workDate],
+        [workerIds, startMs, endMs],
       );
     }
 

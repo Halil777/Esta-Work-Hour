@@ -28,3 +28,31 @@ export function yesterdayLocal(): string {
   d.setDate(d.getDate() - 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
+
+/**
+ * [startMs, endMs] epoch-millisecond bounds of one local calendar day
+ * (inclusive), for a "YYYY-MM-DD" date string.
+ *
+ * Because process.env.TZ is pinned to APP_TZ before anything else runs (see
+ * main.ts), the Date constructor's local getters/setters already resolve in
+ * that zone — no AT TIME ZONE / to_timestamp() needed on the SQL side. Use
+ * this to turn a date filter into a plain numeric range against a bigint
+ * "eventTime" column, which Postgres can satisfy with a normal index instead
+ * of a full table scan.
+ */
+export function localDayRangeMs(dateStr: string): { startMs: number; endMs: number } {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const startMs = new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
+  const endMs = new Date(y, m - 1, d, 23, 59, 59, 999).getTime();
+  return { startMs, endMs };
+}
+
+/**
+ * [startMs, endMs] epoch-millisecond bounds spanning from the start of
+ * startDateStr to the end of endDateStr (both "YYYY-MM-DD", inclusive).
+ */
+export function localDateRangeMs(startDateStr: string, endDateStr: string): { startMs: number; endMs: number } {
+  const { startMs } = localDayRangeMs(startDateStr);
+  const { endMs } = localDayRangeMs(endDateStr);
+  return { startMs, endMs };
+}

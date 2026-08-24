@@ -22,6 +22,9 @@ export enum QrStatus {
   Replaced = 'Replaced',
 }
 
+// Covers the Workers page's default listing/filtering query (always scoped
+// to one tenant, almost always excluding Terminated workers).
+@Index(['tenantId', 'status'])
 @Entity('workers')
 @Index(['tenantId', 'workerId'], { unique: true, where: '"tenantId" IS NOT NULL' })
 export class Worker {
