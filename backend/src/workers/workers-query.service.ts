@@ -19,6 +19,7 @@ export type FindAllParams = {
   foremanId?: string;
   mobileRole?: string;
   mesaiSistemi?: string;
+  shift?: string;
   startDate?: string;
   endDate?: string;
   noScan?: boolean;
@@ -41,7 +42,7 @@ export class WorkersQueryService {
   ) {}
 
   async findAll(params: FindAllParams = {}): Promise<WorkerWithTodayStats[]> {
-    const { search, brigadeId, status, foremanId, mobileRole, mesaiSistemi, startDate, endDate, noScan, hasScan, tenantId } = params;
+    const { search, brigadeId, status, foremanId, mobileRole, mesaiSistemi, shift, startDate, endDate, noScan, hasScan, tenantId } = params;
     const where: any[] = [];
     const statusFilter = status && status !== 'all' ? (status as WorkerStatus) : undefined;
     const brigadeFilter = brigadeId && brigadeId !== 'all' ? brigadeId : undefined;
@@ -49,6 +50,8 @@ export class WorkersQueryService {
     const mobileRoleFilter = mobileRole && mobileRole !== 'all' ? mobileRole : undefined;
 
     const mesaiFilter = mesaiSistemi && mesaiSistemi !== 'all' ? mesaiSistemi : undefined;
+    // 'day' | 'night' — the worker's manually-assigned shift (Workers → edit worker → Shift)
+    const shiftFilter = shift && shift !== 'all' ? shift : undefined;
 
     const baseCondition: any = {
       // By default exclude Terminated; only show if explicitly filtered
@@ -57,6 +60,7 @@ export class WorkersQueryService {
       ...(foremanFilter ? { foremanId: foremanFilter } : {}),
       ...(mobileRoleFilter ? { mobileRole: mobileRoleFilter } : {}),
       ...(mesaiFilter ? { mesaiSistemi: mesaiFilter } : {}),
+      ...(shiftFilter ? { shift: shiftFilter } : {}),
       ...(tenantId ? { tenantId } : {}),
     };
 

@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Download, History, Plus, Upload } from 'lucide-react'
 import { useUiPreferences } from '../app/providers/useUiPreferences'
 import { foremansApi } from '../api/foremans'
+import { shiftSettingsApi } from '../api/shiftSettings'
 import {
   workersApi,
   type MobileRole,
@@ -35,6 +36,7 @@ export function WorkersPage() {
   const [statusFilter, setStatusFilter] = useState<WorkerStatus | 'all'>('all')
   const [foremanFilter, setForemanFilter] = useState<string>('all')
   const [roleFilter, setRoleFilter] = useState<MobileRole | 'all'>('all')
+  const [shiftFilter, setShiftFilter] = useState<'all' | 'day' | 'night'>('all')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [noScanFilter, setNoScanFilter] = useState(false)
@@ -54,13 +56,14 @@ export function WorkersPage() {
   })
 
   const { data: workers = [], isLoading, error } = useQuery({
-    queryKey: ['workers', search, mesaiSistemi, statusFilter, foremanFilter, roleFilter, startDate, endDate, noScanFilter, hasScanFilter],
+    queryKey: ['workers', search, mesaiSistemi, statusFilter, foremanFilter, roleFilter, shiftFilter, startDate, endDate, noScanFilter, hasScanFilter],
     queryFn: () => workersApi.list({
       search: search || undefined,
       mesaiSistemi: mesaiSistemi !== 'all' ? mesaiSistemi : undefined,
       status: statusFilter !== 'all' ? statusFilter : undefined,
       foremanId: foremanFilter !== 'all' ? foremanFilter : undefined,
       mobileRole: roleFilter !== 'all' ? roleFilter : undefined,
+      shift: shiftFilter !== 'all' ? shiftFilter : undefined,
       startDate: startDate || undefined,
       endDate: endDate || undefined,
       noScan: noScanFilter || undefined,
@@ -69,6 +72,18 @@ export function WorkersPage() {
     refetchInterval: 30_000,
     staleTime: 15_000,
   })
+
+  // Shift start/end times shown on the tabs come from Settings → Shift Settings
+  // (manually editable there). Falls back to 06:30–19:30 / 19:30–06:30 while loading.
+  const { data: shiftSettings = [] } = useQuery({
+    queryKey: ['shift-settings'],
+    queryFn: shiftSettingsApi.getAll,
+    staleTime: 60_000,
+  })
+  const dayShift = shiftSettings.find(s => s.shiftType === 'day')
+  const nightShift = shiftSettings.find(s => s.shiftType === 'night')
+  const dayShiftLabel = `${dayShift?.startTime ?? '06:30'}–${dayShift?.endTime ?? '19:30'}`
+  const nightShiftLabel = `${nightShift?.startTime ?? '19:30'}–${nightShift?.endTime ?? '06:30'}`
 
   const { data: lifecycleSummary } = useQuery({
     queryKey: ['worker-lifecycle-pending-summary'],
@@ -114,6 +129,7 @@ export function WorkersPage() {
     statusFilter !== 'all',
     foremanFilter !== 'all',
     roleFilter !== 'all',
+    shiftFilter !== 'all',
     startDate,
     endDate,
     noScanFilter,
@@ -126,6 +142,7 @@ export function WorkersPage() {
     setStatusFilter('all')
     setForemanFilter('all')
     setRoleFilter('all')
+    setShiftFilter('all')
     setStartDate('')
     setEndDate('')
     setNoScanFilter(false)
@@ -169,6 +186,7 @@ export function WorkersPage() {
             status: statusFilter !== 'all' ? statusFilter : undefined,
             foremanId: foremanFilter !== 'all' ? foremanFilter : undefined,
             mobileRole: roleFilter !== 'all' ? roleFilter : undefined,
+            shift: shiftFilter !== 'all' ? shiftFilter : undefined,
             startDate: startDate || undefined,
             endDate: endDate || undefined,
             noScan: noScanFilter || undefined,
@@ -180,6 +198,37 @@ export function WorkersPage() {
             <Plus size={13} /> {t.workers.addWorker}
           </button>
         </div>
+      </div>
+
+      {/* Day / Night Shift Tabs — switches the table below to that shift's workers.
+          Shift is set manually per worker (edit worker → Shift), so this just filters by it.
+          Note: `workers` already reflects the active tab (shift is a server-side filter param,
+          same as status/mesaiSistemi below), so we don't show a count here — it would only be
+          correct for whichever tab is currently selected. */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        {([
+          { key: 'all' as const, label: t.common.all },
+          { key: 'day' as const, label: `☀️ ${t.workers.dayShift} (${dayShiftLabel})` },
+          { key: 'night' as const, label: `🌙 ${t.workers.nightShift} (${nightShiftLabel})` },
+        ]).map(tab => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setShiftFilter(tab.key)}
+            style={{
+              padding: '7px 14px',
+              borderRadius: 8,
+              fontSize: 13,
+              fontWeight: shiftFilter === tab.key ? 600 : 500,
+              cursor: 'pointer',
+              border: `1px solid ${shiftFilter === tab.key ? 'var(--accent)' : 'var(--border)'}`,
+              background: shiftFilter === tab.key ? 'var(--accent)' : 'var(--bg-card)',
+              color: shiftFilter === tab.key ? '#fff' : 'var(--text-secondary)',
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       <WorkerMetricsStrip workers={workers} lifecycleSummary={lifecycleSummary} />

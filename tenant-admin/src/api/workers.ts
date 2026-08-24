@@ -119,6 +119,7 @@ export const workersApi = {
     foremanId?: string;
     mobileRole?: MobileRole;
     mesaiSistemi?: string;
+    shift?: 'day' | 'night';
     startDate?: string;
     endDate?: string;
     noScan?: boolean;
@@ -131,6 +132,7 @@ export const workersApi = {
     if (params?.foremanId) qs.set('foremanId', params.foremanId);
     if (params?.mobileRole) qs.set('mobileRole', params.mobileRole);
     if (params?.mesaiSistemi) qs.set('mesaiSistemi', params.mesaiSistemi);
+    if (params?.shift) qs.set('shift', params.shift);
     if (params?.startDate) qs.set('startDate', params.startDate);
     if (params?.endDate) qs.set('endDate', params.endDate);
     if (params?.noScan) qs.set('noScan', 'true');
@@ -183,6 +185,7 @@ export const workersApi = {
     foremanId?: string;
     mobileRole?: string;
     mesaiSistemi?: string;
+    shift?: 'day' | 'night';
     startDate?: string;
     endDate?: string;
     noScan?: boolean;
@@ -195,6 +198,7 @@ export const workersApi = {
     if (params?.foremanId) qs.set('foremanId', params.foremanId);
     if (params?.mobileRole) qs.set('mobileRole', params.mobileRole);
     if (params?.mesaiSistemi) qs.set('mesaiSistemi', params.mesaiSistemi);
+    if (params?.shift) qs.set('shift', params.shift);
     if (params?.startDate) qs.set('startDate', params.startDate);
     if (params?.endDate) qs.set('endDate', params.endDate);
     if (params?.noScan) qs.set('noScan', 'true');

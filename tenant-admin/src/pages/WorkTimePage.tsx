@@ -6,10 +6,7 @@ import {
   CheckSquare, Square, Tag, ExternalLink, RotateCcw, Download,
 } from 'lucide-react'
 import { workTimeApi, adjustmentsApi, reasonsApi, type AdjustmentType, type WorkAdjustment } from '../api/workTime'
-import { shiftSettingsApi } from '../api/shiftSettings'
 import { useUiPreferences } from '../app/providers/useUiPreferences'
-
-type ShiftFilter = 'all' | 'day' | 'night'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -395,7 +392,6 @@ export function WorkTimePage() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [adjModal, setAdjModal] = useState<{ workDate: string } | null>(null)
   const [search, setSearch] = useState('')
-  const [shiftFilter, setShiftFilter] = useState<ShiftFilter>('all')
   const [exportModal, setExportModal] = useState(false)
 
   const { data, isLoading, error, refetch } = useQuery({
@@ -403,32 +399,15 @@ export function WorkTimePage() {
     queryFn: () => workTimeApi.getMonthSummary(month),
   })
 
-  // Shift start/end times come from Settings → Shift Settings (manually editable there).
-  // Falls back to 06:30–19:30 / 19:30–06:30 while that request is still loading.
-  const { data: shiftSettings = [] } = useQuery({
-    queryKey: ['shift-settings'],
-    queryFn: shiftSettingsApi.getAll,
-    staleTime: 60_000,
-  })
-  const dayShift = shiftSettings.find(s => s.shiftType === 'day')
-  const nightShift = shiftSettings.find(s => s.shiftType === 'night')
-  const dayShiftLabel = `${dayShift?.startTime ?? '06:30'}–${dayShift?.endTime ?? '19:30'}`
-  const nightShiftLabel = `${nightShift?.startTime ?? '19:30'}–${nightShift?.endTime ?? '06:30'}`
-
   const isCurrentOrFuture = month >= currentMonth()
 
   const workers = data?.workers ?? []
-  const searched = search
+  const filtered = search
     ? workers.filter(w =>
         w.name.toLowerCase().includes(search.toLowerCase()) ||
         w.workerId.includes(search),
       )
     : workers
-  // Shift is set manually per worker (Workers page → edit worker → Shift). Workers
-  // with no shift assigned only show up under the "All" tab, not Day/Night.
-  const filtered = shiftFilter === 'all'
-    ? searched
-    : searched.filter(w => w.shift === shiftFilter)
 
   const toggleWorker = (id: string) => {
     setSelected(prev => {
@@ -531,33 +510,6 @@ export function WorkTimePage() {
           ))}
         </div>
       )}
-
-      {/* Day / Night Shift Tabs */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-        {([
-          { key: 'all' as const, label: `All (${workers.length})` },
-          { key: 'day' as const, label: `☀️ Day Shift (${dayShiftLabel})` },
-          { key: 'night' as const, label: `🌙 Night Shift (${nightShiftLabel})` },
-        ]).map(tab => (
-          <button
-            key={tab.key}
-            type="button"
-            onClick={() => setShiftFilter(tab.key)}
-            style={{
-              padding: '7px 14px',
-              borderRadius: 8,
-              fontSize: 13,
-              fontWeight: shiftFilter === tab.key ? 600 : 500,
-              cursor: 'pointer',
-              border: `1px solid ${shiftFilter === tab.key ? 'var(--accent)' : 'var(--border)'}`,
-              background: shiftFilter === tab.key ? 'var(--accent)' : 'var(--bg-card)',
-              color: shiftFilter === tab.key ? '#fff' : 'var(--text-secondary)',
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
 
       {/* Search + Select All */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 12, alignItems: 'center' }}>
