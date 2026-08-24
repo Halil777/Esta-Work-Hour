@@ -629,6 +629,8 @@ const en = {
     dismissBtn: 'Dismiss',
     resolvedBy: 'Resolved by',
     confirmResolve: 'Reassign card to the suggested worker?',
+    assignModalTitle: 'Who does this card belong to?',
+    suggestedPick: 'Suggested',
   },
   termination: {
     title: 'Terminate Worker',
@@ -1457,6 +1459,8 @@ const ru: typeof en = {
     dismissBtn: 'Отклонить',
     resolvedBy: 'Решено',
     confirmResolve: 'Переназначить карту на предложенного работника?',
+    assignModalTitle: 'Кому принадлежит эта карта?',
+    suggestedPick: 'Предложено',
   },
   termination: {
     title: 'Уволить работника',
@@ -2285,6 +2289,8 @@ const tr: typeof en = {
     dismissBtn: 'Ret et',
     resolvedBy: 'Çözen',
     confirmResolve: 'Karty teklip edilen işçä täzeden birikdirmeli?',
+    assignModalTitle: 'Bu kart haýsy işçä degişli?',
+    suggestedPick: 'Teklip edilýär',
   },
   termination: {
     title: 'İşçiyi İşten Çıkar',

@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Param, Query, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Param, Query, Body, Req, UseGuards } from '@nestjs/common';
 import { CardReportsService } from './card-reports.service';
 import { AdminJwtGuard } from '../admin-auth/admin-auth.guard';
 
@@ -18,8 +18,8 @@ export class CardReportsController {
   }
 
   @Patch(':id/resolve')
-  resolve(@Req() req: any, @Param('id') id: string) {
-    return this.service.resolve(id, req.adminUser?.username ?? 'admin', req.adminUser?.tenantId);
+  resolve(@Req() req: any, @Param('id') id: string, @Body('workerId') workerId?: string) {
+    return this.service.resolve(id, req.adminUser?.username ?? 'admin', req.adminUser?.tenantId, workerId);
   }
 
   @Patch(':id/dismiss')

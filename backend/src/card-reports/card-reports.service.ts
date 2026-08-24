@@ -42,16 +42,33 @@ export class CardReportsService {
     return this.repo.find({ where, order: { createdAt: 'DESC' } });
   }
 
-  async resolve(id: string, resolvedBy: string, tenantId?: string) {
+  async resolve(id: string, resolvedBy: string, tenantId?: string, workerId?: string) {
     const report = await this.repo.findOneBy({ id, ...(tenantId ? { tenantId } : {}) });
     if (!report) throw new NotFoundException('Report not found');
 
-    // If a suggested worker is specified, link the card to them
-    if (report.suggestedWorkerId) {
-      const tenantFilter = tenantId ? { tenantId } : {};
-      const targetWorker = await this.workerRepo.findOneBy({ workerId: report.suggestedWorkerId, ...tenantFilter });
-      if (targetWorker) {
-        // Clear card from any other worker that has it
+    const tenantFilter = tenantId ? { tenantId } : {};
+
+    // The admin's explicit pick (from the "assign worker" dialog) always wins;
+    // it only falls back to the device's suggestion when the admin didn't
+    // override it. Reports commonly arrive with no suggestion at all — the
+    // scanner device can only flag a mismatch, not pick who the card
+    // actually belongs to — so without this override, "resolving" a report
+    // used to just flip its status without ever touching the wrong card.
+    const targetWorkerId = workerId || report.suggestedWorkerId;
+
+    if (targetWorkerId) {
+      const targetWorker = await this.workerRepo.findOneBy({ workerId: targetWorkerId, ...tenantFilter });
+      if (!targetWorker) {
+        if (workerId) {
+          // Admin explicitly chose this worker — surface the failure instead
+          // of silently marking the report "resolved" with nothing fixed.
+          throw new NotFoundException('Saýlanan işçi tapylmady');
+        }
+        // No explicit choice, and the device's suggested worker no longer
+        // matches anyone (e.g. terminated since) — fall through and just
+        // mark the report resolved, same as before.
+      } else {
+        // Clear the card from any other worker that currently holds it
         const oldOwner = await this.workerRepo.findOneBy({ nfcCardUid: report.cardUid, ...tenantFilter });
         if (oldOwner && oldOwner.id !== targetWorker.id) {
           oldOwner.nfcCardUid = null;
