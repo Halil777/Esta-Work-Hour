@@ -45,6 +45,7 @@ import { CardReport } from './card-reports/card-report.entity';
 import { CardReportsModule } from './card-reports/card-reports.module';
 import { CardAssignmentHistory } from './card-assignment-history/card-assignment-history.entity';
 import { CardAssignmentHistoryModule } from './card-assignment-history/card-assignment-history.module';
+import { AdminInboxModule } from './admin-inbox/admin-inbox.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { AttendanceAnomaliesModule } from './attendance-anomalies/attendance-anomalies.module';
 import { MobileWorkerModule } from './mobile-worker/mobile-worker.module';
@@ -97,6 +98,7 @@ import { WorkTimeModule } from './work-time/work-time.module';
     WorkerLifecycleModule,
     CardReportsModule,
     CardAssignmentHistoryModule,
+    AdminInboxModule,
     AnalyticsModule,
     AttendanceAnomaliesModule,
     MobileWorkerModule,

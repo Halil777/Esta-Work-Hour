@@ -19,5 +19,6 @@ import {
     AdminExtraHoursController,
   ],
   providers: [ExtraHoursService],
+  exports: [ExtraHoursService],
 })
 export class ExtraHoursModule {}

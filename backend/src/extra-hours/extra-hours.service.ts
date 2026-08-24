@@ -64,6 +64,12 @@ export class ExtraHoursService {
       status: ExtraRequestStatus.Pending,
       seenAt: null,
       actionAt: null,
+      // Requests were never stamped with a tenant before — every admin's
+      // "getAllRequests" query below matched them all regardless, so every
+      // tenant admin was seeing every other tenant's overtime requests.
+      // Deriving it from the foreman closes that leak the same way every
+      // other tenant-scoped entity already does.
+      tenantId: foreman.tenantId,
       items: requestItems as ExtraHoursRequestItem[],
     });
 
@@ -148,8 +154,11 @@ export class ExtraHoursService {
   }
 
   // ADMIN: approve or reject any request
-  async adminAction(requestId: string, action: 'approved' | 'rejected') {
-    const req = await this.requestRepo.findOneBy({ id: requestId });
+  async adminAction(requestId: string, action: 'approved' | 'rejected', tenantId?: string) {
+    const req = await this.requestRepo.findOneBy({
+      id: requestId,
+      ...(tenantId ? { tenantId } : {}),
+    });
     if (!req) throw new NotFoundException('Request tapylmady');
 
     req.status = action === 'approved' ? ExtraRequestStatus.Approved : ExtraRequestStatus.Rejected;
@@ -184,6 +193,7 @@ export class ExtraHoursService {
     foremanWorkerEntityId?: string;
     siteChiefWorkerEntityId?: string;
     limit?: number;
+    tenantId?: string;
   } = {}) {
     const query = this.requestRepo.createQueryBuilder('req').leftJoinAndSelect('req.items', 'item');
 
@@ -195,6 +205,9 @@ export class ExtraHoursService {
     }
     if (params.siteChiefWorkerEntityId) {
       query.andWhere('req.siteChiefWorkerEntityId = :sid', { sid: params.siteChiefWorkerEntityId });
+    }
+    if (params.tenantId) {
+      query.andWhere('req.tenantId = :tid', { tid: params.tenantId });
     }
 
     query.orderBy('req.sentAt', 'DESC');

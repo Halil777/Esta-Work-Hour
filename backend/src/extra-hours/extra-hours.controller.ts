@@ -92,6 +92,7 @@ export class AdminExtraHoursController {
 
   @Get()
   getAll(
+    @Req() req: any,
     @Query('status') status?: string,
     @Query('foremanId') foremanId?: string,
     @Query('siteChiefId') siteChiefId?: string,
@@ -102,14 +103,16 @@ export class AdminExtraHoursController {
       foremanWorkerEntityId: foremanId,
       siteChiefWorkerEntityId: siteChiefId,
       limit: limit ? Number(limit) : undefined,
+      tenantId: req.adminUser.tenantId,
     });
   }
 
   @Patch(':id/action')
   adminAction(
+    @Req() req: any,
     @Param('id') id: string,
     @Body('action') action: 'approved' | 'rejected',
   ) {
-    return this.service.adminAction(id, action);
+    return this.service.adminAction(id, action, req.adminUser.tenantId);
   }
 }

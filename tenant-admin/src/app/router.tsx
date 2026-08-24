@@ -20,6 +20,7 @@ import { CardReportsPage } from '../pages/CardReportsPage'
 import { WorkTimePage } from '../pages/WorkTimePage'
 import { WorkTimesheetPage } from '../pages/WorkTimesheetPage'
 import { AdjustmentReasonsPage } from '../pages/AdjustmentReasonsPage'
+import { InboxPage } from '../pages/InboxPage'
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -27,7 +28,8 @@ export const router = createBrowserRouter([
     path: '/',
     element: <AppShell />,
     children: [
-      { index: true, element: <Navigate to="/dashboard" replace /> },
+      { index: true, element: <Navigate to="/inbox" replace /> },
+      { path: 'inbox', element: <InboxPage /> },
       { path: 'dashboard', element: <DashboardPage /> },
       { path: 'workers', element: <WorkersPage /> },
       { path: 'workers/:id', element: <WorkerDetailPage /> },
@@ -49,5 +51,5 @@ export const router = createBrowserRouter([
       { path: 'settings', element: <SettingsPage /> },
     ],
   },
-  { path: '*', element: <Navigate to="/dashboard" replace /> },
+  { path: '*', element: <Navigate to="/inbox" replace /> },
 ])

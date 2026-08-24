@@ -9,6 +9,7 @@ import { useTranslation } from '../../i18n/useTranslation'
 
 function getPageTitle(pathname: string, t: ReturnType<typeof import('../../i18n/useTranslation').useTranslation>['t']) {
   const map: Record<string, string> = {
+    '/inbox': t.nav.inbox,
     '/dashboard': t.nav.dashboard,
     '/workers': t.nav.workers,
     '/brigades': t.nav.brigades,

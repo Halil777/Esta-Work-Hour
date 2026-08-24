@@ -1,20 +1,32 @@
 import React from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import {
   Building2, LayoutDashboard, Users, Layers, Clock,
-  Settings, LogOut,
+  Settings, LogOut, Inbox as InboxIcon,
   ScanLine, History, WifiOff, ShieldCheck, HardHat, UserMinus, AlarmClock,
   FileSpreadsheet, Smartphone, CreditCard, Timer, ListChecks,
 } from 'lucide-react'
 import { useUiPreferences } from '../../app/providers/useUiPreferences'
 import { useTranslation } from '../../i18n/useTranslation'
+import { adminInboxApi } from '../../api/adminInbox'
 
 export function Sidebar() {
   const { user, logout } = useUiPreferences()
   const { t } = useTranslation()
   const navigate = useNavigate()
 
+  // Same poll cadence as the Inbox page itself, so the badge is never far
+  // behind what the page would show if opened right now.
+  const { data: inbox } = useQuery({
+    queryKey: ['admin-inbox'],
+    queryFn: () => adminInboxApi.get(),
+    refetchInterval: 30_000,
+    staleTime: 15_000,
+  })
+
   const navItems: { path: string; icon: React.ElementType; label: string; section: string; badge?: number }[] = [
+    { path: '/inbox', icon: InboxIcon, label: t.nav.inbox, section: t.sidebar.overview, badge: inbox?.counts.total ? inbox.counts.total : undefined },
     { path: '/dashboard', icon: LayoutDashboard, label: t.nav.dashboard, section: t.sidebar.overview },
     { path: '/workers', icon: Users, label: t.nav.workers, section: t.sidebar.workforce },
     { path: '/brigades', icon: Layers, label: t.nav.brigades, section: t.sidebar.workforce },
