@@ -24,6 +24,7 @@ import { useTranslation } from '../i18n/useTranslation'
 import type { WorkerStatus } from '../types/tenant'
 import { todayIso } from '../utils/dateTime'
 import { useDebouncedValue } from '../utils/useDebouncedValue'
+import { exportWorkersToExcel } from '../utils/exportWorkersExcel'
 
 export function WorkersPage() {
   const { t } = useTranslation()
@@ -188,18 +189,10 @@ export function WorkersPage() {
           <button className="btn btn--secondary btn--sm" type="button" onClick={() => setShowReportHistory(true)}>
             <History size={13} /> {t.workers.reportHistory}
           </button>
-          <button className="btn btn--secondary btn--sm" type="button" onClick={() => workersApi.exportExcel({
-            search: search || undefined,
-            mesaiSistemi: mesaiSistemi !== 'all' ? mesaiSistemi : undefined,
-            status: statusFilter !== 'all' ? statusFilter : undefined,
-            foremanId: foremanFilter !== 'all' ? foremanFilter : undefined,
-            mobileRole: roleFilter !== 'all' ? roleFilter : undefined,
-            shift: shiftFilter !== 'all' ? shiftFilter : undefined,
-            startDate: startDate || undefined,
-            endDate: endDate || undefined,
-            noScan: noScanFilter || undefined,
-            hasScan: hasScanFilter || undefined,
-          })}>
+          {/* Exports the rows already loaded for the table below — no second
+              network round-trip or duplicate database query, so it's instant
+              regardless of how "heavy" the underlying query used to be. */}
+          <button className="btn btn--secondary btn--sm" type="button" onClick={() => exportWorkersToExcel(workers)}>
             <Download size={13} /> {t.common.export}
           </button>
           <button className="btn btn--primary btn--sm" type="button" onClick={() => setShowAdd(true)}>
