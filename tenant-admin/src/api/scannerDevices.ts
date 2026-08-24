@@ -10,6 +10,10 @@ export type ScannerDevice = {
   location: string | null;
   isActive: boolean;
   lastSeenAt: string | null;
+  batteryLevel: number | null;
+  appVersion: string | null;
+  pendingEventCount: number | null;
+  lastHeartbeatAt: string | null;
   createdAt: string;
 };
 

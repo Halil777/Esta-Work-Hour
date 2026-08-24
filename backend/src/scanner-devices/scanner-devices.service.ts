@@ -100,4 +100,18 @@ export class ScannerDevicesService {
   async updateLastSeen(id: string) {
     await this.repo.update(id, { lastSeenAt: new Date() });
   }
+
+  // Used by the device heartbeat endpoint
+  async updateHeartbeat(
+    id: string,
+    data: { batteryLevel?: number; appVersion?: string; pendingEventCount?: number },
+  ) {
+    await this.repo.update(id, {
+      ...(data.batteryLevel !== undefined ? { batteryLevel: data.batteryLevel } : {}),
+      ...(data.appVersion !== undefined ? { appVersion: data.appVersion } : {}),
+      ...(data.pendingEventCount !== undefined ? { pendingEventCount: data.pendingEventCount } : {}),
+      lastHeartbeatAt: new Date(),
+    });
+    return { success: true };
+  }
 }

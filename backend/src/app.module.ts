@@ -43,6 +43,8 @@ import { ScannerDevicesModule } from './scanner-devices/scanner-devices.module';
 import { ScannerDevice } from './scanner-devices/scanner-device.entity';
 import { CardReport } from './card-reports/card-report.entity';
 import { CardReportsModule } from './card-reports/card-reports.module';
+import { CardAssignmentHistory } from './card-assignment-history/card-assignment-history.entity';
+import { CardAssignmentHistoryModule } from './card-assignment-history/card-assignment-history.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { AttendanceAnomaliesModule } from './attendance-anomalies/attendance-anomalies.module';
 import { MobileWorkerModule } from './mobile-worker/mobile-worker.module';
@@ -68,7 +70,7 @@ import { WorkTimeModule } from './work-time/work-time.module';
           MobileCredential, ExtraHoursRequest, ExtraHoursRequestItem,
           ShiftSetting, AbsenceNote, AttendanceOverride, ReportConfig,
           WorkerLifecycleEvent, WorkerLifecycleReport, Tenant, ScannerDevice, CardReport,
-          AdjustmentReason, WorkAdjustment, WorkAdjustmentLog,
+          AdjustmentReason, WorkAdjustment, WorkAdjustmentLog, CardAssignmentHistory,
         ],
         synchronize: cfg.get('NODE_ENV', 'development') !== 'production',
       }),
@@ -94,6 +96,7 @@ import { WorkTimeModule } from './work-time/work-time.module';
     ReportSchedulerModule,
     WorkerLifecycleModule,
     CardReportsModule,
+    CardAssignmentHistoryModule,
     AnalyticsModule,
     AttendanceAnomaliesModule,
     MobileWorkerModule,

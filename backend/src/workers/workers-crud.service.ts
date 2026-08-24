@@ -11,6 +11,7 @@ import { CreateWorkerDto } from './dto/create-worker.dto';
 import { UpdateWorkerDto } from './dto/update-worker.dto';
 import { TerminateWorkerDto } from './dto/terminate-worker.dto';
 import { WorkersQueryService } from './workers-query.service';
+import { CardAssignmentHistoryService } from '../card-assignment-history/card-assignment-history.service';
 
 /**
  * Write-side of the workers module: create/update/terminate/restore a
@@ -26,6 +27,7 @@ export class WorkersCrudService {
     private readonly queryService: WorkersQueryService,
     private readonly auditLog: AuditLogService,
     private readonly workerLifecycle: WorkerLifecycleService,
+    private readonly cardAssignmentHistory: CardAssignmentHistoryService,
   ) {}
 
   async create(dto: CreateWorkerDto, tenantId?: string, changedBy = 'Admin') {
@@ -67,6 +69,13 @@ export class WorkersCrudService {
     Object.assign(worker, sanitized);
     const saved = await this.repo.save(worker);
     await this.auditLog.log('Worker', id, 'UPDATE', changedBy, before, saved);
+    // The card-reports flow isn't the only way nfcCardUid changes — an admin
+    // can also fix a card directly from the worker edit form. Log that here
+    // too so the audit trail on WorkerDetailPage is complete either way.
+    await this.cardAssignmentHistory.recordChange(saved, before.nfcCardUid ?? null, saved.nfcCardUid ?? null, {
+      source: 'manual-edit',
+      changedBy,
+    });
     if (before.status !== WorkerStatus.Terminated && saved.status === WorkerStatus.Terminated) {
       if (!saved.terminatedAt) {
         saved.terminatedAt = new Date();

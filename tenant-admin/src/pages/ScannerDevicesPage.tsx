@@ -15,6 +15,24 @@ function formatLastSeen(ts: string | null) {
   return d.toLocaleDateString()
 }
 
+// A device is nominally "active" but might actually be offline/frozen — the
+// heartbeat/sync loop pings every ~2 min in foreground and WorkManager backs
+// it up every 15 min, so no signal for 20+ min means something's wrong even
+// though isActive is still true.
+const STALE_THRESHOLD_MS = 20 * 60_000
+
+function isStale(lastSeenAt: string | null) {
+  if (!lastSeenAt) return true
+  return Date.now() - new Date(lastSeenAt).getTime() > STALE_THRESHOLD_MS
+}
+
+function batteryColor(level: number | null) {
+  if (level === null) return 'var(--text-muted)'
+  if (level <= 15) return 'var(--danger)'
+  if (level <= 35) return 'var(--warning)'
+  return 'var(--text-muted)'
+}
+
 // ─── Token reveal modal ───────────────────────────────────────────────────────
 
 function TokenModal({ deviceId, label, onClose }: { deviceId: string; label: string; onClose: () => void }) {
@@ -272,26 +290,37 @@ export function ScannerDevicesPage() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {devices.map(device => (
+          {devices.map(device => {
+            const stale = device.isActive && isStale(device.lastSeenAt)
+            return (
             <div key={device.id} className="card" style={{ opacity: device.isActive ? 1 : 0.55 }}>
               <div className="card-body" style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 18px' }}>
 
                 {/* Status icon */}
-                <div style={{
-                  width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-                  background: device.isActive ? 'var(--primary-light)' : 'var(--bg)',
-                  border: `1px solid ${device.isActive ? 'var(--primary)' : 'var(--border)'}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  {device.isActive
-                    ? <Wifi size={18} color="var(--primary)" />
-                    : <WifiOff size={18} color="var(--text-muted)" />
+                <div
+                  title={stale ? 'Enjamdan 20 minutdan bäri signal ýok' : undefined}
+                  style={{
+                    width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+                    background: !device.isActive ? 'var(--bg)' : stale ? 'rgba(255,193,7,0.12)' : 'var(--primary-light)',
+                    border: `1px solid ${!device.isActive ? 'var(--border)' : stale ? 'var(--warning)' : 'var(--primary)'}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                  {!device.isActive
+                    ? <WifiOff size={18} color="var(--text-muted)" />
+                    : stale
+                      ? <WifiOff size={18} color="var(--warning)" />
+                      : <Wifi size={18} color="var(--primary)" />
                   }
                 </div>
 
                 {/* Info */}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 2 }}>{device.label}</div>
+                  <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {device.label}
+                    {stale && (
+                      <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--warning)' }}>⚠ signal ýok</span>
+                    )}
+                  </div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                     {device.location && <span>📍 {device.location}</span>}
                     {device.operatorName
@@ -300,6 +329,15 @@ export function ScannerDevicesPage() {
                     }
                     <span style={{ fontFamily: 'monospace' }}>🔑 {device.tokenPrefix}...</span>
                     <span>🕐 {formatLastSeen(device.lastSeenAt)}</span>
+                    {device.batteryLevel !== null && (
+                      <span style={{ color: batteryColor(device.batteryLevel) }}>🔋 {device.batteryLevel}%</span>
+                    )}
+                    {device.appVersion && <span>📱 v{device.appVersion}</span>}
+                    {!!device.pendingEventCount && (
+                      <span style={{ color: device.pendingEventCount > 20 ? 'var(--danger)' : 'var(--warning)' }}>
+                        📦 {device.pendingEventCount} synchronizasiýa garaşýar
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -374,7 +412,8 @@ export function ScannerDevicesPage() {
                 </div>
               )}
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </>

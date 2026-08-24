@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CardReport } from './card-report.entity';
 import { Worker } from '../workers/worker.entity';
+import { CardAssignmentHistoryService } from '../card-assignment-history/card-assignment-history.service';
 
 @Injectable()
 export class CardReportsService {
@@ -11,6 +12,7 @@ export class CardReportsService {
     private readonly repo: Repository<CardReport>,
     @InjectRepository(Worker)
     private readonly workerRepo: Repository<Worker>,
+    private readonly cardAssignmentHistory: CardAssignmentHistoryService,
   ) {}
 
   async create(data: {
@@ -73,9 +75,20 @@ export class CardReportsService {
         if (oldOwner && oldOwner.id !== targetWorker.id) {
           oldOwner.nfcCardUid = null;
           await this.workerRepo.save(oldOwner);
+          await this.cardAssignmentHistory.recordChange(oldOwner, report.cardUid, null, {
+            source: 'card-report',
+            changedBy: resolvedBy,
+            note: `Karta "${targetWorker.name}" adyna geçirildi (hasabat arkaly)`,
+          });
         }
+        const targetPreviousCardUid = targetWorker.nfcCardUid;
         targetWorker.nfcCardUid = report.cardUid;
         await this.workerRepo.save(targetWorker);
+        await this.cardAssignmentHistory.recordChange(targetWorker, targetPreviousCardUid, report.cardUid, {
+          source: 'card-report',
+          changedBy: resolvedBy,
+          note: report.note ?? null,
+        });
       }
     }
 

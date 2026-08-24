@@ -5,6 +5,7 @@ import { ArrowLeft, LogIn, LogOut, Sun, Moon, Edit2, X, AlertCircle } from "luci
 import { attendanceApi, type DaySummary } from "../api/attendance";
 import { attendanceOverridesApi, type AttendanceOverride } from "../api/attendanceOverrides";
 import { absenceNotesApi, type AbsenceNote } from "../api/absenceNotes";
+import { cardAssignmentHistoryApi } from "../api/cardAssignmentHistory";
 import { useUiPreferences } from "../app/providers/useUiPreferences";
 import { useTranslation } from "../i18n/useTranslation";
 
@@ -232,6 +233,47 @@ function OverrideModal({ workerEntityId, date, existing, actualCheckIn, actualCh
   );
 }
 
+// ─── Card assignment history panel ───────────────────────────────────────────
+
+function CardHistoryPanel({ workerEntityId }: { workerEntityId: string }) {
+  const { data: history = [] } = useQuery({
+    queryKey: ["card-assignment-history", workerEntityId],
+    queryFn: () => cardAssignmentHistoryApi.getForWorker(workerEntityId),
+    staleTime: 30_000,
+  });
+
+  if (history.length === 0) return null;
+
+  return (
+    <div className="card" style={{ marginBottom: 14 }}>
+      <div className="card-header">
+        <span style={{ fontSize: 13, fontWeight: 600 }}>📡 Karta taryhy</span>
+      </div>
+      <div className="card-body" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {history.map(h => (
+          <div key={h.id} style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "baseline", fontSize: 12 }}>
+            <span style={{ color: "var(--text-muted)", minWidth: 130 }}>
+              {new Date(h.createdAt).toLocaleString("tr-TR")}
+            </span>
+            <span style={{ color: h.action === "ASSIGNED" ? "#10B981" : "var(--danger)", fontWeight: 500 }}>
+              {h.action === "ASSIGNED"
+                ? `✓ Karta birikdirildi (${h.newCardUid})`
+                : `✕ Karta aýryldy (${h.previousCardUid})`}
+            </span>
+            <span style={{ color: "var(--text-muted)" }}>
+              {h.source === "card-report" ? "hasabat arkaly" : "golaýdan üýtgedildi"}
+              {h.changedBy ? ` — ${h.changedBy}` : ""}
+            </span>
+            {h.note && (
+              <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>"{h.note}"</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function WorkerDetailPage() {
   const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
@@ -382,6 +424,9 @@ export function WorkerDetailPage() {
               </div>
             </div>
           </div>
+
+          {/* ── Card assignment history ── */}
+          <CardHistoryPanel workerEntityId={worker.id} />
 
           {/* ── Stats row ── */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 14 }}>

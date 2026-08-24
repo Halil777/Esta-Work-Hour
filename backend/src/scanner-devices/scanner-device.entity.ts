@@ -27,6 +27,23 @@ export class ScannerDevice {
   @Column({ type: 'timestamp', nullable: true, default: null })
   lastSeenAt: Date | null;
 
+  // Device health heartbeat — sent periodically by the Android app alongside
+  // its sync loop, distinct from lastSeenAt (which DeviceGuard bumps on
+  // *any* authenticated request). Lets admins spot a kiosk that's running
+  // low on battery, stuck on an old APK build, or silently piling up
+  // unsynced scans, without walking over to the physical device.
+  @Column({ type: 'int', nullable: true, default: null })
+  batteryLevel: number | null; // 0-100
+
+  @Column({ type: 'varchar', nullable: true, default: null })
+  appVersion: string | null;
+
+  @Column({ type: 'int', nullable: true, default: null })
+  pendingEventCount: number | null; // unsynced attendance events sitting on-device
+
+  @Column({ type: 'timestamp', nullable: true, default: null })
+  lastHeartbeatAt: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

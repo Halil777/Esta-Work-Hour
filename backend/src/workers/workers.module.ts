@@ -11,9 +11,15 @@ import { WorkersImportService } from './workers-import.service';
 import { WorkersExportService } from './workers-export.service';
 import { AuditLogModule } from '../audit-log/audit-log.module';
 import { WorkerLifecycleModule } from '../worker-lifecycle/worker-lifecycle.module';
+import { CardAssignmentHistoryModule } from '../card-assignment-history/card-assignment-history.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Worker, AttendanceEvent, Foreman]), AuditLogModule, WorkerLifecycleModule],
+  imports: [
+    TypeOrmModule.forFeature([Worker, AttendanceEvent, Foreman]),
+    AuditLogModule,
+    WorkerLifecycleModule,
+    CardAssignmentHistoryModule,
+  ],
   controllers: [WorkersController],
   providers: [
     WorkersService,

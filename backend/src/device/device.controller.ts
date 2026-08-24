@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Body, Req, UseGuards,
+  Controller, Get, Post, Body, Req, UseGuards, HttpCode,
   UnauthorizedException, NotFoundException, BadRequestException,
 } from '@nestjs/common';
 import { CardReportsService } from '../card-reports/card-reports.service';
@@ -149,6 +149,30 @@ export class DeviceController {
       suggestedWorkerName,
       deviceLabel,
       note,
+    });
+  }
+
+  /**
+   * Periodic device health check-in (battery, APK version, local unsynced
+   * event count). Separate from the passive lastSeenAt bump DeviceGuard does
+   * on every request — this is a deliberate payload the app sends every
+   * couple of minutes so the admin panel can flag a kiosk that's low on
+   * battery, stuck on an old build, or quietly backing up unsynced scans.
+   */
+  @UseGuards(DeviceGuard)
+  @Post('heartbeat')
+  @HttpCode(200)
+  async heartbeat(
+    @Req() req: any,
+    @Body('batteryLevel') batteryLevel?: number,
+    @Body('appVersion') appVersion?: string,
+    @Body('pendingEventCount') pendingEventCount?: number,
+  ) {
+    const { deviceId } = req.device as DeviceContext;
+    return this.scannerDevicesService.updateHeartbeat(deviceId, {
+      batteryLevel,
+      appVersion,
+      pendingEventCount,
     });
   }
 }
