@@ -1,11 +1,11 @@
-import { useRef, useState, useCallback } from 'react'
+import { useRef, useState, useCallback, useMemo } from 'react'
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer, Cell,
+  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  ResponsiveContainer, Cell, LabelList,
 } from 'recharts'
 import {
   Users, UserCheck, UserX, Clock, ChevronRight, AlertTriangle,
-  FileDown, Gauge, CalendarDays, Activity, Download, Mail, Plus, X,
+  FileDown, CalendarDays, Download, Mail, Plus, X, Edit2, Trash2,
 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
@@ -14,29 +14,17 @@ import { workersApi } from '../api/workers'
 import { extraHoursApi } from '../api/extraHours'
 import { auditLogApi } from '../api/auditLog'
 import { attendanceApi } from '../api/attendance'
-import { analyticsApi } from '../api/analyticsApi'
+import { analyticsApi, type AttendanceChartPoint, type TopWorkerItem } from '../api/analyticsApi'
 import { apiFetch } from '../api/http'
+import { Sparkline, ProgressRing, DeltaBadge } from '../components/dashboard/DashboardVisuals'
+import { pctChange } from '../components/dashboard/dashboardMath'
 
-// ─── Stat card ────────────────────────────────────────────────────────────────
+// ─── Date helpers ────────────────────────────────────────────────────────────
 
-function StatCard({ value, label, sub, icon, color, bg, onClick }: {
-  value: string | number; label: string; sub?: string
-  icon: React.ReactNode; color: string; bg: string
-  onClick?: () => void
-}) {
-  return (
-    <div className="stat-card" onClick={onClick} style={onClick ? { cursor: 'pointer' } : undefined}>
-      <div className="stat-card__header">
-        <div className="stat-card__icon" style={{ background: bg }}>
-          <span style={{ color }}>{icon}</span>
-        </div>
-        {onClick && <ChevronRight size={14} style={{ color: 'var(--text-muted)', marginLeft: 'auto' }} />}
-      </div>
-      <div className="stat-card__value">{value}</div>
-      <div className="stat-card__label">{label}</div>
-      {sub && <div className="stat-card__sub">{sub}</div>}
-    </div>
-  )
+function isoDaysAgo(n: number) {
+  const d = new Date()
+  d.setDate(d.getDate() - n)
+  return d.toISOString().split('T')[0]
 }
 
 // ─── Daily PDF download (existing) ──────────────────────────────────────────
@@ -130,21 +118,163 @@ function exportAsXlsx(
   })
 }
 
-// ─── Custom tooltip for recharts ─────────────────────────────────────────────
+// ─── Sequential ramp (magnitude → single hue, light→dark; largest = darkest) ──
 
-function AttendanceTooltip({ active, payload, label }: any) {
+function seqColor(idx: number, len: number) {
+  if (len <= 1) return 'var(--seq-6)'
+  const step = 6 - Math.round((idx / (len - 1)) * 5)
+  return `var(--seq-${step})`
+}
+
+// ─── Recharts tooltips & custom dot ─────────────────────────────────────────
+
+function RateEndDot(props: any) {
+  const { cx, cy, index, payload, dataLength } = props
+  if (index !== dataLength - 1) return null
+  return (
+    <g>
+      <circle cx={cx} cy={cy} r={4} fill="var(--primary)" stroke="var(--bg-surface)" strokeWidth={2} />
+      <text x={cx} y={cy - 14} textAnchor="middle" fontSize={13} fontWeight={700} fill="var(--text)">{payload.rate}%</text>
+    </g>
+  )
+}
+
+function RateTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
   return (
-    <div style={{
-      background: 'var(--surface)', border: '1px solid var(--border)',
-      borderRadius: 8, padding: '10px 14px', fontSize: 13,
-    }}>
-      <div style={{ fontWeight: 600, marginBottom: 6, color: 'var(--text)' }}>{label}</div>
+    <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', fontSize: 12, boxShadow: 'var(--shadow-lg)' }}>
+      <div style={{ color: 'var(--text-muted)', marginBottom: 2 }}>{label}</div>
+      <strong style={{ color: 'var(--text)', fontSize: 14 }}>{payload[0].payload.rate}%</strong>
+    </div>
+  )
+}
+
+function BarTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null
+  return (
+    <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px', fontSize: 12, boxShadow: 'var(--shadow-lg)' }}>
+      <div style={{ fontWeight: 700, marginBottom: 6, color: 'var(--text)' }}>{label}</div>
       {payload.map((p: any) => (
-        <div key={p.name} style={{ color: p.fill, display: 'flex', gap: 8 }}>
-          <span>{p.name}:</span><strong>{p.value}</strong>
+        <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--text-secondary)' }}>
+          <span style={{ width: 8, height: 8, borderRadius: 2, background: p.fill, flexShrink: 0 }} />
+          <span>{p.name}:</span>
+          <strong style={{ color: 'var(--text)', marginLeft: 'auto' }}>{p.value}</strong>
         </div>
       ))}
+    </div>
+  )
+}
+
+function TopWorkersTooltip({ active, payload, hoursLabel }: any) {
+  if (!active || !payload?.length) return null
+  const p = payload[0]
+  return (
+    <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px', fontSize: 12, boxShadow: 'var(--shadow-lg)' }}>
+      <div style={{ color: 'var(--text)', fontWeight: 700, marginBottom: 2 }}>{p.payload.name}</div>
+      <span style={{ color: 'var(--text-muted)' }}>{hoursLabel}: </span><strong style={{ color: 'var(--text)' }}>{p.value}h</strong>
+    </div>
+  )
+}
+
+// ─── Chart components ───────────────────────────────────────────────────────
+
+function RateTrendChart({ data }: { data: { date: string; rate: number }[] }) {
+  return (
+    <ResponsiveContainer width="100%" height={200}>
+      <AreaChart data={data} margin={{ top: 24, right: 28, left: -20, bottom: 0 }}>
+        <defs>
+          <linearGradient id="rateFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.16} />
+            <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid stroke="var(--border)" vertical={false} />
+        <XAxis
+          dataKey="date" tickFormatter={(d: string) => d.slice(5)}
+          tick={{ fontSize: 10.5, fill: 'var(--text-muted)' }} tickLine={false}
+          axisLine={{ stroke: 'var(--border)' }} interval={data.length > 10 ? 1 : 0}
+        />
+        <YAxis hide domain={['dataMin - 5', 'dataMax + 5']} />
+        <Tooltip content={<RateTooltip />} cursor={{ stroke: 'var(--border-strong)', strokeWidth: 1 }} />
+        <Area
+          type="monotone" dataKey="rate" stroke="var(--primary)" strokeWidth={2} fill="url(#rateFill)"
+          dot={(props: any) => <RateEndDot {...props} dataLength={data.length} />}
+          activeDot={{ r: 4, fill: 'var(--primary)', stroke: 'var(--bg-surface)', strokeWidth: 2 }}
+        />
+      </AreaChart>
+    </ResponsiveContainer>
+  )
+}
+
+function AttendanceBarChart({ data, presentLabel, absentLabel }: {
+  data: AttendanceChartPoint[]; presentLabel: string; absentLabel: string
+}) {
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <BarChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }} barGap={2}>
+        <CartesianGrid stroke="var(--border)" vertical={false} />
+        <XAxis
+          dataKey="date" tickFormatter={(d: string) => d.slice(5)}
+          tick={{ fontSize: 10.5, fill: 'var(--text-muted)' }} tickLine={false}
+          axisLine={{ stroke: 'var(--border)' }} interval={data.length > 10 ? 1 : 0}
+        />
+        <YAxis tick={{ fontSize: 10.5, fill: 'var(--text-muted)' }} tickLine={false} axisLine={false} width={30} />
+        <Tooltip content={<BarTooltip />} cursor={{ fill: 'var(--bg-hover)' }} />
+        <Legend wrapperStyle={{ fontSize: 12 }} iconType="circle" iconSize={8} />
+        <Bar dataKey="present" name={presentLabel} fill="var(--success)" radius={[4, 4, 0, 0]} maxBarSize={22} />
+        <Bar dataKey="absent" name={absentLabel} fill="var(--danger)" radius={[4, 4, 0, 0]} maxBarSize={22} />
+      </BarChart>
+    </ResponsiveContainer>
+  )
+}
+
+function TopWorkersChart({ data, hoursLabel, noDataLabel }: {
+  data: TopWorkerItem[]; hoursLabel: string; noDataLabel: string
+}) {
+  if (data.length === 0) {
+    return <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>{noDataLabel}</div>
+  }
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <BarChart layout="vertical" data={data} margin={{ top: 4, right: 40, left: 0, bottom: 0 }}>
+        <CartesianGrid stroke="var(--border)" horizontal={false} />
+        <XAxis type="number" tick={{ fontSize: 10.5, fill: 'var(--text-muted)' }} tickLine={false} axisLine={{ stroke: 'var(--border)' }} />
+        <YAxis
+          type="category" dataKey="name" width={126}
+          tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickLine={false} axisLine={false}
+          tickFormatter={(v: string) => v.length > 13 ? v.slice(0, 12) + '…' : v}
+        />
+        <Tooltip content={<TopWorkersTooltip hoursLabel={hoursLabel} />} cursor={{ fill: 'var(--bg-hover)' }} />
+        <Bar dataKey="totalHours" name={hoursLabel} radius={[0, 4, 4, 0]} maxBarSize={18}>
+          {data.map((_, idx) => <Cell key={idx} fill={seqColor(idx, data.length)} />)}
+          <LabelList dataKey="totalHours" position="right" formatter={(v: any) => `${v}h`} style={{ fontSize: 11, fontWeight: 700, fill: 'var(--text)' }} />
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  )
+}
+
+// ─── KPI tile ────────────────────────────────────────────────────────────────
+
+function KpiTile({ icon, iconColor, iconBg, value, label, deltaPct, spark, invert, onClick }: {
+  icon: React.ReactNode; iconColor: string; iconBg: string
+  value: string | number; label: string
+  deltaPct: number | null; spark?: number[]; invert?: boolean
+  onClick?: () => void
+}) {
+  return (
+    <div className={`kpi-tile${onClick ? ' kpi-tile--clickable' : ''}`} onClick={onClick}>
+      <div className="kpi-tile__top">
+        <div className="kpi-tile__icon" style={{ background: iconBg, color: iconColor }}>{icon}</div>
+        <DeltaBadge pct={deltaPct} invert={invert} />
+      </div>
+      <div>
+        <div className="kpi-tile__value">{value}</div>
+        <div className="kpi-tile__label">{label}</div>
+      </div>
+      {spark && spark.length >= 2 && (
+        <div className="kpi-tile__spark"><Sparkline points={spark} color={iconColor} /></div>
+      )}
     </div>
   )
 }
@@ -301,13 +431,13 @@ function DashboardScheduleCard({
   )
 }
 
-// ─── Analytics section ─────────────────────────────────────────────────────────
+// ─── Analytics section (trend + daily attendance + top workers + exports) ──
 
 function AnalyticsSection({ tenantName }: { tenantName: string }) {
   const { t } = useTranslation()
 
-  const defaultEnd   = new Date().toISOString().split('T')[0]
-  const defaultStart = (() => { const d = new Date(); d.setDate(d.getDate() - 6); return d.toISOString().split('T')[0] })()
+  const defaultEnd   = isoDaysAgo(0)
+  const defaultStart = isoDaysAgo(13)
 
   const [startInput, setStartInput] = useState(defaultStart)
   const [endInput,   setEndInput]   = useState(defaultEnd)
@@ -327,6 +457,11 @@ function AnalyticsSection({ tenantName }: { tenantName: string }) {
     queryFn: () => analyticsApi.getTopWorkers(startDate, endDate),
     staleTime: 60_000,
   })
+
+  const rateData = useMemo(
+    () => chartData.map(d => ({ date: d.date, rate: d.total > 0 ? Math.round((d.present / d.total) * 100) : 0 })),
+    [chartData],
+  )
 
   const handleApply = useCallback(() => {
     setStartDate(startInput)
@@ -355,153 +490,114 @@ function AnalyticsSection({ tenantName }: { tenantName: string }) {
 
   const isLoading = chartLoading || topLoading
 
-  // Truncate date labels for x-axis
-  const fmtDate = (d: string) => d.slice(5) // MM-DD
-
   return (
-    <div className="card" style={{ marginTop: 24 }}>
-      {/* Header row */}
-      <div className="card-header" style={{ flexWrap: 'wrap', gap: 10 }}>
-        <h3 style={{ margin: 0 }}>{t.analytics.title}</h3>
-
-        {/* Date range filter */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto', flexWrap: 'wrap' }}>
+    <div className="dash-section">
+      <div className="analytics-header">
+        <div>
+          <div className="chart-card__title">{t.analytics.title}</div>
+          <div className="chart-card__desc">{t.analytics.rateTrendDesc}</div>
+        </div>
+        <div className="analytics-toolbar">
           <input
-            type="date"
-            value={startInput}
-            onChange={e => setStartInput(e.target.value)}
-            className="input"
-            style={{ padding: '5px 8px', fontSize: 13, width: 140 }}
+            type="date" value={startInput} onChange={e => setStartInput(e.target.value)}
+            className="input" style={{ padding: '5px 8px', fontSize: 13, width: 140 }}
           />
           <span style={{ color: 'var(--text-muted)' }}>→</span>
           <input
-            type="date"
-            value={endInput}
-            onChange={e => setEndInput(e.target.value)}
-            className="input"
-            style={{ padding: '5px 8px', fontSize: 13, width: 140 }}
+            type="date" value={endInput} onChange={e => setEndInput(e.target.value)}
+            className="input" style={{ padding: '5px 8px', fontSize: 13, width: 140 }}
           />
-          <button className="btn btn--primary btn--sm" onClick={handleApply}>
-            {t.analytics.apply}
-          </button>
-        </div>
-
-        {/* Export buttons */}
-        <div style={{ display: 'flex', gap: 6 }}>
-          <button className="btn btn--secondary btn--sm" onClick={handlePdf} disabled={!!exporting || isLoading}>
-            <Download size={13} />{exporting === 'pdf' ? t.analytics.exporting : t.analytics.exportPdf}
-          </button>
-          <button className="btn btn--secondary btn--sm" onClick={handlePng} disabled={!!exporting || isLoading}>
-            <Download size={13} />{exporting === 'png' ? t.analytics.exporting : t.analytics.exportPng}
-          </button>
-          <button className="btn btn--secondary btn--sm" onClick={handleXlsx} disabled={!!exporting || isLoading}>
-            <FileDown size={13} />{exporting === 'xlsx' ? t.analytics.exporting : t.analytics.exportXlsx}
-          </button>
+          <button className="btn btn--primary btn--sm" onClick={handleApply}>{t.analytics.apply}</button>
+          <div className="analytics-toolbar__exports">
+            <button className="btn btn--secondary btn--sm" onClick={handlePdf} disabled={!!exporting || isLoading}>
+              <Download size={13} />{exporting === 'pdf' ? t.analytics.exporting : t.analytics.exportPdf}
+            </button>
+            <button className="btn btn--secondary btn--sm" onClick={handlePng} disabled={!!exporting || isLoading}>
+              <Download size={13} />{exporting === 'png' ? t.analytics.exporting : t.analytics.exportPng}
+            </button>
+            <button className="btn btn--secondary btn--sm" onClick={handleXlsx} disabled={!!exporting || isLoading}>
+              <FileDown size={13} />{exporting === 'xlsx' ? t.analytics.exporting : t.analytics.exportXlsx}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Charts */}
-      <div ref={chartsRef} className="card-body" style={{ padding: '20px' }}>
-        {isLoading ? (
-          <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>
-            {t.analytics.loading}
+      {isLoading ? (
+        <div className="chart-card" style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>
+          {t.analytics.loading}
+        </div>
+      ) : chartData.length === 0 ? (
+        <div className="chart-card" style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>
+          {t.analytics.noData}
+        </div>
+      ) : (
+        <div ref={chartsRef}>
+          <div className="chart-card" style={{ marginBottom: 16 }}>
+            <div className="chart-card__body"><RateTrendChart data={rateData} /></div>
           </div>
-        ) : chartData.length === 0 ? (
-          <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>
-            {t.analytics.noData}
-          </div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
 
-            {/* Chart 1: Daily Attendance */}
-            <div>
-              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 12, color: 'var(--text)' }}>
-                {t.analytics.attendanceChart}
+          <div className="dash-two-col" style={{ marginBottom: 16 }}>
+            <div className="chart-card">
+              <div className="chart-card__head">
+                <span className="chart-card__title">{t.analytics.attendanceChart}</span>
               </div>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} />
-                  <YAxis tick={{ fontSize: 11, fill: 'var(--text-muted)' }} />
-                  <Tooltip content={<AttendanceTooltip />} />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="present" name={t.analytics.present} fill="#22c55e" radius={[3, 3, 0, 0]} />
-                  <Bar dataKey="absent"  name={t.analytics.absent}  fill="#ef4444" radius={[3, 3, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Chart 2: Top Workers by hours */}
-            <div>
-              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 12, color: 'var(--text)' }}>
-                {t.analytics.topWorkersChart}
+              <div className="chart-card__body">
+                <AttendanceBarChart data={chartData} presentLabel={t.analytics.present} absentLabel={t.analytics.absent} />
               </div>
-              {topWorkers.length === 0 ? (
-                <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-                  {t.analytics.noData}
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart
-                    layout="vertical"
-                    data={topWorkers}
-                    margin={{ top: 4, right: 40, left: 0, bottom: 0 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
-                    <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--text-muted)' }} />
-                    <YAxis
-                      type="category"
-                      dataKey="name"
-                      width={100}
-                      tick={{ fontSize: 11, fill: 'var(--text-muted)' }}
-                      tickFormatter={(v: string) => v.length > 14 ? v.slice(0, 13) + '…' : v}
-                    />
-                    <Tooltip
-                      formatter={(val: any) => [`${val}h`, t.analytics.totalHours]}
-                      contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8 }}
-                    />
-                    <Bar dataKey="totalHours" name={t.analytics.totalHours} radius={[0, 3, 3, 0]}>
-                      {topWorkers.map((_, idx) => (
-                        <Cell key={idx} fill={`hsl(${245 - idx * 18},70%,${55 + idx * 2}%)`} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
             </div>
-
+            <div className="chart-card">
+              <div className="chart-card__head">
+                <span className="chart-card__title">{t.analytics.topWorkersChart}</span>
+                <span className="scale-legend">
+                  {t.analytics.scaleLow}<span className="scale-legend__bar" />{t.analytics.scaleHigh}
+                </span>
+              </div>
+              <div className="chart-card__body">
+                <TopWorkersChart data={topWorkers} hoursLabel={t.analytics.totalHours} noDataLabel={t.analytics.noData} />
+              </div>
+            </div>
           </div>
-        )}
-      </div>
 
-      {/* Summary row (included in PNG/PDF capture) */}
-      {!isLoading && chartData.length > 0 && (
-        <div style={{
-          display: 'flex', gap: 12, padding: '12px 20px 16px',
-          borderTop: '1px solid var(--border)', flexWrap: 'wrap',
-        }}>
-          {[
-            { label: t.analytics.present, value: Math.round(chartData.reduce((s, d) => s + d.present, 0) / chartData.length), color: 'var(--success)' },
-            { label: t.analytics.absent, value: Math.round(chartData.reduce((s, d) => s + d.absent, 0) / chartData.length), color: 'var(--danger)' },
-            { label: topWorkers[0] ? `#1 ${topWorkers[0].name}` : '', value: topWorkers[0] ? `${topWorkers[0].totalHours}h` : '', color: 'var(--primary)' },
-          ].filter(x => x.label).map(({ label, value, color }) => (
-            <div key={label} style={{ background: 'var(--bg)', borderRadius: 8, padding: '8px 16px', fontSize: 13 }}>
-              <span style={{ color: 'var(--text-muted)' }}>{label}: </span>
-              <strong style={{ color }}>{value}</strong>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            {[
+              { label: t.analytics.present, value: Math.round(chartData.reduce((s, d) => s + d.present, 0) / chartData.length), color: 'var(--success)' },
+              { label: t.analytics.absent, value: Math.round(chartData.reduce((s, d) => s + d.absent, 0) / chartData.length), color: 'var(--danger)' },
+              { label: topWorkers[0] ? `#1 ${topWorkers[0].name}` : '', value: topWorkers[0] ? `${topWorkers[0].totalHours}h` : '', color: 'var(--primary)' },
+            ].filter(x => x.label).map(({ label, value, color }) => (
+              <div key={label} style={{ background: 'var(--bg-surface-2)', borderRadius: 8, padding: '8px 16px', fontSize: 13 }}>
+                <span style={{ color: 'var(--text-muted)' }}>{label}: </span>
+                <strong style={{ color }}>{value}</strong>
+              </div>
+            ))}
+            <div style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-muted)', alignSelf: 'center' }}>
+              {tenantName} · {startDate} – {endDate}
             </div>
-          ))}
-          <div style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-muted)', alignSelf: 'center' }}>
-            {tenantName} · {startDate} – {endDate}
           </div>
         </div>
       )}
 
-      {/* Scheduled email component */}
-      <div style={{ padding: '0 20px 20px' }}>
-        <DashboardScheduleCard startDate={startDate} endDate={endDate} tenantName={tenantName} />
-      </div>
+      <DashboardScheduleCard startDate={startDate} endDate={endDate} tenantName={tenantName} />
     </div>
   )
+}
+
+// ─── Brigade avatar initials ─────────────────────────────────────────────────
+
+function initials(name: string) {
+  const letters = name.replace(/[^\p{L}]/gu, '')
+  return letters.slice(0, 2).toUpperCase() || '—'
+}
+
+function rateColor(rate: number) {
+  return rate >= 90 ? 'var(--success)' : rate >= 70 ? 'var(--warning)' : 'var(--danger)'
+}
+
+// ─── Activity feed action metadata ──────────────────────────────────────────
+
+const ACTION_META: Record<string, { icon: React.ComponentType<any>; color: string; bg: string }> = {
+  CREATE: { icon: Plus, color: 'var(--success)', bg: 'var(--success-light)' },
+  UPDATE: { icon: Edit2, color: 'var(--info)', bg: 'var(--info-light)' },
+  DELETE: { icon: Trash2, color: 'var(--danger)', bg: 'var(--danger-light)' },
 }
 
 // ─── Main Dashboard page ──────────────────────────────────────────────────────
@@ -509,7 +605,7 @@ function AnalyticsSection({ tenantName }: { tenantName: string }) {
 export function DashboardPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const today = new Date().toISOString().split('T')[0]
+  const today = isoDaysAgo(0)
 
   // Read tenant name from JWT payload
   const tenantName = (() => {
@@ -557,6 +653,14 @@ export function DashboardPage() {
   })
   const lateArrivals: any[] = lateData?.workers ?? []
 
+  // Same query key/params AnalyticsSection uses for its default range, so
+  // React Query serves both from one cached fetch — no duplicate request.
+  const { data: trendChart = [] } = useQuery({
+    queryKey: ['analytics-chart', isoDaysAgo(13), today],
+    queryFn: () => analyticsApi.getAttendanceChart(isoDaysAgo(13), today),
+    staleTime: 60_000,
+  })
+
   const presentToday  = workers.filter(w => w.lastCheckIn).length
   const absentToday   = workers.filter(w => !w.lastCheckIn).length
   const totalWorkers  = workers.length
@@ -564,6 +668,28 @@ export function DashboardPage() {
   const attendanceRate = totalWorkers > 0 ? Math.round((presentToday / totalWorkers) * 100) : 0
   const riskCount     = lateArrivals.length + missingCheckouts.length + pendingOTCount
   const todayLabel    = new Date().toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' })
+
+  const last7 = trendChart.slice(-7)
+  const totalSpark   = last7.map(d => d.total)
+  const presentSpark = last7.map(d => d.present)
+  const absentSpark  = last7.map(d => d.absent)
+  const heroDelta     = pctChange(trendChart.at(-2)?.present, trendChart.at(-1)?.present)
+  const totalDelta    = pctChange(trendChart.at(-2)?.total, trendChart.at(-1)?.total)
+  const presentDelta  = pctChange(trendChart.at(-2)?.present, trendChart.at(-1)?.present)
+  const absentDelta   = pctChange(trendChart.at(-2)?.absent, trendChart.at(-1)?.absent)
+
+  // Overtime-request volume trend (last 7 days, bucketed by request send date) —
+  // a real signal derived from the actual extra-hours records, not a stand-in.
+  const otSpark = useMemo(() => {
+    const days = Array.from({ length: 7 }, (_, i) => isoDaysAgo(6 - i))
+    const counts = new Map(days.map(d => [d, 0]))
+    for (const item of [...pendingOT, ...seenOT]) {
+      const day = (item.sentAt ?? '').split('T')[0]
+      if (counts.has(day)) counts.set(day, (counts.get(day) ?? 0) + 1)
+    }
+    return days.map(d => counts.get(d) ?? 0)
+  }, [pendingOT, seenOT])
+  const otDelta = pctChange(otSpark.at(-2), otSpark.at(-1))
 
   const brigadeMap = new Map<string, { name: string; total: number; present: number }>()
   for (const w of workers) {
@@ -574,28 +700,11 @@ export function DashboardPage() {
   }
   const brigadeRows = Array.from(brigadeMap.values()).sort((a, b) => b.total - a.total).slice(0, 10)
 
-  return (
-    <>
-      {/* Ops strip */}
-      <div className="ops-strip">
-        <div className="ops-strip__main">
-          <div className="ops-strip__icon"><Gauge size={18} /></div>
-          <div style={{ minWidth: 0 }}>
-            <div className="ops-strip__title">{t.dashboard.opsTitle}</div>
-            <div className="ops-strip__meta">
-              {attendanceRate}% {t.dashboard.attendanceRateSub} · {presentToday}/{totalWorkers} {t.dashboard.workersCame} · {riskCount} {t.dashboard.openIssues}
-            </div>
-          </div>
-        </div>
-        <div className="ops-strip__side">
-          <span className="ops-pill"><CalendarDays size={13} />{todayLabel}</span>
-          <span className="ops-pill"><Activity size={13} />{riskCount === 0 ? t.dashboard.clean : `${riskCount} ${t.dashboard.openIssues}`}</span>
-          <button className="btn btn--secondary btn--sm" onClick={() => downloadDailyPdf(today)}>
-            <FileDown size={14} /> {t.dashboard.pdfReport}
-          </button>
-        </div>
-      </div>
+  const entityMap: Record<string, string> = { Worker: t.dashboard.entityWorker, Foreman: t.dashboard.entityForeman }
+  const actionMap: Record<string, string> = { CREATE: t.dashboard.actionCreated, UPDATE: t.dashboard.actionUpdated, DELETE: t.dashboard.actionDeleted }
 
+  return (
+    <div className="dash-page">
       {/* Alerts */}
       {lateArrivals.length > 0 && (
         <div className="alert-row alert-row--warning" onClick={() => navigate('/late-arrivals')}>
@@ -607,108 +716,140 @@ export function DashboardPage() {
           <ChevronRight size={15} />
         </div>
       )}
-      {/* Stat cards */}
-      <div className="stats-grid">
-        <StatCard value={totalWorkers} label={t.dashboard.totalWorkers}
-          icon={<Users size={16} />} color="var(--primary-text)" bg="var(--primary-light)"
-          onClick={() => navigate('/workers')} />
-        <StatCard
-          value={presentToday} label={t.dashboard.presentToday}
-          sub={totalWorkers > 0 ? `${Math.round((presentToday / totalWorkers) * 100)}% ${t.dashboard.attendanceRateSub}` : undefined}
-          icon={<UserCheck size={16} />} color="var(--success)" bg="var(--success-light)"
-          onClick={() => navigate('/workers')}
-        />
-        <StatCard value={absentToday} label={t.dashboard.absentToday}
-          icon={<UserX size={16} />} color="var(--danger)" bg="var(--danger-light)"
-          onClick={() => navigate('/absent-today')} />
-        <StatCard value={pendingOTCount} label={t.dashboard.pendingOvertime}
-          icon={<Clock size={16} />} color="var(--warning)" bg="var(--warning-light)"
-          onClick={() => navigate('/overtime')} />
+
+      {/* Hero card */}
+      <div className="hero-card">
+        <div className="hero-card__ring">
+          <ProgressRing pct={attendanceRate} />
+          <div className="hero-card__ring-label">{attendanceRate}%</div>
+        </div>
+        <div className="hero-card__body">
+          <div className="hero-card__kicker"><CalendarDays size={13} />{t.dashboard.heroKicker}</div>
+          <div className="hero-card__figure">{presentToday}<span>/ {totalWorkers} {t.dashboard.heroUnit}</span></div>
+          <div className="hero-card__sub">
+            <DeltaBadge pct={heroDelta} size="md" />
+            <span>{t.dashboard.deltaVsYesterday}</span>
+            <span>·</span>
+            <span>{riskCount === 0 ? t.dashboard.clean : `${riskCount} ${t.dashboard.openIssues}`}</span>
+            <span>·</span>
+            <span>{todayLabel}</span>
+          </div>
+        </div>
+        <div className="hero-card__actions">
+          <button className="btn btn--secondary btn--sm" onClick={() => downloadDailyPdf(today)}>
+            <FileDown size={14} /> {t.dashboard.pdfReport}
+          </button>
+        </div>
       </div>
 
-      {/* Brigade + activity grid */}
-      <div className="dash-grid">
+      {/* KPI tiles */}
+      <div className="kpi-grid">
+        <KpiTile
+          icon={<Users size={16} />} iconColor="var(--primary-text)" iconBg="var(--primary-light)"
+          value={totalWorkers} label={t.dashboard.totalWorkers}
+          deltaPct={totalDelta} spark={totalSpark}
+          onClick={() => navigate('/workers')}
+        />
+        <KpiTile
+          icon={<UserCheck size={16} />} iconColor="var(--success)" iconBg="var(--success-light)"
+          value={presentToday} label={t.dashboard.presentToday}
+          deltaPct={presentDelta} spark={presentSpark}
+          onClick={() => navigate('/workers')}
+        />
+        <KpiTile
+          icon={<UserX size={16} />} iconColor="var(--danger)" iconBg="var(--danger-light)"
+          value={absentToday} label={t.dashboard.absentToday}
+          deltaPct={absentDelta} spark={absentSpark} invert
+          onClick={() => navigate('/absent-today')}
+        />
+        <KpiTile
+          icon={<Clock size={16} />} iconColor="var(--warning)" iconBg="var(--warning-light)"
+          value={pendingOTCount} label={t.dashboard.pendingOvertime}
+          deltaPct={otDelta} spark={otSpark} invert
+          onClick={() => navigate('/overtime')}
+        />
+      </div>
+
+      {/* Analytics: trend + daily attendance + top workers + exports + schedule */}
+      <AnalyticsSection tenantName={tenantName} />
+
+      {/* Brigade + activity */}
+      <div className="dash-two-col">
         <div className="card">
-          <div className="card-header"><h3>{t.dashboard.brigadeStatus}</h3></div>
-          <div className="card-body card-body--p0">
+          <div className="card-header">
+            <div>
+              <h3 style={{ margin: 0 }}>{t.dashboard.brigadeStatus}</h3>
+              <div className="chart-card__desc">{t.dashboard.brigadeStatusDesc}</div>
+            </div>
+          </div>
+          <div className="card-body" style={{ padding: '4px 16px 12px' }}>
             {brigadeRows.length === 0 ? (
               <div className="empty-state" style={{ padding: 24 }}>
                 <p style={{ fontSize: 13 }}>{t.dashboard.noScanToday}</p>
               </div>
+            ) : brigadeRows.map(b => {
+              const rate = b.total > 0 ? Math.round((b.present / b.total) * 100) : 0
+              return (
+                <div className="brigade-row" key={b.name}>
+                  <div className="brigade-avatar">{initials(b.name)}</div>
+                  <div className="brigade-row__body">
+                    <div className="brigade-row__top">
+                      <span className="brigade-row__name">{b.name}</span>
+                      <span className="brigade-row__stat">{b.present}/{b.total} · <strong style={{ color: rateColor(rate) }}>{rate}%</strong></span>
+                    </div>
+                    <div className="brigade-meter-track">
+                      <div className="brigade-meter-fill" style={{ width: `${rate}%`, background: rateColor(rate) }} />
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <h3 style={{ margin: 0 }}>{t.dashboard.recentActivity}</h3>
+              <div className="chart-card__desc">{t.dashboard.recentActivityDesc}</div>
+            </div>
+          </div>
+          <div className="card-body" style={{ padding: '4px 16px 12px' }}>
+            {auditLogs.length === 0 ? (
+              <div style={{ padding: '16px', fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>
+                {t.dashboard.noActivity}
+              </div>
             ) : (
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>{t.dashboard.brigade}</th>
-                      <th>{t.dashboard.workers}</th>
-                      <th>{t.dashboard.presentToday}</th>
-                      <th>{t.dashboard.attendance}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {brigadeRows.map(b => {
-                      const rate = b.total > 0 ? Math.round((b.present / b.total) * 100) : 0
-                      return (
-                        <tr key={b.name}>
-                          <td className="fw-600">{b.name}</td>
-                          <td className="td-muted">{b.total}</td>
-                          <td>{b.present}</td>
-                          <td>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <div style={{ flex: 1, height: 4, background: 'var(--border)', borderRadius: 99, overflow: 'hidden' }}>
-                                <div style={{
-                                  width: `${rate}%`, height: '100%', borderRadius: 99,
-                                  background: rate >= 90 ? 'var(--success)' : rate >= 70 ? 'var(--warning)' : 'var(--danger)',
-                                }} />
-                              </div>
-                              <span className="text-xs text-muted">{rate}%</span>
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+              <div className="activity-feed2">
+                {auditLogs.slice(0, 8).map((log, i, arr) => {
+                  const meta = ACTION_META[log.action] ?? ACTION_META.UPDATE
+                  const Icon = meta.icon
+                  const entity = entityMap[log.entityType] ?? log.entityType
+                  const action = actionMap[log.action] ?? log.action
+                  const name = log.after?.name ?? log.before?.name ?? ''
+                  const time = new Date(log.changedAt).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+                  return (
+                    <div className="activity-feed2__item" key={log.id}>
+                      <div className="activity-feed2__rail">
+                        <div className="activity-feed2__dot" style={{ background: meta.bg, color: meta.color }}>
+                          <Icon size={13} />
+                        </div>
+                        {i < arr.length - 1 && <div className="activity-feed2__line" />}
+                      </div>
+                      <div className="activity-feed2__body">
+                        <div className="activity-feed2__text">
+                          {entity} {name ? `"${name}" ` : ''}{action} — {log.changedBy}
+                        </div>
+                        <div className="activity-feed2__time">{time}</div>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>
         </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div className="card">
-            <div className="card-header"><h3>{t.dashboard.recentActivity}</h3></div>
-            <div className="activity-list">
-              {auditLogs.length === 0 ? (
-                <div style={{ padding: '16px', fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>
-                  {t.dashboard.noActivity}
-                </div>
-              ) : auditLogs.slice(0, 10).map(log => {
-                const entityMap: Record<string, string> = { Worker: t.dashboard.entityWorker, Foreman: t.dashboard.entityForeman }
-                const actionMap: Record<string, string> = { CREATE: t.dashboard.actionCreated, UPDATE: t.dashboard.actionUpdated, DELETE: t.dashboard.actionDeleted }
-                const entity = entityMap[log.entityType] ?? log.entityType
-                const action = actionMap[log.action] ?? log.action
-                const name = log.after?.name ?? log.before?.name ?? ''
-                const time = new Date(log.changedAt).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
-                return (
-                  <div key={log.id} className="activity-item">
-                    <span className="activity-time">{time}</span>
-                    <div className="activity-dot" style={{
-                      background: log.action === 'DELETE' ? 'var(--danger)' : log.action === 'CREATE' ? 'var(--success)' : 'var(--info)',
-                    }} />
-                    <span className="activity-text">
-                      {entity} {name ? `"${name}" ` : ''}{action} — {log.changedBy}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </div>
       </div>
-
-      {/* ── Analytics charts + schedule ─────────────────────────────────────────── */}
-      <AnalyticsSection tenantName={tenantName} />
-    </>
+    </div>
   )
 }
