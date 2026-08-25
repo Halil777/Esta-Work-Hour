@@ -1,8 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
+import * as path from 'path';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const PdfPrinter = require('pdfmake');
+
+// Absolute, cwd-independent path to pdfmake's bundled Roboto TTFs — resolved
+// via the package's own package.json so it works regardless of the process's
+// working directory (dev, Docker, PM2, …).
+const PDFMAKE_FONTS_DIR = path.join(path.dirname(require.resolve('pdfmake/package.json')), 'build', 'fonts', 'Roboto');
 import { AttendanceEvent } from '../attendance-events/attendance-event.entity';
 import { Worker } from '../workers/worker.entity';
 import { APP_TZ } from '../common/date-utils';
@@ -849,10 +855,10 @@ export class ReportsService {
 
     const fonts = {
       Roboto: {
-        normal: 'node_modules/pdfmake/build/vfs_fonts.js',
-        bold: 'node_modules/pdfmake/build/vfs_fonts.js',
-        italics: 'node_modules/pdfmake/build/vfs_fonts.js',
-        bolditalics: 'node_modules/pdfmake/build/vfs_fonts.js',
+        normal: path.join(PDFMAKE_FONTS_DIR, 'Roboto-Regular.ttf'),
+        bold: path.join(PDFMAKE_FONTS_DIR, 'Roboto-Medium.ttf'),
+        italics: path.join(PDFMAKE_FONTS_DIR, 'Roboto-Italic.ttf'),
+        bolditalics: path.join(PDFMAKE_FONTS_DIR, 'Roboto-MediumItalic.ttf'),
       },
     };
 
