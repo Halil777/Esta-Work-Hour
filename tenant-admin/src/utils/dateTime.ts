@@ -19,21 +19,30 @@ export const fmtTime = (timestamp: number | null | undefined) => {
   });
 };
 
-export const fmtHours = (milliseconds: number | null | undefined) => {
+// Hour/minute unit suffixes are passed in by the caller (sourced from the
+// active tr/en/ru translation set) so this stays language-neutral — never a
+// hardcoded Turkmen or other unsupported-language string.
+export const fmtHours = (
+  milliseconds: number | null | undefined,
+  units: { h: string; min: string } = { h: 'h', min: 'min' },
+) => {
   if (!milliseconds || milliseconds <= 0) return null;
 
   const totalMinutes = Math.round(milliseconds / 60000);
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
 
-  if (hours === 0) return `${minutes} min`;
-  if (minutes === 0) return `${hours} sag`;
+  if (hours === 0) return `${minutes} ${units.min}`;
+  if (minutes === 0) return `${hours} ${units.h}`;
 
-  return `${hours} sag ${minutes} min`;
+  return `${hours} ${units.h} ${minutes} ${units.min}`;
 };
 
-export const fmtSendAt = (iso: string | null | undefined) => {
-  if (!iso) return "Nobat ýok";
+export const fmtSendAt = (
+  iso: string | null | undefined,
+  noneLabel = 'None scheduled',
+) => {
+  if (!iso) return noneLabel;
 
   return new Date(iso).toLocaleTimeString("tr-TR", {
     timeZone: "Europe/Moscow",
@@ -58,7 +67,8 @@ export const fmtDateTime = (iso: string | null | undefined) => {
 export const fmtToplamSaat = (
   milliseconds: number | null | undefined,
   mesai: string | undefined,
+  units: { h: string; min: string } = { h: 'h', min: 'min' },
 ) => {
-  if (mesai === "Aylık") return "8 sag";
-  return fmtHours(milliseconds) ?? "-";
+  if (mesai === "Aylık") return `8 ${units.h}`;
+  return fmtHours(milliseconds, units) ?? "-";
 };

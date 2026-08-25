@@ -249,7 +249,7 @@ export class AttendanceAnomaliesService {
   ): Promise<void> {
     const rows = workers.map(w => {
       const outTime = w.checkOutTime
-        ? new Date(w.checkOutTime).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: process.env.TZ || 'Asia/Ashgabat' })
+        ? new Date(w.checkOutTime).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: process.env.TZ || 'Europe/Moscow' })
         : '—';
       return `<tr>
         <td style="padding:8px 12px;border-bottom:1px solid #f1f5f9">${w.name}</td>
@@ -353,7 +353,7 @@ export class AttendanceAnomaliesService {
   ): Promise<void> {
     const rows = workers.map(w => {
       const inTime = w.checkInTime
-        ? new Date(w.checkInTime).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: process.env.TZ || 'Asia/Ashgabat' })
+        ? new Date(w.checkInTime).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: process.env.TZ || 'Europe/Moscow' })
         : '—';
       return `<tr>
         <td style="padding:8px 12px;border-bottom:1px solid #f1f5f9">${w.name}</td>

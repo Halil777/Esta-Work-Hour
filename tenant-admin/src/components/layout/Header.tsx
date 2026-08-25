@@ -22,7 +22,7 @@ export function Header({ title }: Props) {
       <div className="header-context">
         <div style={{ minWidth: 0 }}>
           <h2 className="header-title">{title}</h2>
-          <span className="page-kicker">{user?.objectName ?? 'Esta Construction'}</span>
+          <span className="page-kicker">{user?.objectName ?? ''}</span>
         </div>
         <span className="header-live">Live</span>
       </div>

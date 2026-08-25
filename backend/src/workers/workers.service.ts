@@ -64,7 +64,7 @@ export class WorkersService {
   }
 
   // ── Excel import/export ───────────────────────────────────────────────
-  exportToExcel(params?: FindAllParams) {
+  exportToExcel(params?: FindAllParams & { lang?: 'en' | 'ru' | 'tr' }) {
     return this.exportService.exportToExcel(params);
   }
 

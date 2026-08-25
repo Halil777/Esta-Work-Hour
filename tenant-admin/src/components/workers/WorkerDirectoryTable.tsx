@@ -125,8 +125,9 @@ function WorkerDirectoryRow({
     section_chief: t.workers.roleSectionChief,
   }
   const mesai = worker.mesaiSistemi ?? 'Saatlik'
-  const toplamSaat = fmtToplamSaat(worker.todayHoursMs, mesai)
-  const hakykyInfo = fmtHours(worker.todayHoursMs)
+  const hourUnits = { h: t.workers.hourUnit, min: t.workers.minUnit }
+  const toplamSaat = fmtToplamSaat(worker.todayHoursMs, mesai, hourUnits)
+  const hakykyInfo = fmtHours(worker.todayHoursMs, hourUnits)
   const role = (worker.mobileRole ?? 'worker') as MobileRole
   const extraSaat = Number(worker.extraSaat ?? 0)
   const checkIn = fmtTime(worker.lastCheckIn)

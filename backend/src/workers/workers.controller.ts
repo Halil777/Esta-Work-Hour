@@ -75,6 +75,7 @@ export class WorkersController {
     @Query('endDate') endDate?: string,
     @Query('noScan') noScan?: string,
     @Query('hasScan') hasScan?: string,
+    @Query('lang') lang?: string,
   ): Promise<StreamableFile> {
     const buffer = await this.service.exportToExcel({
       tenantId: req.adminUser?.tenantId,
@@ -88,6 +89,7 @@ export class WorkersController {
       endDate,
       noScan: noScan === 'true',
       hasScan: hasScan === 'true',
+      lang: (lang as any) || 'tr',
     });
     const date = new Date().toISOString().split('T')[0];
     res.set({

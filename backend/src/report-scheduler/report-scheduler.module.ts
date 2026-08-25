@@ -3,9 +3,10 @@ import { ReportSchedulerService } from './report-scheduler.service';
 import { ReportSchedulerController } from './report-scheduler.controller';
 import { ReportConfigModule } from '../report-config/report-config.module';
 import { ReportsModule } from '../reports/reports.module';
+import { TenantsModule } from '../tenants/tenants.module';
 
 @Module({
-  imports: [ReportConfigModule, ReportsModule],
+  imports: [ReportConfigModule, ReportsModule, TenantsModule],
   controllers: [ReportSchedulerController],
   providers: [ReportSchedulerService],
 })

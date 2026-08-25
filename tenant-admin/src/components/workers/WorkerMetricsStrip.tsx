@@ -20,7 +20,7 @@ export function WorkerMetricsStrip({ workers, lifecycleSummary }: WorkerMetricsS
   const pendingRestored = lifecycleSummary?.counts.restored ?? 0
   const reportChipTitle = pendingReportCount > 0
     ? `${pendingCreated} ${t.workers.metricsNew}, ${pendingTerminated} ${t.workers.metricsTerminatedCount}, ${pendingRestored} ${t.workers.metricsRestoredCount}`
-    : `Lifecycle report ${lifecycleSummary?.delayMinutes ?? 10} ${t.workers.metricsBatchInfo}`
+    : `${t.workers.metricsReportQueue} ${lifecycleSummary?.delayMinutes ?? 10} ${t.workers.metricsBatchInfo}`
 
   return (
     <div className="metric-strip">
@@ -48,7 +48,7 @@ export function WorkerMetricsStrip({ workers, lifecycleSummary }: WorkerMetricsS
         <span className="metric-chip__value">
           <Clock3 size={15} /> {pendingReportCount}
         </span>
-        <span className="metric-chip__label">{t.workers.metricsReportQueue} · {fmtSendAt(lifecycleSummary?.nextSendAt)}</span>
+        <span className="metric-chip__label">{t.workers.metricsReportQueue} · {fmtSendAt(lifecycleSummary?.nextSendAt, t.workers.noNextSend)}</span>
       </div>
     </div>
   )

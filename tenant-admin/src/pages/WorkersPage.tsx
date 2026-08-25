@@ -29,7 +29,7 @@ import { exportWorkersToExcel } from '../utils/exportWorkersExcel'
 
 export function WorkersPage() {
   const { t } = useTranslation()
-  const { user } = useUiPreferences()
+  const { user, language } = useUiPreferences()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const adminName = user?.name ?? 'Admin'
@@ -247,7 +247,7 @@ export function WorkersPage() {
           {/* Exports the rows already loaded for the table below — no second
               network round-trip or duplicate database query, so it's instant
               regardless of how "heavy" the underlying query used to be. */}
-          <button className="btn btn--secondary btn--sm" type="button" onClick={() => exportWorkersToExcel(workers)}>
+          <button className="btn btn--secondary btn--sm" type="button" onClick={() => exportWorkersToExcel(workers, language)}>
             <Download size={13} /> {t.common.export}
           </button>
           <button className="btn btn--primary btn--sm" type="button" onClick={() => setShowAdd(true)}>
@@ -331,7 +331,7 @@ export function WorkersPage() {
             <button
               className="btn btn--secondary btn--sm"
               type="button"
-              onClick={() => exportWorkersToExcel(workers.filter(w => selectedIds.has(w.id)))}
+              onClick={() => exportWorkersToExcel(workers.filter(w => selectedIds.has(w.id)), language)}
             >
               <Download size={13} /> {t.workers.bulkExport}
             </button>

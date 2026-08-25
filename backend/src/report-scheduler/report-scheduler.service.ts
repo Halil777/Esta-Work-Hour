@@ -3,6 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import * as nodemailer from 'nodemailer';
 import { ReportConfigService } from '../report-config/report-config.service';
 import { ReportsService } from '../reports/reports.service';
+import { TenantsService } from '../tenants/tenants.service';
 import { ReportType, MonthlySchedule, ReportScheduleItem } from '../report-config/report-config.entity';
 import { yesterdayLocal, todayLocal } from '../common/date-utils';
 
@@ -36,7 +37,21 @@ export class ReportSchedulerService {
   constructor(
     private readonly reportConfigService: ReportConfigService,
     private readonly reportsService: ReportsService,
+    private readonly tenantsService: TenantsService,
   ) {}
+
+  // Resolves a tenant's real display name for report headers/emails. Falls
+  // back to the generic 'WorkForce' label (never a hardcoded brand name) when
+  // the config isn't tenant-scoped or the tenant lookup fails.
+  private async resolveTenantName(tenantId?: string): Promise<string> {
+    if (!tenantId) return 'WorkForce';
+    try {
+      const tenant = await this.tenantsService.findOne(tenantId);
+      return tenant?.name || 'WorkForce';
+    } catch {
+      return 'WorkForce';
+    }
+  }
 
   // ─── Daily scheduled send ─────────────────────────────────────────────────────
   // Iterates ALL tenant configs so every tenant's schedule is checked.
@@ -65,14 +80,15 @@ export class ReportSchedulerService {
         try {
           const reportDate = yesterdayLocal();
           const reportType: ReportType = schedule.reportType ?? 'daily_all';
+          const tenantName = await this.resolveTenantName(tenantId);
           const { xlsx, html } = await this.reportsService.generateReport(
-            reportDate, reportType, false, tenantId, undefined, lang as any,
+            reportDate, reportType, false, tenantId, tenantName, lang as any,
           );
 
           await this.transporter.sendMail({
-            from: `"Esta WorkForce" <${process.env.MAIL_USER}>`,
+            from: `"${tenantName}" <${process.env.MAIL_USER}>`,
             to: emails.join(', '),
-            subject: `Esta WorkForce — ${schedule.label} (${reportDate})`,
+            subject: `${tenantName} — ${schedule.label} (${reportDate})`,
             html,
             attachments: [{
               filename: `${filePrefix(lang)}-${reportDate}.xlsx`,
@@ -130,12 +146,13 @@ export class ReportSchedulerService {
       }
 
       try {
+        const tenantName = await this.resolveTenantName(tenantId);
         const { xlsx, html, subject } = await this.reportsService.generateRangeReport(
-          startDate, endDate, undefined, true, tenantId, undefined, lang as any,
+          startDate, endDate, undefined, true, tenantId, tenantName, lang as any,
         );
 
         await this.transporter.sendMail({
-          from: `"Esta WorkForce" <${process.env.MAIL_USER}>`,
+          from: `"${tenantName}" <${process.env.MAIL_USER}>`,
           to: recipients.join(', '),
           subject,
           html,
