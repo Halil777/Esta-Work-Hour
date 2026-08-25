@@ -574,13 +574,6 @@ export function DashboardPage() {
   }
   const brigadeRows = Array.from(brigadeMap.values()).sort((a, b) => b.total - a.total).slice(0, 10)
 
-  const allPendingOT = [...pendingOT, ...seenOT].sort(
-    (a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime(),
-  )
-
-  const fmtCheckInTime = (ms: number) =>
-    new Date(ms).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
-
   return (
     <>
       {/* Ops strip */}
@@ -614,27 +607,6 @@ export function DashboardPage() {
           <ChevronRight size={15} />
         </div>
       )}
-      {missingCheckouts.length > 0 && (
-        <div className="alert-row alert-row--danger" style={{ alignItems: 'flex-start', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
-            <AlertTriangle size={16} style={{ flexShrink: 0 }} />
-            <strong style={{ fontSize: 14, flex: 1 }}>
-              {missingCheckouts.length} {t.dashboard.missingCheckout}
-            </strong>
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {missingCheckouts.map(w => (
-              <div key={w.workerEntityId} onClick={() => navigate(`/workers/${w.workerEntityId}`)} className="alert-token">
-                <span style={{ fontWeight: 600, color: 'var(--text)' }}>{w.workerName}</span>
-                <span style={{ color: 'var(--text-muted)' }}>·</span>
-                <span style={{ color: 'var(--danger)', fontWeight: 700 }}>{w.hoursAgo}h</span>
-                <span style={{ color: 'var(--text-muted)' }}>({fmtCheckInTime(w.checkInTime)} girdi)</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Stat cards */}
       <div className="stats-grid">
         <StatCard value={totalWorkers} label={t.dashboard.totalWorkers}
@@ -704,34 +676,6 @@ export function DashboardPage() {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div className="card">
-            <div className="card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <h3>{t.dashboard.pendingOTTitle}</h3>
-              <button className="btn btn--ghost btn--sm" onClick={() => navigate('/overtime')} style={{ fontSize: 12 }}>
-                {t.dashboard.viewAll}
-              </button>
-            </div>
-            <div className="activity-list">
-              {allPendingOT.length === 0 ? (
-                <div style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>
-                  {t.dashboard.noPending}
-                </div>
-              ) : allPendingOT.slice(0, 5).map(req => {
-                const totalH  = req.items.reduce((s: number, i: any) => s + i.extraHours, 0)
-                const sentDate = new Date(req.sentAt).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' })
-                return (
-                  <div key={req.id} className="activity-item" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div className="activity-dot" style={{ background: req.status === 'pending' ? 'var(--warning)' : 'var(--info)', flexShrink: 0 }} />
-                    <span className="activity-text" style={{ flex: 1 }}>
-                      <strong>{req.foremanName}</strong> — {req.items.length} {t.overtime.workerCount}, {totalH}h
-                    </span>
-                    <span className="activity-time" style={{ flexShrink: 0 }}>{sentDate}</span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
           <div className="card">
             <div className="card-header"><h3>{t.dashboard.recentActivity}</h3></div>
             <div className="activity-list">

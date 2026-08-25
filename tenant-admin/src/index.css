@@ -278,6 +278,10 @@ html, body, #root {
   box-shadow: var(--shadow);
   overflow: clip;
 }
+/* Cards that host an absolutely-positioned popover (e.g. the Workers page
+   filter panel's "Filters" dropdown) need this instead — plain .card clips
+   at the rounded corner, which would cut the popover off. */
+.card--overflow-visible { overflow: visible; }
 .card-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 12px 14px;
@@ -335,6 +339,113 @@ select option { background: var(--bg-surface); color: var(--text); }
 .search-input { min-width: 200px; max-width: 260px; }
 .filter-select { min-width: 132px; max-width: 190px; }
 .date-input { min-width: 130px; max-width: 160px; }
+
+/* ─── FILTER TOOLBAR (Workers page) ───
+   Compact, labeled controls instead of a raw row of native <select> elements:
+   search stays prominent, the 2-3 most-used filters become labeled pill
+   buttons, everything else lives behind the "Filters" popover so the bar
+   never grows past what fits comfortably in one line. */
+.filter-toolbar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.filter-search { position: relative; flex: 1 1 260px; min-width: 200px; max-width: 340px; }
+.filter-search svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: var(--text-muted); pointer-events: none; }
+.filter-search input { width: 100%; padding-left: 33px !important; }
+
+.filter-pill {
+  position: relative;
+  display: inline-flex; align-items: center;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  background: var(--bg-surface-2);
+  padding: 0 10px 0 12px;
+  gap: 6px;
+  transition: all var(--transition);
+}
+.filter-pill:hover { border-color: var(--border-strong); }
+.filter-pill--active { border-color: var(--primary); background: var(--primary-light); }
+.filter-pill__label {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em;
+  color: var(--text-muted); white-space: nowrap;
+}
+.filter-pill--active .filter-pill__label { color: var(--primary-text); }
+.filter-pill select {
+  appearance: none; -webkit-appearance: none; background: transparent; border: none; outline: none;
+  min-height: unset; width: auto; padding: 0; font-size: 12.5px; font-weight: 600; color: var(--text);
+  cursor: pointer; max-width: 130px; text-overflow: ellipsis;
+}
+.filter-pill--active select { color: var(--primary-text); }
+.filter-pill__chev { width: 12px; height: 12px; color: var(--text-muted); pointer-events: none; flex-shrink: 0; }
+
+.filter-more-btn {
+  position: relative;
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 34px; padding: 0 12px;
+  border-radius: 99px; border: 1px solid var(--border);
+  background: var(--bg-surface-2); color: var(--text-secondary);
+  font: inherit; font-size: 12.5px; font-weight: 650; cursor: pointer;
+}
+.filter-more-btn:hover { border-color: var(--border-strong); color: var(--text); }
+.filter-more-btn--active { border-color: var(--primary); background: var(--primary-light); color: var(--primary-text); }
+.filter-more-btn__count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  border-radius: 99px; background: var(--primary); color: #fff;
+  font-size: 10px; font-weight: 700;
+}
+.filter-popover {
+  position: absolute; top: calc(100% + 8px); right: 0; width: 300px;
+  background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg); padding: 14px; z-index: 20;
+  display: flex; flex-direction: column; gap: 12px;
+  cursor: default; text-align: left;
+}
+.filter-popover__field label {
+  display: block; font-size: 11px; font-weight: 600; color: var(--text-muted); margin-bottom: 5px;
+}
+.filter-popover__row { display: flex; gap: 8px; }
+.filter-popover__row input { flex: 1; min-width: 0; }
+.filter-popover__check {
+  display: flex; align-items: center; gap: 7px; cursor: pointer; font-size: 12.5px;
+  padding: 7px 9px; border-radius: var(--radius-md); background: var(--bg-surface-2); border: 1px solid var(--border);
+}
+.filter-popover__check input { width: 14px; height: 14px; min-height: unset; }
+
+.active-filters {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  padding: 10px 14px; border-bottom: 1px solid var(--border); background: var(--bg-surface-2);
+}
+.active-filter-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 24px; padding: 0 6px 0 10px;
+  border-radius: 99px; background: var(--primary-light); color: var(--primary-text);
+  font-size: 11.5px; font-weight: 600;
+}
+.active-filter-chip button {
+  display: flex; align-items: center; justify-content: center;
+  width: 15px; height: 15px; border-radius: 50%;
+  background: transparent; border: none; color: inherit; cursor: pointer; opacity: .75;
+}
+.active-filter-chip button:hover { opacity: 1; background: rgba(255,255,255,0.15); }
+.active-filters .clear-all-link {
+  font-size: 11.5px; color: var(--text-muted); background: transparent; border: none; cursor: pointer;
+  text-decoration: underline; margin-left: 2px;
+}
+
+/* ─── BULK ACTION BAR (Workers page) ─── */
+.bulk-action-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 14px;
+  background: var(--primary-light);
+  border-bottom: 1px solid var(--border);
+}
+.bulk-action-bar__count { font-size: 12.5px; font-weight: 700; color: var(--primary-text); white-space: nowrap; }
+.bulk-action-bar__group { display: flex; align-items: center; gap: 6px; }
+.bulk-action-bar__group select { min-height: 30px; padding: 5px 8px; font-size: 12px; width: auto; }
+.bulk-action-bar__spacer { margin-left: auto; }
 
 /* ─── BUTTONS ─── */
 .btn {
@@ -797,6 +908,10 @@ tbody tr:hover { background: var(--bg-hover); }
   .filter-select { max-width: none; width: 100%; }
   .metric-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .form-grid { grid-template-columns: 1fr; }
+  .filter-search { max-width: none; flex-basis: 100%; }
+  .filter-popover { right: auto; left: 0; width: min(300px, 86vw); }
+  .bulk-action-bar { flex-direction: column; align-items: stretch; }
+  .bulk-action-bar__spacer { margin-left: 0; }
 }
 
 /* ─── SIDEBAR LIGHT MODE ─── */

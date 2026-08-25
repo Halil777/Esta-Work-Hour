@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query'
-import { Download, History, Plus, Upload } from 'lucide-react'
+import { Download, History, Plus, Upload, X } from 'lucide-react'
 import { useUiPreferences } from '../app/providers/useUiPreferences'
 import { foremansApi } from '../api/foremans'
 import { shiftSettingsApi } from '../api/shiftSettings'
@@ -21,6 +21,7 @@ import { WorkerMetricsStrip } from '../components/workers/WorkerMetricsStrip'
 import { WorkerTerminationModal } from '../components/workers/WorkerTerminationModal'
 import { WorkersFilterPanel } from '../components/workers/WorkersFilterPanel'
 import { useTranslation } from '../i18n/useTranslation'
+import { MOBILE_ROLES, WORKER_STATUSES } from '../domain/workerMeta'
 import type { WorkerStatus } from '../types/tenant'
 import { todayIso } from '../utils/dateTime'
 import { useDebouncedValue } from '../utils/useDebouncedValue'
@@ -50,6 +51,13 @@ export function WorkersPage() {
   const [showReportHistory, setShowReportHistory] = useState(false)
   const [credentialWorker, setCredentialWorker] = useState<WorkerApi | null>(null)
   const [terminateWorker, setTerminateWorker] = useState<WorkerApi | null>(null)
+
+  // Bulk selection — scoped to whatever the current filters show. Cleared
+  // automatically below whenever the filters change, so a selection never
+  // silently carries over rows that have scrolled out of view.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkStatus, setBulkStatus] = useState<WorkerStatus>('Active')
+  const [bulkRole, setBulkRole] = useState<MobileRole>('worker')
 
   const { data: foremans = [] } = useQuery({
     queryKey: ['foremans'],
@@ -132,6 +140,45 @@ export function WorkersPage() {
     },
   })
 
+  // Bulk status/role change reuses the same single-worker PATCH the edit
+  // modal calls — every field on it is optional, so a payload with just
+  // `{ status }` or `{ mobileRole }` is a valid partial update. Running it
+  // per selected id keeps this a pure frontend feature with no new backend
+  // endpoint needed.
+  const bulkStatusMutation = useMutation({
+    mutationFn: (ids: string[]) =>
+      Promise.all(ids.map(id => workersApi.update(id, { status: bulkStatus }, adminName))),
+    onSuccess: () => { setSelectedIds(new Set()); invalidate() },
+  })
+
+  const bulkRoleMutation = useMutation({
+    mutationFn: (ids: string[]) =>
+      Promise.all(ids.map(id => workersApi.update(id, { mobileRole: bulkRole }, adminName))),
+    onSuccess: () => { setSelectedIds(new Set()); invalidate() },
+  })
+
+  const toggleSelect = (workerId: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(workerId)) next.delete(workerId); else next.add(workerId)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    setSelectedIds(prev => {
+      const allSelected = workers.length > 0 && workers.every(w => prev.has(w.id))
+      return allSelected ? new Set() : new Set(workers.map(w => w.id))
+    })
+  }
+
+  // Selection is scoped to "what's currently on screen" — when the filters
+  // change the set of visible rows, a stale selection would silently apply
+  // bulk actions to workers the admin can no longer see, so clear it.
+  useEffect(() => {
+    setSelectedIds(new Set())
+  }, [debouncedSearch, mesaiSistemi, statusFilter, foremanFilter, roleFilter, shiftFilter, startDate, endDate, noScanFilter, hasScanFilter])
+
   const activeFilterCount = [
     search,
     mesaiSistemi !== 'all',
@@ -170,6 +217,14 @@ export function WorkersPage() {
     setStatusFilter('Active')
     setNoScanFilter(false)
     setHasScanFilter(false)
+  }
+
+  const statusLabel = (status: WorkerStatus) => t.status[status.toLowerCase() as keyof typeof t.status] ?? status
+  const roleLabelMap: Record<string, string> = {
+    worker: t.workers.roleWorker,
+    foreman: t.workers.roleForeman,
+    site_chief: t.workers.roleSiteChief,
+    section_chief: t.workers.roleSectionChief,
   }
 
   return (
@@ -234,7 +289,7 @@ export function WorkersPage() {
 
       <WorkerMetricsStrip workers={workers} lifecycleSummary={lifecycleSummary} />
 
-      <div className="card">
+      <div className="card card--overflow-visible">
         <WorkersFilterPanel
           search={search}
           onSearchChange={setSearch}
@@ -261,11 +316,67 @@ export function WorkersPage() {
           searchPlaceholder={t.workers.searchPlaceholder}
           allLabel={t.common.all}
           totalCountLabel={t.workers.totalCount}
-          statusLabel={status => t.status[status.toLowerCase() as keyof typeof t.status] ?? status}
+          statusLabel={statusLabel}
           onClearFilters={clearFilters}
           onApplyTodayHasScan={applyTodayHasScan}
           onApplyActiveWorkers={applyActiveWorkers}
         />
+
+        {selectedIds.size > 0 && (
+          <div className="bulk-action-bar">
+            <span className="bulk-action-bar__count">
+              {t.workers.bulkSelected.replace('{{n}}', String(selectedIds.size))}
+            </span>
+
+            <button
+              className="btn btn--secondary btn--sm"
+              type="button"
+              onClick={() => exportWorkersToExcel(workers.filter(w => selectedIds.has(w.id)))}
+            >
+              <Download size={13} /> {t.workers.bulkExport}
+            </button>
+
+            <div className="bulk-action-bar__group">
+              <select value={bulkStatus} onChange={e => setBulkStatus(e.target.value as WorkerStatus)}>
+                {WORKER_STATUSES.map(status => (
+                  <option key={status} value={status}>{statusLabel(status)}</option>
+                ))}
+              </select>
+              <button
+                className="btn btn--secondary btn--sm"
+                type="button"
+                disabled={bulkStatusMutation.isPending}
+                onClick={() => bulkStatusMutation.mutate(Array.from(selectedIds))}
+              >
+                {t.common.apply}
+              </button>
+            </div>
+
+            <div className="bulk-action-bar__group">
+              <select value={bulkRole} onChange={e => setBulkRole(e.target.value as MobileRole)}>
+                {MOBILE_ROLES.map(role => (
+                  <option key={role} value={role}>{roleLabelMap[role] ?? role}</option>
+                ))}
+              </select>
+              <button
+                className="btn btn--secondary btn--sm"
+                type="button"
+                disabled={bulkRoleMutation.isPending}
+                onClick={() => bulkRoleMutation.mutate(Array.from(selectedIds))}
+              >
+                {t.common.apply}
+              </button>
+            </div>
+
+            <button
+              className="btn btn--ghost btn--sm bulk-action-bar__spacer"
+              type="button"
+              onClick={() => setSelectedIds(new Set())}
+            >
+              <X size={12} /> {t.workers.bulkDeselect}
+            </button>
+          </div>
+        )}
 
         <WorkerDirectoryTable
           workers={workers}
@@ -277,6 +388,9 @@ export function WorkersPage() {
           onCredential={setCredentialWorker}
           onEdit={setEditWorker}
           onTerminate={setTerminateWorker}
+          selectedIds={selectedIds}
+          onToggleSelect={toggleSelect}
+          onToggleSelectAll={toggleSelectAll}
         />
       </div>
 

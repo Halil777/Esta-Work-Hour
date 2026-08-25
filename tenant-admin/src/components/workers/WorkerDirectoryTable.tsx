@@ -15,6 +15,9 @@ type WorkerDirectoryTableProps = {
   onCredential: (worker: WorkerApi) => void
   onEdit: (worker: WorkerApi) => void
   onTerminate: (worker: WorkerApi) => void
+  selectedIds: Set<string>
+  onToggleSelect: (workerId: string) => void
+  onToggleSelectAll: () => void
 }
 
 export function WorkerDirectoryTable({
@@ -27,8 +30,12 @@ export function WorkerDirectoryTable({
   onCredential,
   onEdit,
   onTerminate,
+  selectedIds,
+  onToggleSelect,
+  onToggleSelectAll,
 }: WorkerDirectoryTableProps) {
   const { t } = useTranslation()
+  const allSelected = workers.length > 0 && workers.every(w => selectedIds.has(w.id))
   return (
     <div className="card-body card-body--p0">
       {Boolean(error) && (
@@ -40,6 +47,15 @@ export function WorkerDirectoryTable({
         <table>
           <thead>
             <tr>
+              <th style={{ width: 32 }}>
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={onToggleSelectAll}
+                  style={{ width: 14, height: 14, minHeight: 'unset' }}
+                  title={t.common.all}
+                />
+              </th>
               <th>{t.workers.regNo}</th>
               <th>{t.workers.name}</th>
               <th>{t.workerDetail.checkIn} / {t.workerDetail.checkOut}</th>
@@ -52,9 +68,9 @@ export function WorkerDirectoryTable({
           </thead>
           <tbody>
             {isLoading ? (
-              <tr><td colSpan={8}><div className="empty-state"><p>{loadingText}</p></div></td></tr>
+              <tr><td colSpan={9}><div className="empty-state"><p>{loadingText}</p></div></td></tr>
             ) : workers.length === 0 ? (
-              <tr><td colSpan={8}><div className="empty-state"><Search size={32} /><p>{noDataText}</p></div></td></tr>
+              <tr><td colSpan={9}><div className="empty-state"><Search size={32} /><p>{noDataText}</p></div></td></tr>
             ) : workers.map(worker => (
               <WorkerDirectoryRow
                 key={worker.id}
@@ -63,6 +79,8 @@ export function WorkerDirectoryTable({
                 onCredential={onCredential}
                 onEdit={onEdit}
                 onTerminate={onTerminate}
+                selected={selectedIds.has(worker.id)}
+                onToggleSelect={onToggleSelect}
               />
             ))}
           </tbody>
@@ -78,6 +96,8 @@ type WorkerDirectoryRowProps = {
   onCredential: (worker: WorkerApi) => void
   onEdit: (worker: WorkerApi) => void
   onTerminate: (worker: WorkerApi) => void
+  selected: boolean
+  onToggleSelect: (workerId: string) => void
 }
 
 function WorkerDirectoryRow({
@@ -86,6 +106,8 @@ function WorkerDirectoryRow({
   onCredential,
   onEdit,
   onTerminate,
+  selected,
+  onToggleSelect,
 }: WorkerDirectoryRowProps) {
   const { t } = useTranslation()
   const { variant: statusVariant } = statusBadge(worker.status)
@@ -112,7 +134,15 @@ function WorkerDirectoryRow({
   const avatarText = worker.name.trim().slice(0, 1).toUpperCase() || 'I'
 
   return (
-    <tr>
+    <tr style={selected ? { background: 'var(--primary-light)' } : undefined}>
+      <td>
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={() => onToggleSelect(worker.id)}
+          style={{ width: 14, height: 14, minHeight: 'unset' }}
+        />
+      </td>
       <td className="td-mono" style={{ fontSize: 11 }}>{worker.workerId}</td>
       <td>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
