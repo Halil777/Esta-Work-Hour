@@ -25,6 +25,19 @@ export class AdminInboxService {
    * makes each time it loads or refreshes.
    */
   async getInbox(tenantId?: string) {
+    // AdminJwtGuard always populates adminUser (or rejects the request
+    // before this runs), so tenantId is present in practice — this guard is
+    // just to satisfy strict typing and fail closed (nothing shown) rather
+    // than crash if that ever isn't true.
+    if (!tenantId) {
+      return {
+        cardReports: [],
+        extraHours: [],
+        staleDevices: [],
+        counts: { cardReports: 0, extraHours: 0, staleDevices: 0, total: 0 },
+      };
+    }
+
     const [pendingCardReports, extraHoursAll, devices] = await Promise.all([
       this.cardReportsService.findAll(tenantId, 'pending'),
       this.extraHoursService.getAllRequests({ tenantId }),
