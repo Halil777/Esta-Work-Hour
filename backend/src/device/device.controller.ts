@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Body, Req, UseGuards, HttpCode,
+  Controller, Get, Post, Body, Param, Req, UseGuards, HttpCode,
   UnauthorizedException, NotFoundException, BadRequestException,
 } from '@nestjs/common';
 import { CardReportsService } from '../card-reports/card-reports.service';
@@ -12,6 +12,8 @@ import { AttendanceEventsService } from '../attendance-events/attendance-events.
 import { SyncEventsDto } from '../attendance-events/dto/sync-events.dto';
 import { ScannerDevicesService } from '../scanner-devices/scanner-devices.service';
 import { TenantsService } from '../tenants/tenants.service';
+import { AttendanceAnomaliesService } from '../attendance-anomalies/attendance-anomalies.service';
+import { WorkersCrudService } from '../workers/workers-crud.service';
 import { DeviceGuard } from './device.guard';
 
 type DeviceContext = {
@@ -35,6 +37,8 @@ export class DeviceController {
     private readonly scannerDevicesService: ScannerDevicesService,
     private readonly tenantsService: TenantsService,
     private readonly cardReportsService: CardReportsService,
+    private readonly attendanceAnomaliesService: AttendanceAnomaliesService,
+    private readonly workersCrudService: WorkersCrudService,
   ) {}
 
   /**
@@ -99,7 +103,7 @@ export class DeviceController {
     const { tenantId } = req.device as DeviceContext;
     const workers = await this.workerRepo.find({
       where: { tenantId },
-      select: ['id', 'workerId', 'name', 'profession', 'brigadeName', 'status', 'phone', 'hireDate', 'nfcCardUid'],
+      select: ['id', 'workerId', 'name', 'profession', 'brigadeName', 'status', 'phone', 'hireDate', 'nfcCardUid', 'shift'],
       order: { name: 'ASC' },
     });
     return workers.map(w => ({
@@ -113,7 +117,63 @@ export class DeviceController {
       phone: w.phone,
       hireDate: w.hireDate,
       nfcCardUid: w.nfcCardUid,
+      shift: w.shift,
     }));
+  }
+
+  /**
+   * Home-screen stats + not-scanned shift alerts, computed tenant-wide on the
+   * server. Every device polls this same endpoint instead of computing
+   * "who scanned" from its own local history, so a worker who scanned on
+   * device A is never wrongly shown as not-scanned on device B, and the
+   * not-scanned banner shows identically on every device for the tenant
+   * until it resolves.
+   */
+  @UseGuards(DeviceGuard)
+  @Get('shift-alerts')
+  async getShiftAlerts(@Req() req: any) {
+    const { tenantId } = req.device as DeviceContext;
+    const [alerts, stats] = await Promise.all([
+      this.attendanceAnomaliesService.getShiftAlerts(tenantId),
+      this.attendanceService.getTodayStats(tenantId),
+    ]);
+    return { ...alerts, ...stats };
+  }
+
+  /**
+   * Operator changes a worker's day/night shift assignment from the device.
+   * Reuses the normal worker-update path so the change lands in the same
+   * audit trail the admin panel already shows on WorkerDetailPage — no
+   * separate notification channel needed.
+   */
+  @UseGuards(DeviceGuard)
+  @Post('workers/:workerId/shift')
+  async changeWorkerShift(
+    @Req() req: any,
+    @Param('workerId') workerId: string,
+    @Body('shift') shift: string,
+  ) {
+    const ctx = req.device as DeviceContext;
+    if (shift !== 'day' && shift !== 'night') {
+      throw new BadRequestException('shift "day" ýa-da "night" bolmaly');
+    }
+
+    const worker = await this.workerRepo.findOne({
+      where: { workerId, tenantId: ctx.tenantId },
+    });
+    if (!worker) throw new NotFoundException('Işçi tapylmady');
+
+    let changedBy = ctx.deviceLabel || 'NFC Device';
+    if (ctx.workerEntityId) {
+      const operator = await this.workerRepo.findOne({
+        where: { id: ctx.workerEntityId },
+        select: ['name'],
+      });
+      if (operator?.name) changedBy = `${operator.name} (${ctx.deviceLabel})`;
+    }
+
+    const updated = await this.workersCrudService.update(worker.id, { shift: shift as 'day' | 'night' }, changedBy);
+    return { id: updated.id, workerId: updated.workerId, name: updated.name, shift: updated.shift };
   }
 
   /**

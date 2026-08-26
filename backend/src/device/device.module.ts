@@ -8,6 +8,8 @@ import { TenantsModule } from '../tenants/tenants.module';
 import { AttendanceEventsModule } from '../attendance-events/attendance-events.module';
 import { ScannerDevicesModule } from '../scanner-devices/scanner-devices.module';
 import { CardReportsModule } from '../card-reports/card-reports.module';
+import { AttendanceAnomaliesModule } from '../attendance-anomalies/attendance-anomalies.module';
+import { WorkersModule } from '../workers/workers.module';
 
 @Module({
   imports: [
@@ -16,6 +18,8 @@ import { CardReportsModule } from '../card-reports/card-reports.module';
     AttendanceEventsModule,
     ScannerDevicesModule,
     CardReportsModule,
+    AttendanceAnomaliesModule,
+    WorkersModule,
   ],
   controllers: [DeviceController],
   providers: [DeviceGuard],

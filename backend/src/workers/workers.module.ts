@@ -28,5 +28,6 @@ import { CardAssignmentHistoryModule } from '../card-assignment-history/card-ass
     WorkersImportService,
     WorkersExportService,
   ],
+  exports: [WorkersCrudService],
 })
 export class WorkersModule {}

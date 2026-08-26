@@ -16,5 +16,6 @@ import { AttendanceAnomaliesController } from './attendance-anomalies.controller
   ],
   providers: [AttendanceAnomaliesService],
   controllers: [AttendanceAnomaliesController],
+  exports: [AttendanceAnomaliesService],
 })
 export class AttendanceAnomaliesModule {}

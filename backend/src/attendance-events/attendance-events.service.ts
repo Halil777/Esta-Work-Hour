@@ -1,9 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, Not } from 'typeorm';
 import * as XLSX from 'xlsx';
 import { AttendanceEvent, EventType } from './attendance-event.entity';
-import { Worker } from '../workers/worker.entity';
+import { Worker, WorkerStatus } from '../workers/worker.entity';
 import { SyncEventsDto } from './dto/sync-events.dto';
 import { APP_TZ } from '../common/date-utils';
 import { LateArrivalsService } from './late-arrivals.service';
@@ -347,6 +347,34 @@ export class AttendanceEventsService {
       days: correctedDays,
       totalMs: correctedTotalMs,
     };
+  }
+
+  /**
+   * Total active workforce + how many of them have scanned in (CHECK_IN) today,
+   * scoped to the tenant. Used by the NFC device app's home-screen stats row —
+   * this is a plain tenant-wide server computation, so every device polling it
+   * sees the same numbers regardless of which physical device a worker scanned
+   * their card on (no per-device "scanned" state to keep in sync).
+   */
+  async getTodayStats(tenantId: string): Promise<{ totalActive: number; scannedToday: number }> {
+    const totalActive = await this.workerRepo.count({
+      where: { tenantId, status: Not(WorkerStatus.Terminated) as any },
+    });
+
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    const rows: { employeeNumber: string }[] = await this.repo.query(
+      `SELECT DISTINCT ae."employeeNumber"
+       FROM attendance_events ae
+       INNER JOIN workers w ON w."workerId" = ae."employeeNumber" AND w."tenantId" = $2
+       WHERE DATE(to_timestamp(ae."eventTime" / 1000.0) AT TIME ZONE '${APP_TZ}') = $1
+         AND ae."eventType" = 'CHECK_IN'
+         AND ae."employeeNumber" IS NOT NULL AND ae."employeeNumber" != ''`,
+      [todayStr, tenantId],
+    );
+
+    return { totalActive, scannedToday: rows.length };
   }
 
   async exportEventsExcel(date?: string, tenantId?: string): Promise<Buffer> {
