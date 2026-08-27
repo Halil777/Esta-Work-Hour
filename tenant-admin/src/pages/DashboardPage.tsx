@@ -667,7 +667,7 @@ export function DashboardPage() {
   const pendingOTCount = pendingOT.length + seenOT.length
   const attendanceRate = totalWorkers > 0 ? Math.round((presentToday / totalWorkers) * 100) : 0
   const riskCount     = lateArrivals.length + missingCheckouts.length + pendingOTCount
-  const todayLabel    = new Date().toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' })
+  const todayLabel    = new Date().toLocaleDateString('tr-TR', { timeZone: 'Europe/Moscow', day: '2-digit', month: 'long', year: 'numeric' })
 
   const last7 = trendChart.slice(-7)
   const totalSpark   = last7.map(d => d.total)
@@ -827,7 +827,7 @@ export function DashboardPage() {
                   const entity = entityMap[log.entityType] ?? log.entityType
                   const action = actionMap[log.action] ?? log.action
                   const name = log.after?.name ?? log.before?.name ?? ''
-                  const time = new Date(log.changedAt).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+                  const time = new Date(log.changedAt).toLocaleString('tr-TR', { timeZone: 'Europe/Moscow', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
                   return (
                     <div className="activity-feed2__item" key={log.id}>
                       <div className="activity-feed2__rail">

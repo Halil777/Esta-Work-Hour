@@ -180,10 +180,6 @@ export class TenantsService {
     return { success: true };
   }
 
-  async findByDeviceToken(token: string): Promise<Tenant | null> {
-    return this.repo.findOneBy({ deviceToken: token, isActive: true });
-  }
-
   async regenerateDeviceToken(id: string): Promise<{ deviceToken: string }> {
     const tenant = await this.repo.findOneBy({ id });
     if (!tenant) throw new NotFoundException(`Tenant ${id} tapylmady`);

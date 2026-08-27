@@ -19,7 +19,7 @@ export function AttendanceAnomalyBanner() {
   if (!data || data.count === 0 || dismissed) return null
 
   const fmtTime = (ms: number) =>
-    ms ? new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'
+    ms ? new Date(ms).toLocaleTimeString([], { timeZone: 'Europe/Moscow', hour: '2-digit', minute: '2-digit' }) : '—'
 
   return (
     <div style={{

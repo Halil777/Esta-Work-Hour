@@ -9,7 +9,6 @@ import { Worker } from './workers/worker.entity';
 import { AttendanceEvent } from './attendance-events/attendance-event.entity';
 import { AuditLog } from './audit-log/audit-log.entity';
 import { Foreman } from './foremans/foreman.entity';
-import { Brigadir } from './brigadirs/brigadir.entity';
 import { MobileCredential } from './mobile-auth/mobile-credential.entity';
 import { ExtraHoursRequest } from './extra-hours/extra-hours-request.entity';
 import { ExtraHoursRequestItem } from './extra-hours/extra-hours-request-item.entity';
@@ -28,7 +27,7 @@ export const AppDataSource = new DataSource({
   password: process.env.DB_PASSWORD || 'postgres',
   database: process.env.DB_NAME || 'workhour',
   entities: [
-    Worker, AttendanceEvent, AuditLog, Foreman, Brigadir,
+    Worker, AttendanceEvent, AuditLog, Foreman,
     MobileCredential, ExtraHoursRequest, ExtraHoursRequestItem,
     ShiftSetting, AbsenceNote, AttendanceOverride, ReportConfig,
     WorkerLifecycleEvent, WorkerLifecycleReport,

@@ -198,13 +198,4 @@ export const adjustmentsApi = {
     return apiFetch<void>(`/admin/work-adjustments/${id}${q}`, { method: 'DELETE' })
   },
 
-  getLogs: (params: { workerEntityId?: string; month?: string; page?: number }) => {
-    const q = new URLSearchParams()
-    if (params.workerEntityId) q.set('workerEntityId', params.workerEntityId)
-    if (params.month) q.set('month', params.month)
-    if (params.page) q.set('page', String(params.page))
-    return apiFetch<{ data: AdjustmentLog[]; total: number }>(
-      `/admin/work-adjustments/logs?${q}`,
-    )
-  },
 }

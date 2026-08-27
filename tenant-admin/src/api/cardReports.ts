@@ -23,9 +23,6 @@ export const cardReportsApi = {
     return apiFetch<CardReport[]>(`/admin/card-reports${params}`);
   },
 
-  pendingCount: () =>
-    apiFetch<{ count: number }>('/admin/card-reports/pending-count'),
-
   // workerId is the worker's business tab number (Worker.workerId), matching
   // how suggestedWorkerId is stored on the report — not the internal uuid.
   // Passing it always relinks the card to that worker; omitting it falls

@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { Download, Sun, Moon, X, AlertCircle } from "lucide-react";
+import { Download, Sun, Moon, AlertCircle } from "lucide-react";
 import { absenceNotesApi } from "../api/absenceNotes";
+import { AppModal } from "../components/ui/AppModal";
 import { useUiPreferences } from "../app/providers/useUiPreferences";
 import { useTranslation } from "../i18n/useTranslation";
 
@@ -52,64 +53,12 @@ function NoteModal({
   };
 
   return (
-    <div
-      className="modal-overlay"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="modal-box" style={{ maxWidth: 420 }}>
-        <div className="modal-header">
-          <h3>{t.lateArrivals.reasonTitle} — {workerName}</h3>
-          <button className="btn btn--ghost btn--sm" onClick={onClose}>
-            <X size={14} />
-          </button>
-        </div>
-        <div className="modal-body">
-          {err && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "8px 12px",
-                background: "var(--danger-light)",
-                borderRadius: 6,
-                marginBottom: 10,
-                color: "var(--danger)",
-                fontSize: 13,
-              }}
-            >
-              <AlertCircle size={14} /> {err}
-            </div>
-          )}
-          <p
-            style={{
-              fontSize: 12,
-              color: "var(--text-muted)",
-              marginBottom: 8,
-            }}
-          >
-            {t.lateArrivals.reasonHint}
-          </p>
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder={t.lateArrivals.reasonPlaceholder}
-            rows={4}
-            style={{
-              width: "100%",
-              padding: "8px 12px",
-              borderRadius: 8,
-              border: "1px solid var(--border)",
-              background: "var(--card2)",
-              color: "var(--text)",
-              fontSize: 13,
-              resize: "vertical",
-            }}
-          />
-        </div>
-        <div className="modal-footer">
+    <AppModal
+      title={<>{t.lateArrivals.reasonTitle} — {workerName}</>}
+      onClose={onClose}
+      maxWidth={420}
+      footer={
+        <>
           <button className="btn btn--secondary btn--sm" onClick={onClose}>
             {t.common.close}
           </button>
@@ -120,9 +69,52 @@ function NoteModal({
           >
             {saving ? t.common.saving : t.common.save}
           </button>
+        </>
+      }
+    >
+      {err && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "8px 12px",
+            background: "var(--danger-light)",
+            borderRadius: 6,
+            marginBottom: 10,
+            color: "var(--danger)",
+            fontSize: 13,
+          }}
+        >
+          <AlertCircle size={14} /> {err}
         </div>
-      </div>
-    </div>
+      )}
+      <p
+        style={{
+          fontSize: 12,
+          color: "var(--text-muted)",
+          marginBottom: 8,
+        }}
+      >
+        {t.lateArrivals.reasonHint}
+      </p>
+      <textarea
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        placeholder={t.lateArrivals.reasonPlaceholder}
+        rows={4}
+        style={{
+          width: "100%",
+          padding: "8px 12px",
+          borderRadius: 8,
+          border: "1px solid var(--border)",
+          background: "var(--card2)",
+          color: "var(--text)",
+          fontSize: 13,
+          resize: "vertical",
+        }}
+      />
+    </AppModal>
   );
 }
 

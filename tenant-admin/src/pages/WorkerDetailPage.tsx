@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, LogIn, LogOut, Sun, Moon, Edit2, X, AlertCircle } from "lucide-react";
+import { ArrowLeft, LogIn, LogOut, Sun, Moon, Edit2, AlertCircle } from "lucide-react";
 import { attendanceApi, type DaySummary } from "../api/attendance";
 import { attendanceOverridesApi, type AttendanceOverride } from "../api/attendanceOverrides";
 import { absenceNotesApi, type AbsenceNote } from "../api/absenceNotes";
 import { cardAssignmentHistoryApi } from "../api/cardAssignmentHistory";
 import { useUiPreferences } from "../app/providers/useUiPreferences";
 import { useTranslation } from "../i18n/useTranslation";
+import { AppModal } from "../components/ui/AppModal";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -40,7 +41,7 @@ function fmtMs(ms: number): string {
 }
 
 function fmtTime(ms: number): string {
-  return new Date(ms).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
+  return new Date(ms).toLocaleTimeString("tr-TR", { timeZone: "Europe/Moscow", hour: "2-digit", minute: "2-digit" });
 }
 
 // ─── types ──────────────────────────────────────────────────────────────────
@@ -184,39 +185,12 @@ function OverrideModal({ workerEntityId, date, existing, actualCheckIn, actualCh
   });
 
   return (
-    <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal-box" style={{ maxWidth: 400 }}>
-        <div className="modal-header">
-          <h3>{t.workerDetail.editTitle} — {date}</h3>
-          <button className="btn btn--ghost btn--sm" onClick={onClose}><X size={14} /></button>
-        </div>
-        <div className="modal-body">
-          {err && (
-            <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 12px", background: "var(--danger-light)", borderRadius: 6, marginBottom: 10, color: "var(--danger)", fontSize: 13 }}>
-              <AlertCircle size={14} /> {err}
-            </div>
-          )}
-          {(actualCheckIn || actualCheckOut) && (
-            <div style={{ padding: "8px 12px", background: "var(--card2)", borderRadius: 6, marginBottom: 10, fontSize: 12, color: "var(--text-muted)" }}>
-              {t.workerDetail.actualLabel}: {actualCheckIn ? fmtTime(actualCheckIn) : "—"} → {actualCheckOut ? fmtTime(actualCheckOut) : "—"}
-            </div>
-          )}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <div className="form-row">
-              <label className="form-label">{t.workerDetail.checkIn}</label>
-              <input type="time" value={inTime} onChange={e => setInTime(e.target.value)} />
-            </div>
-            <div className="form-row">
-              <label className="form-label">{t.workerDetail.checkOut}</label>
-              <input type="time" value={outTime} onChange={e => setOutTime(e.target.value)} />
-            </div>
-          </div>
-          <div className="form-row" style={{ marginTop: 8 }}>
-            <label className="form-label">{t.workerDetail.noteLabel}</label>
-            <input value={note} onChange={e => setNote(e.target.value)} placeholder={t.workerDetail.reasonCol} />
-          </div>
-        </div>
-        <div className="modal-footer">
+    <AppModal
+      title={<>{t.workerDetail.editTitle} — {date}</>}
+      onClose={onClose}
+      maxWidth={400}
+      footer={
+        <>
           {existing && (
             <button className="btn btn--ghost btn--sm" style={{ color: "var(--danger)", marginRight: "auto" }}
               onClick={() => remove.mutate()} disabled={remove.isPending}>
@@ -227,9 +201,34 @@ function OverrideModal({ workerEntityId, date, existing, actualCheckIn, actualCh
           <button className="btn btn--primary btn--sm" onClick={() => save.mutate()} disabled={save.isPending}>
             {save.isPending ? t.common.saving : t.common.save}
           </button>
+        </>
+      }
+    >
+      {err && (
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 12px", background: "var(--danger-light)", borderRadius: 6, marginBottom: 10, color: "var(--danger)", fontSize: 13 }}>
+          <AlertCircle size={14} /> {err}
+        </div>
+      )}
+      {(actualCheckIn || actualCheckOut) && (
+        <div style={{ padding: "8px 12px", background: "var(--card2)", borderRadius: 6, marginBottom: 10, fontSize: 12, color: "var(--text-muted)" }}>
+          {t.workerDetail.actualLabel}: {actualCheckIn ? fmtTime(actualCheckIn) : "—"} → {actualCheckOut ? fmtTime(actualCheckOut) : "—"}
+        </div>
+      )}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <div className="form-row">
+          <label className="form-label">{t.workerDetail.checkIn}</label>
+          <input type="time" value={inTime} onChange={e => setInTime(e.target.value)} />
+        </div>
+        <div className="form-row">
+          <label className="form-label">{t.workerDetail.checkOut}</label>
+          <input type="time" value={outTime} onChange={e => setOutTime(e.target.value)} />
         </div>
       </div>
-    </div>
+      <div className="form-row" style={{ marginTop: 8 }}>
+        <label className="form-label">{t.workerDetail.noteLabel}</label>
+        <input value={note} onChange={e => setNote(e.target.value)} placeholder={t.workerDetail.reasonCol} />
+      </div>
+    </AppModal>
   );
 }
 
@@ -253,7 +252,7 @@ function CardHistoryPanel({ workerEntityId }: { workerEntityId: string }) {
         {history.map(h => (
           <div key={h.id} style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "baseline", fontSize: 12 }}>
             <span style={{ color: "var(--text-muted)", minWidth: 130 }}>
-              {new Date(h.createdAt).toLocaleString("tr-TR")}
+              {new Date(h.createdAt).toLocaleString("tr-TR", { timeZone: "Europe/Moscow" })}
             </span>
             <span style={{ color: h.action === "ASSIGNED" ? "#10B981" : "var(--danger)", fontWeight: 500 }}>
               {h.action === "ASSIGNED"

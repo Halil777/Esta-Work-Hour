@@ -141,8 +141,6 @@ export const workersApi = {
     return request<WorkerApi[]>(`/workers${q ? '?' + q : ''}`);
   },
 
-  get: (id: string) => request<WorkerApi>(`/workers/${id}`),
-
   create: (data: Partial<CreateWorkerPayload>, changedBy?: string) =>
     request<WorkerApi>('/workers', {
       method: 'POST',
@@ -163,12 +161,6 @@ export const workersApi = {
       body: JSON.stringify(data),
     }),
 
-  remove: (id: string, changedBy?: string) =>
-    request<void>(`/workers/${id}`, {
-      method: 'DELETE',
-      headers: changedBy ? { 'X-Admin-Name': changedBy } : {},
-    }),
-
   terminate: (id: string, data: TerminateWorkerPayload, changedBy?: string) =>
     request<WorkerApi>(`/workers/${id}/terminate`, {
       method: 'PATCH',
@@ -178,51 +170,6 @@ export const workersApi = {
       },
       body: JSON.stringify(data),
     }),
-
-  exportExcel: (params?: {
-    search?: string;
-    status?: string;
-    foremanId?: string;
-    mobileRole?: string;
-    mesaiSistemi?: string;
-    shift?: 'day' | 'night';
-    startDate?: string;
-    endDate?: string;
-    noScan?: boolean;
-    hasScan?: boolean;
-  }) => {
-    const token = localStorage.getItem('adminJwt');
-    const qs = new URLSearchParams();
-    if (params?.search) qs.set('search', params.search);
-    if (params?.status) qs.set('status', params.status);
-    if (params?.foremanId) qs.set('foremanId', params.foremanId);
-    if (params?.mobileRole) qs.set('mobileRole', params.mobileRole);
-    if (params?.mesaiSistemi) qs.set('mesaiSistemi', params.mesaiSistemi);
-    if (params?.shift) qs.set('shift', params.shift);
-    if (params?.startDate) qs.set('startDate', params.startDate);
-    if (params?.endDate) qs.set('endDate', params.endDate);
-    if (params?.noScan) qs.set('noScan', 'true');
-    if (params?.hasScan) qs.set('hasScan', 'true');
-    const q = qs.toString();
-    fetch(`/api/workers/export${q ? '?' + q : ''}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    })
-      .then(r => {
-        if (!r.ok) throw new Error(`Export failed: ${r.status}`);
-        return r.blob();
-      })
-      .then(blob => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `workers-${new Date().toISOString().split('T')[0]}.xlsx`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-      })
-      .catch(err => console.error('Export error:', err));
-  },
 
   importExcel: (file: File, changedBy?: string) => {
     const form = new FormData();

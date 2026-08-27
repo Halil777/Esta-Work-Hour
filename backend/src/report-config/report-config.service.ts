@@ -49,18 +49,6 @@ export class ReportConfigService {
     };
   }
 
-  async updateEmails(emails: string[], tenantId?: string): Promise<void> {
-    const cfg = await this.getSingleton(tenantId);
-    cfg.emailsJson = JSON.stringify(emails);
-    await this.repo.save(cfg);
-  }
-
-  async updateSchedules(schedules: ReportScheduleItem[], tenantId?: string): Promise<void> {
-    const cfg = await this.getSingleton(tenantId);
-    cfg.schedulesJson = JSON.stringify(schedules);
-    await this.repo.save(cfg);
-  }
-
   async updateScheduleLastSent(scheduleId: string, date: string, tenantId?: string): Promise<void> {
     const cfg = await this.getSingleton(tenantId);
     const schedules: ReportScheduleItem[] = JSON.parse(cfg.schedulesJson);

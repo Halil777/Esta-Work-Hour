@@ -11,12 +11,14 @@ import { useTranslation } from "../i18n/useTranslation";
 
 const fmtTime = (ts: number) =>
   new Date(Number(ts)).toLocaleString("ru-RU", {
+    timeZone: "Europe/Moscow",
     day: "2-digit", month: "2-digit", year: "numeric",
     hour: "2-digit", minute: "2-digit", second: "2-digit",
   });
 
 const fmtTimeShort = (ts: number) =>
   new Date(Number(ts)).toLocaleString("ru-RU", {
+    timeZone: "Europe/Moscow",
     hour: "2-digit", minute: "2-digit",
   });
 

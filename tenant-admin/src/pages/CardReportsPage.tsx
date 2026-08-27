@@ -227,7 +227,7 @@ export function CardReportsPage() {
                       {report.cardUid}
                     </span>
                     <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                      {new Date(report.createdAt).toLocaleString()}
+                      {new Date(report.createdAt).toLocaleString(undefined, { timeZone: 'Europe/Moscow' })}
                     </span>
                     {report.deviceLabel && (
                       <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
@@ -264,7 +264,7 @@ export function CardReportsPage() {
                   {report.status === 'resolved' && report.resolvedBy && (
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
                       ✓ {t.cardReports.resolvedBy}: {report.resolvedBy}
-                      {report.resolvedAt && ` · ${new Date(report.resolvedAt).toLocaleString()}`}
+                      {report.resolvedAt && ` · ${new Date(report.resolvedAt).toLocaleString(undefined, { timeZone: 'Europe/Moscow' })}`}
                     </div>
                   )}
                 </div>

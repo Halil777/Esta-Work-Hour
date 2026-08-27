@@ -7,6 +7,7 @@ import {
 import { useUiPreferences } from '../app/providers/useUiPreferences'
 import { useTranslation } from '../i18n/useTranslation'
 import { foremansApi, type ForemanApi } from '../api/foremans'
+import { AppModal } from '../components/ui/AppModal'
 import { workersApi, type WorkerApi } from '../api/workers'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -21,16 +22,19 @@ function Err({ msg }: { msg: string }) {
 function ConfirmModal({ msg, onConfirm, onClose }: { msg: string; onConfirm: () => void; onClose: () => void }) {
   const { t } = useTranslation()
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box" style={{ maxWidth: 340 }} onClick={e => e.stopPropagation()}>
-        <div className="modal-header"><h3>{t.foreman.confirmTitle}</h3><button className="btn btn--ghost btn--sm" onClick={onClose}><X size={14} /></button></div>
-        <div className="modal-body"><p style={{ fontSize: 14 }}>{msg}</p></div>
-        <div className="modal-footer">
+    <AppModal
+      title={t.foreman.confirmTitle}
+      onClose={onClose}
+      maxWidth={340}
+      footer={
+        <>
           <button className="btn btn--secondary btn--sm" onClick={onClose}>{t.common.no}</button>
           <button className="btn btn--primary btn--sm" style={{ background: 'var(--danger)' }} onClick={() => { onConfirm(); onClose(); }}>{t.common.yes}</button>
-        </div>
-      </div>
-    </div>
+        </>
+      }
+    >
+      <p style={{ fontSize: 14 }}>{msg}</p>
+    </AppModal>
   )
 }
 
@@ -65,47 +69,45 @@ function ForemanModal({ initial, onClose, onSave }: {
   }
 
   return (
-    <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="modal-box" style={{ maxWidth: 440 }}>
-        <div className="modal-header">
-          <h3>{initial ? t.foreman.edit : t.foreman.new}</h3>
-          <button className="btn btn--ghost btn--sm" onClick={onClose}><X size={14} /></button>
-        </div>
-        <div className="modal-body">
-          {err && <Err msg={err} />}
-          <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-            {(['manual', 'worker'] as const).map(m => (
-              <button key={m} className={`btn btn--sm ${mode === m ? 'btn--primary' : 'btn--secondary'}`} onClick={() => setMode(m)}>
-                {m === 'manual' ? t.foreman.manualEntry : t.foreman.fromWorkers}
-              </button>
-            ))}
-          </div>
-          {mode === 'worker' && (
-            <div className="form-row">
-              <label className="form-label">{t.foreman.selectWorker}</label>
-              <select onChange={e => handleWorkerPick(e.target.value)} defaultValue="">
-                <option value="">— {t.foreman.selectWorker} —</option>
-                {workers.map(w => <option key={w.id} value={w.id}>{w.name} ({w.workerId})</option>)}
-              </select>
-            </div>
-          )}
-          <div className="form-row">
-            <label className="form-label">{t.foreman.name} *</label>
-            <input value={name} onChange={e => setName(e.target.value)} placeholder={t.foreman.namePlaceholder} />
-          </div>
-          <div className="form-row">
-            <label className="form-label">{t.foreman.phone}</label>
-            <input value={phone ?? ''} onChange={e => setPhone(e.target.value)} placeholder="+993 65 000000" />
-          </div>
-        </div>
-        <div className="modal-footer">
+    <AppModal
+      title={initial ? t.foreman.edit : t.foreman.new}
+      onClose={onClose}
+      maxWidth={440}
+      footer={
+        <>
           <button className="btn btn--secondary btn--sm" onClick={onClose}>{t.common.cancel}</button>
           <button className="btn btn--primary btn--sm" onClick={handleSave} disabled={saving}>
             {saving ? t.common.saving : t.common.save}
           </button>
-        </div>
+        </>
+      }
+    >
+      {err && <Err msg={err} />}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+        {(['manual', 'worker'] as const).map(m => (
+          <button key={m} className={`btn btn--sm ${mode === m ? 'btn--primary' : 'btn--secondary'}`} onClick={() => setMode(m)}>
+            {m === 'manual' ? t.foreman.manualEntry : t.foreman.fromWorkers}
+          </button>
+        ))}
       </div>
-    </div>
+      {mode === 'worker' && (
+        <div className="form-row">
+          <label className="form-label">{t.foreman.selectWorker}</label>
+          <select onChange={e => handleWorkerPick(e.target.value)} defaultValue="">
+            <option value="">— {t.foreman.selectWorker} —</option>
+            {workers.map(w => <option key={w.id} value={w.id}>{w.name} ({w.workerId})</option>)}
+          </select>
+        </div>
+      )}
+      <div className="form-row">
+        <label className="form-label">{t.foreman.name} *</label>
+        <input value={name} onChange={e => setName(e.target.value)} placeholder={t.foreman.namePlaceholder} />
+      </div>
+      <div className="form-row">
+        <label className="form-label">{t.foreman.phone}</label>
+        <input value={phone ?? ''} onChange={e => setPhone(e.target.value)} placeholder="+993 65 000000" />
+      </div>
+    </AppModal>
   )
 }
 
@@ -155,76 +157,70 @@ function AssignWorkerModal({ foreman, onClose, onDone, adminName }: {
   }
 
   return (
-    <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="modal-box" style={{ maxWidth: 560 }}>
-        <div className="modal-header">
-          <h3>{t.foreman.assignTitle} — {foreman.name}</h3>
-          <button className="btn btn--ghost btn--sm" onClick={onClose}><X size={14} /></button>
-        </div>
-        <div className="modal-body">
-          {err && <Err msg={err} />}
+    <AppModal
+      title={<>{t.foreman.assignTitle} — {foreman.name}</>}
+      onClose={onClose}
+      maxWidth={560}
+      footer={<button className="btn btn--secondary btn--sm" onClick={onClose}>{t.common.close}</button>}
+    >
+      {err && <Err msg={err} />}
 
-          {(detail?.workers?.length ?? 0) > 0 && (
-            <div style={{ marginBottom: 14 }}>
-              <div className="text-xs text-muted fw-600" style={{ textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
-                {t.foreman.assignedSection} ({detail!.workers.length})
+      {(detail?.workers?.length ?? 0) > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          <div className="text-xs text-muted fw-600" style={{ textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+            {t.foreman.assignedSection} ({detail!.workers.length})
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 160, overflowY: 'auto' }}>
+            {detail!.workers.map(w => (
+              <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 6 }}>
+                <User size={13} color="#10B981" />
+                <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{w.name}</span>
+                <span className="td-muted" style={{ fontSize: 11 }}>{w.workerId} · {w.profession}</span>
+                <span className={`badge badge--dot ${w.mesaiSistemi === 'Aylık' ? 'badge--info' : 'badge--success'}`} style={{ fontSize: 10 }}>{(w.mesaiSistemi ?? 'Saatlik') === 'Aylık' ? t.workers.mesaiMonthly : t.workers.mesaiHourly}</span>
+                <button className="btn btn--ghost btn--sm" style={{ color: 'var(--danger)', padding: '2px 6px' }} disabled={loading}
+                  onClick={() => handleUnassign(w.id)} title={t.common.delete}><X size={12} /></button>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 160, overflowY: 'auto' }}>
-                {detail!.workers.map(w => (
-                  <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 6 }}>
-                    <User size={13} color="#10B981" />
-                    <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{w.name}</span>
-                    <span className="td-muted" style={{ fontSize: 11 }}>{w.workerId} · {w.profession}</span>
-                    <span className={`badge badge--dot ${w.mesaiSistemi === 'Aylık' ? 'badge--info' : 'badge--success'}`} style={{ fontSize: 10 }}>{(w.mesaiSistemi ?? 'Saatlik') === 'Aylık' ? t.workers.mesaiMonthly : t.workers.mesaiHourly}</span>
-                    <button className="btn btn--ghost btn--sm" style={{ color: 'var(--danger)', padding: '2px 6px' }} disabled={loading}
-                      onClick={() => handleUnassign(w.id)} title={t.common.delete}><X size={12} /></button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div>
-            <div className="text-xs text-muted fw-600" style={{ textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>{t.foreman.addWorkerSection}</div>
-            <div className="input-wrap" style={{ marginBottom: 8 }}>
-              <Search size={13} />
-              <input className="search-input" placeholder={t.foreman.workerSearchPlaceholder} value={search} onChange={e => setSearch(e.target.value)} />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, maxHeight: 260, overflowY: 'auto' }}>
-              {filtered.map(w => {
-                const isAssignedHere = assignedIds.has(w.id)
-                const isAssignedElsewhere = w.foremanId && w.foremanId !== foreman.id
-                return (
-                  <div key={w.id} style={{
-                    display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
-                    background: isAssignedHere ? 'rgba(16,185,129,0.06)' : isAssignedElsewhere ? 'var(--bg-surface-2)' : undefined,
-                    border: `1px solid ${isAssignedHere ? 'rgba(16,185,129,0.2)' : 'var(--border)'}`,
-                    borderRadius: 6, opacity: isAssignedElsewhere ? 0.5 : 1,
-                  }}>
-                    <User size={13} color={isAssignedHere ? '#10B981' : 'var(--text-muted)'} />
-                    <span style={{ flex: 1, fontSize: 13, fontWeight: isAssignedHere ? 600 : 400 }}>{w.name}</span>
-                    <span className="td-muted" style={{ fontSize: 11 }}>{w.workerId} · {w.profession}</span>
-                    <span className={`badge badge--dot ${(w.mesaiSistemi ?? 'Saatlik') === 'Aylık' ? 'badge--info' : 'badge--success'}`} style={{ fontSize: 10 }}>{(w.mesaiSistemi ?? 'Saatlik') === 'Aylık' ? t.workers.mesaiMonthly : t.workers.mesaiHourly}</span>
-                    {isAssignedHere ? (
-                      <span style={{ fontSize: 11, color: '#10B981' }}>{t.foreman.assignedLabel}</span>
-                    ) : isAssignedElsewhere ? (
-                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{t.foreman.otherForemanLabel}</span>
-                    ) : (
-                      <button className="btn btn--primary btn--sm" style={{ padding: '2px 10px', fontSize: 12 }}
-                        disabled={loading} onClick={() => handleAssign(w)}>+ {t.common.add}</button>
-                    )}
-                  </div>
-                )
-              })}
-              {filtered.length === 0 && <div className="empty-state" style={{ padding: 16 }}>{t.common.noData}</div>}
-            </div>
+            ))}
           </div>
         </div>
-        <div className="modal-footer">
-          <button className="btn btn--secondary btn--sm" onClick={onClose}>{t.common.close}</button>
+      )}
+
+      <div>
+        <div className="text-xs text-muted fw-600" style={{ textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>{t.foreman.addWorkerSection}</div>
+        <div className="input-wrap" style={{ marginBottom: 8 }}>
+          <Search size={13} />
+          <input className="search-input" placeholder={t.foreman.workerSearchPlaceholder} value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, maxHeight: 260, overflowY: 'auto' }}>
+          {filtered.map(w => {
+            const isAssignedHere = assignedIds.has(w.id)
+            const isAssignedElsewhere = w.foremanId && w.foremanId !== foreman.id
+            return (
+              <div key={w.id} style={{
+                display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
+                background: isAssignedHere ? 'rgba(16,185,129,0.06)' : isAssignedElsewhere ? 'var(--bg-surface-2)' : undefined,
+                border: `1px solid ${isAssignedHere ? 'rgba(16,185,129,0.2)' : 'var(--border)'}`,
+                borderRadius: 6, opacity: isAssignedElsewhere ? 0.5 : 1,
+              }}>
+                <User size={13} color={isAssignedHere ? '#10B981' : 'var(--text-muted)'} />
+                <span style={{ flex: 1, fontSize: 13, fontWeight: isAssignedHere ? 600 : 400 }}>{w.name}</span>
+                <span className="td-muted" style={{ fontSize: 11 }}>{w.workerId} · {w.profession}</span>
+                <span className={`badge badge--dot ${(w.mesaiSistemi ?? 'Saatlik') === 'Aylık' ? 'badge--info' : 'badge--success'}`} style={{ fontSize: 10 }}>{(w.mesaiSistemi ?? 'Saatlik') === 'Aylık' ? t.workers.mesaiMonthly : t.workers.mesaiHourly}</span>
+                {isAssignedHere ? (
+                  <span style={{ fontSize: 11, color: '#10B981' }}>{t.foreman.assignedLabel}</span>
+                ) : isAssignedElsewhere ? (
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{t.foreman.otherForemanLabel}</span>
+                ) : (
+                  <button className="btn btn--primary btn--sm" style={{ padding: '2px 10px', fontSize: 12 }}
+                    disabled={loading} onClick={() => handleAssign(w)}>+ {t.common.add}</button>
+                )}
+              </div>
+            )
+          })}
+          {filtered.length === 0 && <div className="empty-state" style={{ padding: 16 }}>{t.common.noData}</div>}
         </div>
       </div>
-    </div>
+    </AppModal>
   )
 }
 
@@ -249,34 +245,35 @@ function ImportModal({ onClose, onUpload }: {
   }
 
   return (
-    <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="modal-box" style={{ maxWidth: 400 }}>
-        <div className="modal-header"><h3>{t.foreman.importTitle}</h3><button className="btn btn--ghost btn--sm" onClick={onClose}><X size={14} /></button></div>
-        <div className="modal-body">
-          {!result ? (
-            <>
-              <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>
-                {t.foreman.importDesc}
-              </p>
-              {err && <Err msg={err} />}
-              <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={e => setFile(e.target.files?.[0] ?? null)} />
-              <div onClick={() => fileRef.current?.click()} style={{ border: '2px dashed var(--border)', borderRadius: 8, padding: '24px 16px', textAlign: 'center', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13, background: file ? 'var(--success-light)' : undefined }}>
-                {file ? <span style={{ color: 'var(--success)' }}>✓ {file.name}</span> : <span><Upload size={20} style={{ display: 'block', margin: '0 auto 6px' }} />{t.foreman.uploadFile}</span>}
-              </div>
-            </>
-          ) : (
-            <div style={{ textAlign: 'center', padding: '16px 0' }}>
-              <div style={{ fontSize: 32, marginBottom: 8 }}>✅</div>
-              <p style={{ fontWeight: 600 }}>{result.imported} {t.foreman.importSuccess}</p>
-            </div>
-          )}
-        </div>
-        <div className="modal-footer">
+    <AppModal
+      title={t.foreman.importTitle}
+      onClose={onClose}
+      maxWidth={400}
+      footer={
+        <>
           <button className="btn btn--secondary btn--sm" onClick={onClose}>{result ? t.common.close : t.common.cancel}</button>
           {!result && <button className="btn btn--primary btn--sm" onClick={handleUpload} disabled={!file || loading}>{loading ? t.common.uploading : <><Upload size={13} /> {t.common.import}</>}</button>}
+        </>
+      }
+    >
+      {!result ? (
+        <>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>
+            {t.foreman.importDesc}
+          </p>
+          {err && <Err msg={err} />}
+          <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={e => setFile(e.target.files?.[0] ?? null)} />
+          <div onClick={() => fileRef.current?.click()} style={{ border: '2px dashed var(--border)', borderRadius: 8, padding: '24px 16px', textAlign: 'center', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13, background: file ? 'var(--success-light)' : undefined }}>
+            {file ? <span style={{ color: 'var(--success)' }}>✓ {file.name}</span> : <span><Upload size={20} style={{ display: 'block', margin: '0 auto 6px' }} />{t.foreman.uploadFile}</span>}
+          </div>
+        </>
+      ) : (
+        <div style={{ textAlign: 'center', padding: '16px 0' }}>
+          <div style={{ fontSize: 32, marginBottom: 8 }}>✅</div>
+          <p style={{ fontWeight: 600 }}>{result.imported} {t.foreman.importSuccess}</p>
         </div>
-      </div>
-    </div>
+      )}
+    </AppModal>
   )
 }
 

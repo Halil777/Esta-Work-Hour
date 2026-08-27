@@ -1,7 +1,6 @@
-import { Controller, Post, Get, Body, Query, Req, Res, UseGuards, StreamableFile } from '@nestjs/common';
+import { Controller, Get, Query, Req, Res, UseGuards, StreamableFile } from '@nestjs/common';
 import type { Response } from 'express';
 import { AttendanceEventsService } from './attendance-events.service';
-import { SyncEventsDto } from './dto/sync-events.dto';
 import { JwtGuard } from '../mobile-auth/jwt.guard';
 import { AdminJwtGuard } from '../admin-auth/admin-auth.guard';
 
@@ -9,10 +8,8 @@ import { AdminJwtGuard } from '../admin-auth/admin-auth.guard';
 export class AttendanceEventsController {
   constructor(private readonly service: AttendanceEventsService) {}
 
-  @Post('sync')
-  syncEvents(@Body() dto: SyncEventsDto) {
-    return this.service.syncEvents(dto);
-  }
+// Legacy unauthenticated POST /attendance/sync removed 2026-08-27 — superseded by
+  // the DeviceGuard-protected POST /device/sync (see device.controller.ts).
 
   @UseGuards(AdminJwtGuard)
   @Get('events/export')

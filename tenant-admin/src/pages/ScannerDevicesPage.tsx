@@ -12,7 +12,7 @@ function formatLastSeen(ts: string | null) {
   if (diff < 60_000) return 'Az öň'
   if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} min öň`
   if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} sagat öň`
-  return d.toLocaleDateString()
+  return d.toLocaleDateString(undefined, { timeZone: 'Europe/Moscow' })
 }
 
 // A device is nominally "active" but might actually be offline/frozen — the

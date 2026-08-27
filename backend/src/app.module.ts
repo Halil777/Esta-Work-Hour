@@ -6,7 +6,6 @@ import { Worker } from './workers/worker.entity';
 import { AttendanceEvent } from './attendance-events/attendance-event.entity';
 import { AuditLog } from './audit-log/audit-log.entity';
 import { Foreman } from './foremans/foreman.entity';
-import { Brigadir } from './brigadirs/brigadir.entity';
 import { MobileCredential } from './mobile-auth/mobile-credential.entity';
 import { ExtraHoursRequest } from './extra-hours/extra-hours-request.entity';
 import { ExtraHoursRequestItem } from './extra-hours/extra-hours-request-item.entity';
@@ -24,7 +23,6 @@ import { WorkersModule } from './workers/workers.module';
 import { AttendanceEventsModule } from './attendance-events/attendance-events.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
 import { ForemanModule } from './foremans/foremans.module';
-import { BrigadirsModule } from './brigadirs/brigadirs.module';
 import { MobileAuthModule } from './mobile-auth/mobile-auth.module';
 import { ExtraHoursModule } from './extra-hours/extra-hours.module';
 import { MobileForemanModule } from './mobile-foreman/mobile-foreman.module';
@@ -67,7 +65,7 @@ import { WorkTimeModule } from './work-time/work-time.module';
         password: cfg.get('DB_PASSWORD', 'postgres'),
         database: cfg.get('DB_NAME', 'workhour'),
         entities: [
-          Worker, AttendanceEvent, AuditLog, Foreman, Brigadir,
+          Worker, AttendanceEvent, AuditLog, Foreman,
           MobileCredential, ExtraHoursRequest, ExtraHoursRequestItem,
           ShiftSetting, AbsenceNote, AttendanceOverride, ReportConfig,
           WorkerLifecycleEvent, WorkerLifecycleReport, Tenant, ScannerDevice, CardReport,
@@ -84,7 +82,6 @@ import { WorkTimeModule } from './work-time/work-time.module';
     AttendanceEventsModule,
     AuditLogModule,
     ForemanModule,
-    BrigadirsModule,
     MobileAuthModule,
     ExtraHoursModule,
     MobileForemanModule,

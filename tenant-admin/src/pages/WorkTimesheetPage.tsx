@@ -24,7 +24,7 @@ function fmtTime(ms: number | null): string {
 
 function fmtDate(dateStr: string): string {
   const d = new Date(dateStr)
-  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  return d.toLocaleDateString('en-US', { timeZone: 'Europe/Moscow', weekday: 'short', month: 'short', day: 'numeric' })
 }
 
 function currentMonth(): string {
@@ -296,7 +296,7 @@ function DayRowComponent({
             </span>
           </td>
           <td colSpan={2} style={{ padding: '6px 14px', fontSize: 11, color: 'var(--text-muted)' }}>
-            By {adj.createdBy} · {new Date(adj.createdAt).toLocaleDateString()}
+            By {adj.createdBy} · {new Date(adj.createdAt).toLocaleDateString(undefined, { timeZone: 'Europe/Moscow' })}
             {adj.updatedBy && <> · edited by {adj.updatedBy}</>}
           </td>
           <td style={{ padding: '6px 14px' }} />

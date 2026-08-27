@@ -32,7 +32,6 @@ Thumbs.db
 
 # Expo
 .expo/
-mobile-app/.expo/
 
 # TypeScript
 *.tsbuildinfo

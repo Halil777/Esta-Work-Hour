@@ -12,7 +12,7 @@ import { useTranslation } from '../i18n/useTranslation'
 
 function fmtLastSeen(t: ReturnType<typeof useTranslation>['t'], ts: string | null) {
   if (!ts) return t.inbox.neverSeen
-  return new Date(ts).toLocaleString()
+  return new Date(ts).toLocaleString(undefined, { timeZone: 'Europe/Moscow' })
 }
 
 const sumHours = (items: { extraHours: number }[]) =>
@@ -130,7 +130,7 @@ export function InboxPage() {
                     <span style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, background: 'var(--bg-surface)', padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)' }}>
                       {report.cardUid}
                     </span>
-                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{new Date(report.createdAt).toLocaleString()}</span>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{new Date(report.createdAt).toLocaleString(undefined, { timeZone: 'Europe/Moscow' })}</span>
                     {report.deviceLabel && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>📟 {report.deviceLabel}</span>}
                   </div>
                   <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', fontSize: 13 }}>

@@ -17,7 +17,7 @@ function getStatusVariant(s: ExtraHoursRequest['status']): string {
 }
 
 const fmtDate = (d: string) => {
-  try { return new Date(d).toLocaleDateString('tr-TR') } catch { return d }
+  try { return new Date(d).toLocaleDateString('tr-TR', { timeZone: 'Europe/Moscow' }) } catch { return d }
 }
 
 const sumHours = (items: ExtraHoursRequest['items']) =>

@@ -8,6 +8,7 @@ import { useTranslation } from '../i18n/useTranslation'
 const fmtDate = (d: string | null | undefined) => {
   if (!d) return '—'
   return new Date(d).toLocaleDateString('tr-TR', {
+    timeZone: 'Europe/Moscow',
     day: '2-digit', month: '2-digit', year: 'numeric',
   })
 }

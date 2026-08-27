@@ -19,6 +19,7 @@ const actionIcon = (action: string) => {
 
 const fmtDate = (s: string) =>
   new Date(s).toLocaleString("ru-RU", {
+    timeZone: "Europe/Moscow",
     day: "2-digit", month: "2-digit", year: "numeric",
     hour: "2-digit", minute: "2-digit", second: "2-digit",
   });
@@ -29,7 +30,7 @@ const TIME_MS_FIELDS = new Set(["checkInMs", "checkOutMs"]);
 function fmtMsVal(v: any): string {
   const n = Number(v);
   if (!n) return "—";
-  return new Date(n).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return new Date(n).toLocaleTimeString([], { timeZone: "Europe/Moscow", hour: "2-digit", minute: "2-digit" });
 }
 
 function DiffView({ before, after, action, entityType }: { before: any; after: any; action: string; entityType?: string }) {
@@ -92,7 +93,7 @@ function MissingCheckInTab() {
   });
 
   const fmtTime = (ms: number) =>
-    ms ? new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—";
+    ms ? new Date(ms).toLocaleTimeString([], { timeZone: "Europe/Moscow", hour: "2-digit", minute: "2-digit" }) : "—";
 
   return (
     <div className="card">
