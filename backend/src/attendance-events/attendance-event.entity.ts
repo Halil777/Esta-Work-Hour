@@ -13,6 +13,9 @@ export enum EventType {
 // Covers time-range-only lookups that don't filter by worker first (e.g.
 // late-arrivals' "who checked in today" scan).
 @Index(['eventTime'])
+// Covers the Scanner Devices page's per-operator scan-stats aggregation
+// (GROUP BY "deviceId").
+@Index(['deviceId'])
 @Entity('attendance_events')
 export class AttendanceEvent {
   @PrimaryGeneratedColumn('uuid')
@@ -41,6 +44,13 @@ export class AttendanceEvent {
 
   @Column({ type: 'uuid', nullable: true, default: null })
   tenantId: string | null;
+
+  // Which scanner device recorded this scan — null for events synced before
+  // this column existed. Lets the Scanner Devices admin page show, per
+  // operator/device, how many workers they've scanned in total and today
+  // (see AttendanceEventsService.getDeviceScanStats).
+  @Column({ type: 'uuid', nullable: true, default: null })
+  deviceId: string | null;
 
   @CreateDateColumn()
   createdAt: Date;

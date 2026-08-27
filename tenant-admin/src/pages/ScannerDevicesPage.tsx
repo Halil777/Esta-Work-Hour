@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Smartphone, Plus, Trash2, RefreshCw, Eye, Copy, Pencil, Wifi, WifiOff, X } from 'lucide-react'
+import { Smartphone, Plus, Trash2, RefreshCw, Eye, Copy, Pencil, Wifi, WifiOff, X, Users, ScanLine } from 'lucide-react'
 import { scannerDevicesApi, type ScannerDevice } from '../api/scannerDevices'
 import { apiFetch } from '../api/http'
 import type { WorkerApi } from '../api/workers'
@@ -210,6 +210,33 @@ function DeviceModal({
   )
 }
 
+// ─── Small dashboard stat card ────────────────────────────────────────────────
+
+function StatCard({
+  icon, label, value, accent, accentLight,
+}: {
+  icon: ReactNode; label: string; value: ReactNode; accent: string; accentLight: string;
+}) {
+  return (
+    <div className="card">
+      <div className="card-body" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px' }}>
+        <div style={{
+          width: 42, height: 42, borderRadius: 11, flexShrink: 0,
+          background: accentLight,
+          border: `1px solid ${accent}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          {icon}
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.15, color: 'var(--text-primary)' }}>{value}</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{label}</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function ScannerDevicesPage() {
@@ -223,6 +250,16 @@ export function ScannerDevicesPage() {
     queryKey: ['scanner-devices'],
     queryFn: scannerDevicesApi.getAll,
     staleTime: 30_000,
+  })
+
+  // Small per-page dashboard (device health + who's scanned how many
+  // workers) — refetched a bit faster than the device list itself so the
+  // "şu gün" numbers stay reasonably live while an admin has this page open.
+  const { data: scanSummary } = useQuery({
+    queryKey: ['scanner-devices-scan-summary'],
+    queryFn: scannerDevicesApi.getScanSummary,
+    staleTime: 15_000,
+    refetchInterval: 30_000,
   })
 
   const { data: workers = [] } = useQuery<WorkerApi[]>({
@@ -278,6 +315,33 @@ export function ScannerDevicesPage() {
       <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: -8, marginBottom: 20 }}>
         Her fiziki NFC scanner enjamy üçin aýratyn token. Operatör — şol enjamy ulanýan işçi.
       </p>
+
+      {/* Small dashboard: overall device health + how many workers have been
+          scanned in, tenant-wide (deduped across every device) — for keeping
+          both the workforce and the operators under control at a glance. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12, marginBottom: 20 }}>
+        <StatCard
+          icon={<Smartphone size={19} color="var(--primary)" />}
+          accent="var(--primary)"
+          accentLight="var(--primary-light)"
+          value={`${devices.filter(d => d.isActive).length}/${devices.length}`}
+          label="Işjeň enjam"
+        />
+        <StatCard
+          icon={<Users size={19} color="var(--info)" />}
+          accent="var(--info)"
+          accentLight="var(--info-light)"
+          value={scanSummary ? scanSummary.totalWorkersEverScanned : '—'}
+          label="Jemi scan edilen işçi"
+        />
+        <StatCard
+          icon={<ScanLine size={19} color="var(--success)" />}
+          accent="var(--success)"
+          accentLight="var(--success-light)"
+          value={scanSummary ? scanSummary.todayWorkersScanned : '—'}
+          label="Şu gün scan edilen işçi"
+        />
+      </div>
 
       {isLoading ? (
         <div className="card"><div className="card-body">Ýüklenýär...</div></div>
@@ -338,6 +402,27 @@ export function ScannerDevicesPage() {
                         📦 {device.pendingEventCount} synchronizasiýa garaşýar
                       </span>
                     )}
+                  </div>
+
+                  {/* Bu enjamyň (operatoryň) scan statistikasy — iscileri hem
+                      operatory hem gözegçilikde saklamak üçin. */}
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                      fontSize: 11, fontWeight: 600, color: 'var(--info)',
+                      background: 'var(--info-light)', borderRadius: 99,
+                      padding: '3px 10px',
+                    }}>
+                      <Users size={11} /> Jemi: {device.totalWorkersScanned} işçi ({device.totalScans} scan)
+                    </span>
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                      fontSize: 11, fontWeight: 600, color: 'var(--success)',
+                      background: 'var(--success-light)', borderRadius: 99,
+                      padding: '3px 10px',
+                    }}>
+                      <ScanLine size={11} /> Şu gün: {device.todayWorkersScanned} işçi ({device.todayScans} scan)
+                    </span>
                   </div>
                 </div>
 

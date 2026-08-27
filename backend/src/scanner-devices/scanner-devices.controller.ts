@@ -14,6 +14,12 @@ export class ScannerDevicesController {
     return this.service.findAll(req.adminUser.tenantId);
   }
 
+  /** Tenant-wide scan totals (all-time + today), deduped across devices — for the page's summary strip */
+  @Get('scan-summary')
+  getScanSummary(@Req() req: any) {
+    return this.service.getScanSummary(req.adminUser.tenantId);
+  }
+
   /** Returns the full token (for copying after creation or on demand) */
   @Get(':id/token')
   getToken(@Req() req: any, @Param('id') id: string) {

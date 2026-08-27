@@ -6,6 +6,7 @@ import { ScannerDevice } from './scanner-device.entity';
 import { Worker } from '../workers/worker.entity';
 import { CreateScannerDeviceDto } from './dto/create-scanner-device.dto';
 import { UpdateScannerDeviceDto } from './dto/update-scanner-device.dto';
+import { AttendanceEventsService } from '../attendance-events/attendance-events.service';
 
 @Injectable()
 export class ScannerDevicesService {
@@ -14,6 +15,7 @@ export class ScannerDevicesService {
     private readonly repo: Repository<ScannerDevice>,
     @InjectRepository(Worker)
     private readonly workerRepo: Repository<Worker>,
+    private readonly attendanceEventsService: AttendanceEventsService,
   ) {}
 
   async findAll(tenantId: string) {
@@ -22,7 +24,10 @@ export class ScannerDevicesService {
       order: { createdAt: 'ASC' },
     });
 
-    // Attach operator worker name
+    const statsRows = await this.attendanceEventsService.getDeviceScanStats(tenantId);
+    const statsByDevice = new Map(statsRows.map(s => [s.deviceId, s]));
+
+    // Attach operator worker name + this device's scan stats
     return Promise.all(devices.map(async d => {
       let operatorName: string | null = null;
       if (d.workerEntityId) {
@@ -33,8 +38,22 @@ export class ScannerDevicesService {
         operatorName = w?.name ?? null;
       }
       const { token: _, ...rest } = d;
-      return { ...rest, operatorName, tokenPrefix: d.token.slice(0, 8) };
+      const stats = statsByDevice.get(d.id);
+      return {
+        ...rest,
+        operatorName,
+        tokenPrefix: d.token.slice(0, 8),
+        totalWorkersScanned: stats?.totalWorkers ?? 0,
+        todayWorkersScanned: stats?.todayWorkers ?? 0,
+        totalScans: stats?.totalScans ?? 0,
+        todayScans: stats?.todayScans ?? 0,
+      };
     }));
+  }
+
+  /** Tenant-wide scan summary for the small dashboard strip on the page. */
+  async getScanSummary(tenantId: string) {
+    return this.attendanceEventsService.getTenantScanSummary(tenantId);
   }
 
   async getToken(tenantId: string, id: string) {

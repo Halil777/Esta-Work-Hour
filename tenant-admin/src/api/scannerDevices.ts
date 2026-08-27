@@ -15,6 +15,18 @@ export type ScannerDevice = {
   pendingEventCount: number | null;
   lastHeartbeatAt: string | null;
   createdAt: string;
+  // Per-device (= per-operator) scan counts — how many distinct workers this
+  // device has recorded a scan for, all-time and today, plus the raw event
+  // counts. Absent/zero for events synced before this tracking existed.
+  totalWorkersScanned: number;
+  todayWorkersScanned: number;
+  totalScans: number;
+  todayScans: number;
+};
+
+export type ScanSummary = {
+  totalWorkersEverScanned: number;
+  todayWorkersScanned: number;
 };
 
 export type CreateScannerDevicePayload = {
@@ -33,6 +45,9 @@ export type UpdateScannerDevicePayload = {
 export const scannerDevicesApi = {
   getAll: (): Promise<ScannerDevice[]> =>
     apiFetch('/admin/scanner-devices'),
+
+  getScanSummary: (): Promise<ScanSummary> =>
+    apiFetch('/admin/scanner-devices/scan-summary'),
 
   getToken: (id: string): Promise<{ token: string }> =>
     apiFetch(`/admin/scanner-devices/${id}/token`),

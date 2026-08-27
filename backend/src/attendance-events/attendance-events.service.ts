@@ -34,7 +34,7 @@ export class AttendanceEventsService {
     return this.missingCheckoutsService.getMissingCheckouts(foremanWorkerEntityId);
   }
 
-  async syncEvents(dto: SyncEventsDto, tenantId?: string) {
+  async syncEvents(dto: SyncEventsDto, tenantId?: string, deviceId?: string) {
     const results: { localId: number; serverId: string | null; status: string }[] = [];
     const warnings: { employeeNumber: string; workerName: string; type: string; lastEventTime: number }[] = [];
     let synced = 0;
@@ -66,6 +66,7 @@ export class AttendanceEventsService {
           source: item.source,
           mobileLocalId: item.localId,
           tenantId: tenantId ?? null,
+          deviceId: deviceId ?? null,
         });
         const saved = await this.repo.save(event) as AttendanceEvent;
         results.push({ localId: item.localId, serverId: saved.id, status: 'SYNCED' });
@@ -375,6 +376,85 @@ export class AttendanceEventsService {
     );
 
     return { totalActive, scannedToday: rows.length };
+  }
+
+  /**
+   * Per-device (= per-operator, since each scanner device is assigned to one
+   * operator worker) scan counts for the Scanner Devices admin page: how
+   * many distinct workers — and raw scan events — each device has recorded,
+   * all-time and today. Only events synced after the deviceId column was
+   * added carry a deviceId, so older history isn't attributed to any device
+   * (deliberately excluded here, not misattributed to one).
+   */
+  async getDeviceScanStats(tenantId: string): Promise<{
+    deviceId: string;
+    totalWorkers: number;
+    todayWorkers: number;
+    totalScans: number;
+    todayScans: number;
+  }[]> {
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    const rows: {
+      deviceId: string;
+      total_scans: string;
+      total_workers: string;
+      today_scans: string;
+      today_workers: string;
+    }[] = await this.repo.query(
+      `SELECT
+         ae."deviceId" as "deviceId",
+         COUNT(*) as total_scans,
+         COUNT(DISTINCT ae."employeeNumber") as total_workers,
+         COUNT(*) FILTER (
+           WHERE DATE(to_timestamp(ae."eventTime" / 1000.0) AT TIME ZONE '${APP_TZ}') = $2
+         ) as today_scans,
+         COUNT(DISTINCT ae."employeeNumber") FILTER (
+           WHERE DATE(to_timestamp(ae."eventTime" / 1000.0) AT TIME ZONE '${APP_TZ}') = $2
+         ) as today_workers
+       FROM attendance_events ae
+       WHERE ae."tenantId" = $1 AND ae."deviceId" IS NOT NULL
+       GROUP BY ae."deviceId"`,
+      [tenantId, todayStr],
+    );
+
+    return rows.map(r => ({
+      deviceId: r.deviceId,
+      totalScans: Number(r.total_scans),
+      totalWorkers: Number(r.total_workers),
+      todayScans: Number(r.today_scans),
+      todayWorkers: Number(r.today_workers),
+    }));
+  }
+
+  /**
+   * Tenant-wide scan summary (deduped across every device) for the small
+   * dashboard strip at the top of the Scanner Devices page — distinct from
+   * getDeviceScanStats, which breaks the same underlying data down per device.
+   */
+  async getTenantScanSummary(tenantId: string): Promise<{
+    totalWorkersEverScanned: number;
+    todayWorkersScanned: number;
+  }> {
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    const rows: { total_workers: string; today_workers: string }[] = await this.repo.query(
+      `SELECT
+         COUNT(DISTINCT ae."employeeNumber") as total_workers,
+         COUNT(DISTINCT ae."employeeNumber") FILTER (
+           WHERE DATE(to_timestamp(ae."eventTime" / 1000.0) AT TIME ZONE '${APP_TZ}') = $2
+         ) as today_workers
+       FROM attendance_events ae
+       WHERE ae."tenantId" = $1`,
+      [tenantId, todayStr],
+    );
+
+    return {
+      totalWorkersEverScanned: Number(rows[0]?.total_workers ?? 0),
+      todayWorkersScanned: Number(rows[0]?.today_workers ?? 0),
+    };
   }
 
   async exportEventsExcel(date?: string, tenantId?: string): Promise<Buffer> {

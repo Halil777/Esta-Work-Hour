@@ -182,8 +182,8 @@ export class DeviceController {
   @UseGuards(DeviceGuard)
   @Post('attendance/sync')
   syncEvents(@Req() req: any, @Body() dto: SyncEventsDto) {
-    const { tenantId } = req.device as DeviceContext;
-    return this.attendanceService.syncEvents(dto, tenantId);
+    const { tenantId, deviceId } = req.device as DeviceContext;
+    return this.attendanceService.syncEvents(dto, tenantId, deviceId);
   }
 
   /**
