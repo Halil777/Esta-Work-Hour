@@ -35,9 +35,15 @@ function fmtTime(ms: number | null): string {
   return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
 }
 
-function fmtDecimalHours(ms: number): number {
+// Returns an Excel time-duration value (a fraction of a 24h day, e.g. 13h55m
+// -> 13.9166.../24) snapped to the nearest whole minute, meant to be shown
+// with a '[h]:mm' number format so it reads as "13:55" instead of a raw
+// decimal like 13.91 — the underlying total minutes are unchanged, only the
+// display format changes to match how the admin panel shows elapsed time.
+function msToExcelDuration(ms: number): number {
   if (!ms || ms <= 0) return 0;
-  return Math.round((ms / 3600000) * 100) / 100;
+  const roundedMs = Math.round(ms / 60000) * 60000;
+  return roundedMs / 86400000;
 }
 
 function colLetter(n: number): string {
@@ -648,7 +654,7 @@ export class ReportsService {
     tenantId?: string,
   ): Promise<{
     dates: string[];
-    workers: { workerId: string; name: string; totalsByDate: Map<string, number>; totalMs: number }[];
+    workers: { workerId: string; name: string; shift: string | null; totalsByDate: Map<string, number>; totalMs: number }[];
   }> {
     const events: { employeeNumber: string; eventType: string; eventTime: string }[] =
       await this.eventRepo.query(
@@ -725,7 +731,7 @@ export class ReportsService {
         if (dayMs > 0) totalsByDate.set(date, dayMs);
         totalMs += dayMs;
       }
-      return { workerId: empNum, name: w?.name ?? empNum, totalsByDate, totalMs };
+      return { workerId: empNum, name: w?.name ?? empNum, shift: w?.shift ?? null, totalsByDate, totalMs };
     });
 
     resultWorkers.sort((a, b) => a.name.localeCompare(b.name));
@@ -736,7 +742,7 @@ export class ReportsService {
   private async buildRangeXlsx(
     startDate: string,
     endDate: string,
-    matrix: { dates: string[]; workers: { workerId: string; name: string; totalsByDate: Map<string, number>; totalMs: number }[] },
+    matrix: { dates: string[]; workers: { workerId: string; name: string; shift: string | null; totalsByDate: Map<string, number>; totalMs: number }[] },
     isMonthly: boolean,
     tenantName = 'WorkForce',
     lang: Lang = 'tr',
@@ -745,10 +751,8 @@ export class ReportsService {
     const ExcelJS = require('exceljs');
     const L = getL(lang, tenantName);
     const { dates, workers } = matrix;
-    const FIXED_COLS = 3; // #, Sicil No, Ad Familiya
+    const FIXED_COLS = 4; // #, Sicil No, Ad Familiya, Vardiya
     const totalCols = FIXED_COLS + dates.length + 1; // + Jemi (period total) column
-    const hourUnit = lang === 'ru' ? '\u0447' : lang === 'en' ? 'h' : 'sa';
-    const hourNumFmt = `0.##" ${hourUnit}"`;
 
     // Black + gold brand palette (matches the company's shield/lion mark).
     const BRAND = {
@@ -765,6 +769,10 @@ export class ReportsService {
       hairlineSoft: 'FFF5EBD0',
       ink: 'FF1A1A1A',
       mutedGold: 'FF9C8A5C',
+      dayBadgeBg: 'FFF3D9A6',
+      dayBadgeText: 'FF6B4A0A',
+      nightBadgeBg: 'FF241D0A',
+      nightBadgeText: 'FFE8C568',
     };
 
     const wb = new ExcelJS.Workbook();
@@ -785,8 +793,9 @@ export class ReportsService {
       { width: 5 },
       { width: 13 },
       { width: 26 },
-      ...dates.map(() => ({ width: 11 })),
-      { width: 13 },
+      { width: 9 },
+      ...dates.map(() => ({ width: 7 })),
+      { width: 9 },
     ];
 
     // ── Title band ─────────────────────────────────────────────────────────────
@@ -853,7 +862,7 @@ export class ReportsService {
     const sundayFlags = dates.map(d => new Date(`${d}T00:00:00Z`).getUTCDay() === 0);
     const isDateCol = (colNumber: number) => colNumber > FIXED_COLS && colNumber <= FIXED_COLS + dates.length;
 
-    const headerValues = ['#', L.colTabNo, L.colWorker, ...dates.map(d => d.split('-').reverse().join('.')), L.footer];
+    const headerValues = ['#', L.colTabNo, L.colWorker, L.colShift, ...dates.map(d => d.split('-').slice(1).reverse().join('.')), L.footer];
     const headerRow = ws.addRow(headerValues);
     headerRow.eachCell((c: any, colNumber: number) => {
       const sunday = isDateCol(colNumber) && sundayFlags[colNumber - FIXED_COLS - 1];
@@ -872,13 +881,14 @@ export class ReportsService {
     // ── Data rows: one per worker, cells = daily hours, last col = period total ────
     const firstDataRowNum = headerRow.number + 1;
     workers.forEach((w, i) => {
+      const shiftLabel = w.shift === 'day' ? L.shiftDay : w.shift === 'night' ? L.shiftNight : '\u2014';
       const rowValues = [
-        i + 1, w.workerId, w.name,
+        i + 1, w.workerId, w.name, shiftLabel,
         ...dates.map(d => {
           const ms = w.totalsByDate.get(d) ?? 0;
-          return ms > 0 ? fmtDecimalHours(ms) : null;
+          return ms > 0 ? msToExcelDuration(ms) : null;
         }),
-        w.totalMs > 0 ? fmtDecimalHours(w.totalMs) : null,
+        w.totalMs > 0 ? msToExcelDuration(w.totalMs) : null,
       ];
       const r = ws.addRow(rowValues);
       const bg = i % 2 === 0 ? BRAND.cream : 'FFFFFFFF';
@@ -886,23 +896,32 @@ export class ReportsService {
         const sunday = isDateCol(colNumber) && sundayFlags[colNumber - FIXED_COLS - 1];
         c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: sunday ? BRAND.creamSoft : bg } };
         c.font = { name: 'Calibri', size: 9 };
-        c.alignment = { horizontal: colNumber <= FIXED_COLS ? (colNumber === 1 ? 'center' : 'left') : 'right', vertical: 'middle' };
+        c.alignment = { horizontal: colNumber <= FIXED_COLS ? (colNumber === 1 || colNumber === 4 ? 'center' : 'left') : 'right', vertical: 'middle' };
         c.border = {
           bottom: { style: 'hair', color: { argb: BRAND.hairline } },
           left: { style: 'hair', color: { argb: BRAND.hairlineSoft } },
           right: { style: 'hair', color: { argb: BRAND.hairlineSoft } },
         };
-        if (colNumber > FIXED_COLS) c.numFmt = hourNumFmt;
+        if (colNumber > FIXED_COLS) c.numFmt = '[h]:mm';
       });
       r.getCell(2).font = { name: 'Calibri', size: 9, color: { argb: BRAND.mutedGold } };
       r.getCell(3).font = { name: 'Calibri', size: 9, bold: true, color: { argb: BRAND.ink } };
+      if (w.shift === 'day' || w.shift === 'night') {
+        const badge = w.shift === 'day'
+          ? { bg: BRAND.dayBadgeBg, text: BRAND.dayBadgeText }
+          : { bg: BRAND.nightBadgeBg, text: BRAND.nightBadgeText };
+        r.getCell(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: badge.bg } };
+        r.getCell(4).font = { name: 'Calibri', size: 9, bold: true, color: { argb: badge.text } };
+      } else {
+        r.getCell(4).font = { name: 'Calibri', size: 9, color: { argb: BRAND.mutedGold } };
+      }
       r.getCell(totalCols).font = { name: 'Calibri', size: 9, bold: true, color: { argb: BRAND.goldDeep } };
       r.height = 16;
     });
     const lastDataRowNum = headerRow.number + workers.length;
 
     // ── Footer / totals row — live SUBTOTAL formulas so filtering updates them ─────
-    const footRow = ws.addRow(['', '', L.footer]);
+    const footRow = ws.addRow(['', '', '', L.footer]);
     ws.mergeCells(footRow.number, 1, footRow.number, FIXED_COLS);
     for (let ci = FIXED_COLS + 1; ci <= totalCols; ci++) {
       const letter = colLetter(ci);
@@ -912,7 +931,7 @@ export class ReportsService {
       c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BRAND.black } };
       c.font = { name: 'Calibri', bold: true, size: 9, color: { argb: BRAND.gold } };
       c.alignment = { horizontal: colNumber <= FIXED_COLS ? 'center' : 'right', vertical: 'middle' };
-      if (colNumber > FIXED_COLS) c.numFmt = hourNumFmt;
+      if (colNumber > FIXED_COLS) c.numFmt = '[h]:mm';
     });
     const grandCell = footRow.getCell(totalCols);
     grandCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BRAND.gold } };
@@ -946,7 +965,7 @@ export class ReportsService {
           {
             type: 'colorScale',
             cfvo: [{ type: 'min' }, { type: 'percentile', value: 50 }, { type: 'max' }],
-            color: [{ argb: BRAND.cream }, { argb: BRAND.gold }, { argb: 'FF5C4812' }],
+            color: [{ argb: 'FFFFFBF0' }, { argb: 'FFEED9A0' }, { argb: 'FFC9A227' }],
           },
         ],
       });
@@ -969,7 +988,7 @@ export class ReportsService {
 
     // ── Print setup: repeat header row + identity columns on every printed page ─────
     ws.pageSetup.printTitlesRow = `${headerRow.number}:${headerRow.number}`;
-    ws.pageSetup.printTitlesColumn = 'A:C';
+    ws.pageSetup.printTitlesColumn = 'A:D';
 
     const buf = await wb.xlsx.writeBuffer();
     return Buffer.from(buf as ArrayBuffer);
