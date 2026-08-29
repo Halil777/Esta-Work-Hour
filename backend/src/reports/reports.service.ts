@@ -750,11 +750,28 @@ export class ReportsService {
     const hourUnit = lang === 'ru' ? '\u0447' : lang === 'en' ? 'h' : 'sa';
     const hourNumFmt = `0.##" ${hourUnit}"`;
 
+    // Black + gold brand palette (matches the company's shield/lion mark).
+    const BRAND = {
+      black: 'FF0D0D0D',
+      blackSoft: 'FF171717',
+      gold: 'FFD4AF37',
+      goldBright: 'FFF0D273',
+      goldSoft: 'FFE8C568',
+      goldDeep: 'FF8B6914',
+      goldLine: 'FF33291A',
+      cream: 'FFFAF0D7',
+      creamSoft: 'FFFCEFC7',
+      hairline: 'FFEEE0BE',
+      hairlineSoft: 'FFF5EBD0',
+      ink: 'FF1A1A1A',
+      mutedGold: 'FF9C8A5C',
+    };
+
     const wb = new ExcelJS.Workbook();
     wb.creator = tenantName;
     wb.created = new Date();
     const ws = wb.addWorksheet(L.report, {
-      properties: { tabColor: { argb: 'FF1E3A5F' } },
+      properties: { tabColor: { argb: BRAND.gold } },
       pageSetup: {
         orientation: 'landscape',
         fitToPage: true,
@@ -776,8 +793,8 @@ export class ReportsService {
     const titleRow = ws.addRow([L.rangeTitle(isMonthly)]);
     ws.mergeCells(titleRow.number, 1, titleRow.number, totalCols);
     Object.assign(titleRow.getCell(1), {
-      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } },
-      font: { name: 'Calibri', bold: true, size: 16, color: { argb: 'FFFFFFFF' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: BRAND.black } },
+      font: { name: 'Calibri', bold: true, size: 16, color: { argb: BRAND.gold } },
       alignment: { horizontal: 'center', vertical: 'middle' },
     });
     titleRow.height = 32;
@@ -785,8 +802,8 @@ export class ReportsService {
     const subRow = ws.addRow([`${L.period}: ${startDate}  -  ${endDate}`]);
     ws.mergeCells(subRow.number, 1, subRow.number, totalCols);
     Object.assign(subRow.getCell(1), {
-      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2D5E8E' } },
-      font: { name: 'Calibri', size: 11, color: { argb: 'FFCFE2FF' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: BRAND.blackSoft } },
+      font: { name: 'Calibri', size: 11, color: { argb: BRAND.goldSoft } },
       alignment: { horizontal: 'center', vertical: 'middle' },
     });
     subRow.height = 20;
@@ -799,10 +816,10 @@ export class ReportsService {
     const avgMs = workedWorkers.length > 0 ? Math.floor(grandTotalMs / workedWorkers.length) : 0;
 
     const kpis: { label: string; value: string; color: string; bg: string }[] = [
-      { label: L.totalWorkers, value: String(workers.length), color: 'FF1D4ED8', bg: 'FFEFF6FF' },
-      { label: L.workedWorkers, value: String(workedWorkers.length), color: 'FF16A34A', bg: 'FFF0FDF4' },
-      { label: L.totalHours, value: fmtMs(grandTotalMs, lang), color: 'FF4F46E5', bg: 'FFEEF2FF' },
-      { label: L.avgPerWorker, value: fmtMs(avgMs, lang), color: 'FFB45309', bg: 'FFFEF9C3' },
+      { label: L.totalWorkers, value: String(workers.length), color: BRAND.gold, bg: BRAND.blackSoft },
+      { label: L.workedWorkers, value: String(workedWorkers.length), color: BRAND.goldSoft, bg: BRAND.blackSoft },
+      { label: L.totalHours, value: fmtMs(grandTotalMs, lang), color: BRAND.goldBright, bg: BRAND.blackSoft },
+      { label: L.avgPerWorker, value: fmtMs(avgMs, lang), color: BRAND.goldDeep, bg: BRAND.blackSoft },
     ];
     const kpiSpan = Math.max(1, Math.floor(totalCols / kpis.length));
     const kpiLabelRow = ws.addRow([]);
@@ -814,7 +831,7 @@ export class ReportsService {
       ws.mergeCells(kpiValueRow.number, startCol, kpiValueRow.number, endCol);
       const lc = kpiLabelRow.getCell(startCol);
       lc.value = kpi.label;
-      lc.font = { name: 'Calibri', size: 9, color: { argb: 'FF64748B' } };
+      lc.font = { name: 'Calibri', size: 9, color: { argb: BRAND.mutedGold } };
       lc.alignment = { horizontal: 'center', vertical: 'middle' };
       lc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: kpi.bg } };
       const vc = kpiValueRow.getCell(startCol);
@@ -823,8 +840,8 @@ export class ReportsService {
       vc.alignment = { horizontal: 'center', vertical: 'middle' };
       vc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: kpi.bg } };
       if (idx < kpis.length - 1) {
-        kpiLabelRow.getCell(endCol).border = { right: { style: 'thin', color: { argb: 'FFFFFFFF' } } };
-        kpiValueRow.getCell(endCol).border = { right: { style: 'thin', color: { argb: 'FFFFFFFF' } } };
+        kpiLabelRow.getCell(endCol).border = { right: { style: 'thin', color: { argb: BRAND.goldLine } } };
+        kpiValueRow.getCell(endCol).border = { right: { style: 'thin', color: { argb: BRAND.goldLine } } };
       }
     });
     kpiLabelRow.height = 16;
@@ -840,14 +857,14 @@ export class ReportsService {
     const headerRow = ws.addRow(headerValues);
     headerRow.eachCell((c: any, colNumber: number) => {
       const sunday = isDateCol(colNumber) && sundayFlags[colNumber - FIXED_COLS - 1];
-      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: sunday ? 'FF7F1D1D' : 'FF1E3A5F' } };
-      c.font = { name: 'Calibri', bold: true, size: 9, color: { argb: 'FFFFFFFF' } };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: sunday ? BRAND.gold : BRAND.black } };
+      c.font = { name: 'Calibri', bold: true, size: 9, color: { argb: sunday ? BRAND.black : BRAND.gold } };
       c.alignment = { horizontal: 'center', vertical: 'middle' };
       c.border = {
-        top: { style: 'thin', color: { argb: 'FF1E3A5F' } },
-        bottom: { style: 'medium', color: { argb: 'FF93C5FD' } },
-        left: { style: 'thin', color: { argb: 'FF33547A' } },
-        right: { style: 'thin', color: { argb: 'FF33547A' } },
+        top: { style: 'thin', color: { argb: BRAND.black } },
+        bottom: { style: 'medium', color: { argb: BRAND.gold } },
+        left: { style: 'thin', color: { argb: BRAND.goldLine } },
+        right: { style: 'thin', color: { argb: BRAND.goldLine } },
       };
     });
     headerRow.height = 22;
@@ -864,22 +881,22 @@ export class ReportsService {
         w.totalMs > 0 ? fmtDecimalHours(w.totalMs) : null,
       ];
       const r = ws.addRow(rowValues);
-      const bg = i % 2 === 0 ? 'FFF8FAFC' : 'FFFFFFFF';
+      const bg = i % 2 === 0 ? BRAND.cream : 'FFFFFFFF';
       r.eachCell((c: any, colNumber: number) => {
         const sunday = isDateCol(colNumber) && sundayFlags[colNumber - FIXED_COLS - 1];
-        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: sunday ? 'FFFDF2F2' : bg } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: sunday ? BRAND.creamSoft : bg } };
         c.font = { name: 'Calibri', size: 9 };
         c.alignment = { horizontal: colNumber <= FIXED_COLS ? (colNumber === 1 ? 'center' : 'left') : 'right', vertical: 'middle' };
         c.border = {
-          bottom: { style: 'hair', color: { argb: 'FFE2E8F0' } },
-          left: { style: 'hair', color: { argb: 'FFEEF2F6' } },
-          right: { style: 'hair', color: { argb: 'FFEEF2F6' } },
+          bottom: { style: 'hair', color: { argb: BRAND.hairline } },
+          left: { style: 'hair', color: { argb: BRAND.hairlineSoft } },
+          right: { style: 'hair', color: { argb: BRAND.hairlineSoft } },
         };
         if (colNumber > FIXED_COLS) c.numFmt = hourNumFmt;
       });
-      r.getCell(2).font = { name: 'Calibri', size: 9, color: { argb: 'FF64748B' } };
-      r.getCell(3).font = { name: 'Calibri', size: 9, bold: true, color: { argb: 'FF1E293B' } };
-      r.getCell(totalCols).font = { name: 'Calibri', size: 9, bold: true, color: { argb: 'FF1E3A5F' } };
+      r.getCell(2).font = { name: 'Calibri', size: 9, color: { argb: BRAND.mutedGold } };
+      r.getCell(3).font = { name: 'Calibri', size: 9, bold: true, color: { argb: BRAND.ink } };
+      r.getCell(totalCols).font = { name: 'Calibri', size: 9, bold: true, color: { argb: BRAND.goldDeep } };
       r.height = 16;
     });
     const lastDataRowNum = headerRow.number + workers.length;
@@ -892,14 +909,14 @@ export class ReportsService {
       footRow.getCell(ci).value = { formula: `SUBTOTAL(109,${letter}${firstDataRowNum}:${letter}${lastDataRowNum})` };
     }
     footRow.eachCell((c: any, colNumber: number) => {
-      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
-      c.font = { name: 'Calibri', bold: true, size: 9, color: { argb: 'FFFFFFFF' } };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BRAND.black } };
+      c.font = { name: 'Calibri', bold: true, size: 9, color: { argb: BRAND.gold } };
       c.alignment = { horizontal: colNumber <= FIXED_COLS ? 'center' : 'right', vertical: 'middle' };
       if (colNumber > FIXED_COLS) c.numFmt = hourNumFmt;
     });
     const grandCell = footRow.getCell(totalCols);
-    grandCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF59E0B' } };
-    grandCell.font = { name: 'Calibri', bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
+    grandCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BRAND.gold } };
+    grandCell.font = { name: 'Calibri', bold: true, size: 12, color: { argb: BRAND.black } };
     footRow.height = 22;
 
     // ── Generated-at footnote ───────────────────────────────────────────────────
@@ -908,7 +925,7 @@ export class ReportsService {
     const stamp = `${String(now.getUTCDate()).padStart(2, '0')}.${String(now.getUTCMonth() + 1).padStart(2, '0')}.${now.getUTCFullYear()} ${String(now.getUTCHours()).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')}`;
     const noteRow = ws.addRow([`${L.generatedAt}: ${stamp}  -  ${tenantName}`]);
     ws.mergeCells(noteRow.number, 1, noteRow.number, totalCols);
-    noteRow.getCell(1).font = { name: 'Calibri', size: 8, italic: true, color: { argb: 'FF94A3B8' } };
+    noteRow.getCell(1).font = { name: 'Calibri', size: 8, italic: true, color: { argb: BRAND.mutedGold } };
     noteRow.getCell(1).alignment = { horizontal: 'right' };
 
     // ── AutoFilter — per-column dropdowns, including every date column ─────────────
@@ -919,7 +936,7 @@ export class ReportsService {
       };
     }
 
-    // ── Conditional formatting — blue heat-scale on daily hours + data bar on Jemi ──
+    // ── Conditional formatting — gold heat-scale on daily hours + data bar on Jemi ──
     if (dates.length > 0 && workers.length > 0) {
       const firstDateColLetter = colLetter(FIXED_COLS + 1);
       const lastDateColLetter = colLetter(FIXED_COLS + dates.length);
@@ -929,7 +946,7 @@ export class ReportsService {
           {
             type: 'colorScale',
             cfvo: [{ type: 'min' }, { type: 'percentile', value: 50 }, { type: 'max' }],
-            color: [{ argb: 'FFEFF6FF' }, { argb: 'FF7DB3F5' }, { argb: 'FF1E3A5F' }],
+            color: [{ argb: BRAND.cream }, { argb: BRAND.gold }, { argb: 'FF5C4812' }],
           },
         ],
       });
@@ -941,7 +958,7 @@ export class ReportsService {
             type: 'dataBar',
             minLength: 0, maxLength: 100,
             cfvo: [{ type: 'min' }, { type: 'max' }],
-            color: { argb: 'FF60A5FA' },
+            color: { argb: BRAND.gold },
           },
         ],
       });
