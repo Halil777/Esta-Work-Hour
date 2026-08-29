@@ -35,6 +35,11 @@ function fmtTime(ms: number | null): string {
   return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
 }
 
+function fmtDecimalHours(ms: number): number {
+  if (!ms || ms <= 0) return 0;
+  return Math.round((ms / 3600000) * 100) / 100;
+}
+
 type Lang = 'en' | 'ru' | 'tr';
 
 function getL(lang: Lang = 'tr', tenantName = 'WorkForce') {
@@ -54,6 +59,7 @@ function getL(lang: Lang = 'tr', tenantName = 'WorkForce') {
       footer: 'TOTAL',
       came: 'Present', notCame: 'Absent', pct: 'Percentage',
       total: 'Total', days: (n: number) => `${n} days`,
+      grandTotal: 'Grand Total',
       reportLabels: {
         daily_all: 'All Workers', daily_staff: 'Staff Only',
         daily_shift_day: 'Day Shift', daily_shift_night: 'Night Shift',
@@ -75,6 +81,7 @@ function getL(lang: Lang = 'tr', tenantName = 'WorkForce') {
       footer: 'ИТОГО',
       came: 'Пришёл', notCame: 'Не пришёл', pct: 'Процент',
       total: 'Всего', days: (n: number) => `${n} дн.`,
+      grandTotal: 'Общий итог',
       reportLabels: {
         daily_all: 'Все работники', daily_staff: 'Только персонал',
         daily_shift_day: 'Дневная смена', daily_shift_night: 'Ночная смена',
@@ -96,6 +103,7 @@ function getL(lang: Lang = 'tr', tenantName = 'WorkForce') {
       footer: 'TOPLAM',
       came: 'Geldi', notCame: 'Gelmedi', pct: 'Yüzde',
       total: 'Toplam', days: (n: number) => `${n} gün`,
+      grandTotal: 'Genel Toplam',
       reportLabels: {
         daily_all: 'Tüm İşçiler', daily_staff: 'Sadece Personel',
         daily_shift_day: 'Gündüz Vardiyası', daily_shift_night: 'Gece Vardiyası',
@@ -468,7 +476,8 @@ export class ReportsService {
   ): Promise<{ xlsx: Buffer; html: string; subject: string }> {
     const L = getL(lang, tenantName);
     const rows = await this.buildRangeRows(startDate, endDate, workerIds, tenantId);
-    const xlsx = await this.buildRangeXlsx(startDate, endDate, rows, isMonthly, tenantName, lang);
+    const matrix = await this.buildRangeDailyMatrix(startDate, endDate, workerIds, tenantId);
+    const xlsx = await this.buildRangeXlsx(startDate, endDate, matrix, isMonthly, tenantName, lang);
     const html = this.buildRangeEmailHtml(startDate, endDate, rows, isMonthly, tenantName, lang);
 
     const subject = `${L.rangeTitle(isMonthly)} (${startDate} — ${endDate})`;
@@ -616,10 +625,105 @@ export class ReportsService {
     return rows;
   }
 
+  // Builds a date x worker matrix of daily worked hours (ms), used by the
+  // range Excel export. Unlike buildRangeRows (period totals per worker),
+  // this keeps per-day granularity: rows = calendar dates, columns = workers.
+  private async buildRangeDailyMatrix(
+    startDate: string,
+    endDate: string,
+    filterWorkerIds?: string[],
+    tenantId?: string,
+  ): Promise<{
+    dates: string[];
+    workers: { workerId: string; name: string; totalsByDate: Map<string, number>; totalMs: number }[];
+  }> {
+    const events: { employeeNumber: string; eventType: string; eventTime: string }[] =
+      await this.eventRepo.query(
+        `SELECT "employeeNumber", "eventType", "eventTime"
+         FROM attendance_events
+         WHERE DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE '${APP_TZ}') BETWEEN $1 AND $2
+         ORDER BY "employeeNumber", "eventTime" ASC`,
+        [startDate, endDate],
+      );
+
+    const empNumsFromEvents = [...new Set(events.map(e => e.employeeNumber).filter(Boolean))];
+    const empNumSet = new Set(empNumsFromEvents);
+    if (filterWorkerIds && filterWorkerIds.length > 0) {
+      for (const id of filterWorkerIds) empNumSet.add(id);
+    }
+    const empNums = [...empNumSet];
+
+    const workers = empNums.length > 0
+      ? await this.workerRepo.find({ where: empNums.map(workerId => ({ workerId, ...(tenantId ? { tenantId } : {}) })) })
+      : [];
+    const workerMap = new Map(workers.map(w => [w.workerId, w]));
+
+    const workerEntityIds = workers.map(w => w.id);
+    const overrides = await this.attendanceOverridesService.getForWorkerIdsRange(workerEntityIds, startDate, endDate, tenantId);
+    const overrideMap = new Map(
+      overrides.map(o => [`${o.workerEntityId}:${o.date}`, { checkInMs: o.checkInMs ? Number(o.checkInMs) : null, checkOutMs: o.checkOutMs ? Number(o.checkOutMs) : null }]),
+    );
+
+    type Ev = { eventType: string; eventTime: number };
+    const byWorkerDate = new Map<string, Ev[]>();
+    for (const ev of events) {
+      const date = new Date(Number(ev.eventTime) + TZ_OFFSET_MS).toISOString().split('T')[0];
+      const key = `${ev.employeeNumber}:${date}`;
+      const arr = byWorkerDate.get(key) ?? [];
+      arr.push({ eventType: ev.eventType, eventTime: Number(ev.eventTime) });
+      byWorkerDate.set(key, arr);
+    }
+
+    const dates: string[] = [];
+    {
+      let cursor = new Date(`${startDate}T00:00:00Z`).getTime();
+      const end = new Date(`${endDate}T00:00:00Z`).getTime();
+      while (cursor <= end) {
+        dates.push(new Date(cursor).toISOString().split('T')[0]);
+        cursor += 86400000;
+      }
+    }
+
+    const filteredEmpNums = (filterWorkerIds && filterWorkerIds.length > 0)
+      ? empNums.filter(id => filterWorkerIds.includes(id))
+      : empNumsFromEvents;
+
+    const resultWorkers = filteredEmpNums.map(empNum => {
+      const w = workerMap.get(empNum);
+      const totalsByDate = new Map<string, number>();
+      let totalMs = 0;
+      for (const date of dates) {
+        const ovKey = w ? `${w.id}:${date}` : null;
+        const ov = ovKey ? overrideMap.get(ovKey) : undefined;
+        let dayMs = 0;
+        if (ov) {
+          dayMs = (ov.checkInMs && ov.checkOutMs) ? ov.checkOutMs - ov.checkInMs : 0;
+        } else {
+          const evs = byWorkerDate.get(`${empNum}:${date}`) ?? [];
+          let clockIn: number | null = null;
+          for (const ev of evs) {
+            if (ev.eventType === 'CHECK_IN') {
+              if (clockIn === null) clockIn = ev.eventTime;
+            } else {
+              if (clockIn !== null) { dayMs += ev.eventTime - clockIn; clockIn = null; }
+            }
+          }
+        }
+        if (dayMs > 0) totalsByDate.set(date, dayMs);
+        totalMs += dayMs;
+      }
+      return { workerId: empNum, name: w?.name ?? empNum, totalsByDate, totalMs };
+    });
+
+    resultWorkers.sort((a, b) => a.name.localeCompare(b.name));
+
+    return { dates, workers: resultWorkers };
+  }
+
   private async buildRangeXlsx(
     startDate: string,
     endDate: string,
-    rows: RangeRow[],
+    matrix: { dates: string[]; workers: { workerId: string; name: string; totalsByDate: Map<string, number>; totalMs: number }[] },
     isMonthly: boolean,
     tenantName = 'WorkForce',
     lang: Lang = 'tr',
@@ -627,123 +731,106 @@ export class ReportsService {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const ExcelJS = require('exceljs');
     const L = getL(lang, tenantName);
-    const totalMs = rows.reduce((s, r) => s + r.totalMs, 0);
-    const worked = rows.filter(r => r.totalMs > 0);
-    const avgMs = worked.length > 0 ? Math.floor(totalMs / worked.length) : 0;
+    const { dates, workers } = matrix;
+    const totalCols = 1 + workers.length; // date column + one column per worker
 
     const wb = new ExcelJS.Workbook();
     wb.creator = tenantName;
     wb.created = new Date();
     const ws = wb.addWorksheet(L.report);
-    const COLS = 8;
 
     ws.columns = [
-      { width: 5  },
-      { width: 32 },
       { width: 13 },
-      { width: 22 },
-      { width: 20 },
-      { width: 13 },
-      { width: 15 },
-      { width: 17 },
+      ...workers.map(() => ({ width: 13 })),
     ];
 
-    // ── Title ───────────────────────────────────────────────────────────────
+    // Title
     const titleRow = ws.addRow([L.rangeTitle(isMonthly)]);
-    ws.mergeCells(titleRow.number, 1, titleRow.number, COLS);
+    ws.mergeCells(titleRow.number, 1, titleRow.number, totalCols);
     Object.assign(titleRow.getCell(1), {
       fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } },
       font: { bold: true, size: 15, color: { argb: 'FFFFFFFF' } },
       alignment: { horizontal: 'center', vertical: 'middle' },
     });
-    titleRow.height = 34;
+    titleRow.height = 30;
 
-    // ── Subtitle ─────────────────────────────────────────────────────────────
-    const subRow = ws.addRow([`${L.period}: ${startDate} — ${endDate}`]);
-    ws.mergeCells(subRow.number, 1, subRow.number, COLS);
+    // Subtitle: period
+    const subRow = ws.addRow([`${L.period}: ${startDate} - ${endDate}`]);
+    ws.mergeCells(subRow.number, 1, subRow.number, totalCols);
     Object.assign(subRow.getCell(1), {
       fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2D5E8E' } },
       font: { size: 11, color: { argb: 'FFCFE2FF' } },
       alignment: { horizontal: 'center', vertical: 'middle' },
     });
-    subRow.height = 22;
+    subRow.height = 20;
 
-    // ── Stats ─────────────────────────────────────────────────────────────────
-    const statsData = [
-      [L.totalWorkers, rows.length],
-      [L.workedWorkers, worked.length],
-      [L.totalHours, fmtMs(totalMs, lang)],
-      [L.avgPerWorker, fmtMs(avgMs, lang)],
-    ];
-    for (let i = 0; i < statsData.length; i += 2) {
-      const pair = statsData.slice(i, i + 2);
-      const r = ws.addRow([
-        pair[0]?.[0], pair[0]?.[1],
-        '', '',
-        pair[1]?.[0], pair[1]?.[1],
-      ]);
-      ws.mergeCells(r.number, 1, r.number, 2);
-      ws.mergeCells(r.number, 5, r.number, 6);
-      r.eachCell((c: any) => {
-        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F0FE' } };
-        c.font = { size: 10 };
-        c.alignment = { horizontal: 'center', vertical: 'middle' };
-      });
-      r.height = 18;
-    }
-
-    ws.addRow([]); // spacer
-
-    // ── Column headers ────────────────────────────────────────────────────────
-    const hdr = ws.addRow(['#', L.colWorker, L.colTabNo, L.colProfession, L.colTeam, L.colDaysWorked, L.colTotalHours, L.colAvgDay]);
-    hdr.eachCell((c: any) => {
+    // Header row: Date | worker columns (Sicil No + Ad Familiya)
+    const headerRow = ws.addRow([L.date, ...workers.map(w => `${w.workerId}\n${w.name}`)]);
+    headerRow.eachCell((c: any) => {
       c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
-      c.font = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
-      c.alignment = { horizontal: 'center', vertical: 'middle' };
+      c.font = { bold: true, size: 9, color: { argb: 'FFFFFFFF' } };
+      c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
       c.border = { bottom: { style: 'medium', color: { argb: 'FF93C5FD' } } };
     });
-    hdr.height = 22;
+    headerRow.height = 34;
 
-    // ── Data rows ─────────────────────────────────────────────────────────────
-    rows.forEach((row, i) => {
-      const avgDayMs = row.daysPresent > 0 ? Math.floor(row.totalMs / row.daysPresent) : 0;
+    // Data rows: one per calendar date, cells = that day's worked hours (decimal)
+    dates.forEach((date, i) => {
+      const isSunday = new Date(`${date}T00:00:00Z`).getUTCDay() === 0;
+      const label = date.split('-').reverse().join('.'); // YYYY-MM-DD -> DD.MM.YYYY
       const r = ws.addRow([
-        i + 1,
-        row.name,
-        row.workerId,
-        row.profession,
-        row.brigade,
-        row.daysPresent > 0 ? L.days(row.daysPresent) : '—',
-        fmtMs(row.totalMs, lang),
-        fmtMs(avgDayMs, lang),
+        label,
+        ...workers.map(w => {
+          const ms = w.totalsByDate.get(date) ?? 0;
+          return ms > 0 ? fmtDecimalHours(ms) : null;
+        }),
       ]);
-      const bg = i % 2 === 0 ? 'FFFAFAFA' : 'FFFFFFFF';
-      r.eachCell((c: any) => {
+      const bg = isSunday ? 'FFFDECEC' : (i % 2 === 0 ? 'FFFAFAFA' : 'FFFFFFFF');
+      r.eachCell((c: any, colNumber: number) => {
         c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
         c.font = { size: 9 };
-        c.alignment = { vertical: 'middle' };
+        c.alignment = { horizontal: 'center', vertical: 'middle' };
         c.border = { bottom: { style: 'hair', color: { argb: 'FFE2E8F0' } } };
+        if (colNumber > 1) c.numFmt = '0.##';
       });
-      if (row.totalMs > 0) {
-        r.getCell(7).font = { size: 9, bold: true, color: { argb: 'FF1E3A5F' } };
-      }
-      r.height = 17;
+      r.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
+      r.getCell(1).font = { size: 9, bold: true };
+      r.height = 15;
     });
 
-    // ── Totals footer ─────────────────────────────────────────────────────────
-    ws.addRow([]);
-    const maxDays = [...new Set(rows.map(r => r.daysPresent))].reduce((a, b) => Math.max(a, b), 0);
-    const footRow = ws.addRow([
-      '', L.footer, '', '', '',
-      `${maxDays} (max)`,
-      fmtMs(totalMs, lang), '',
+    // Totals row: each worker's period total
+    const totalsRow = ws.addRow([
+      L.footer,
+      ...workers.map(w => w.totalMs > 0 ? fmtDecimalHours(w.totalMs) : null),
     ]);
-    footRow.eachCell((c: any) => {
+    totalsRow.eachCell((c: any, colNumber: number) => {
       c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
-      c.font = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
+      c.font = { bold: true, size: 9, color: { argb: 'FFFFFFFF' } };
       c.alignment = { horizontal: 'center', vertical: 'middle' };
+      if (colNumber > 1) c.numFmt = '0.##';
     });
-    footRow.height = 20;
+    totalsRow.height = 20;
+
+    // Grand total: sum of every worker's period total
+    ws.addRow([]);
+    const grandTotalMs = workers.reduce((s, w) => s + w.totalMs, 0);
+    if (workers.length > 0) {
+      const gtValues: any[] = new Array(totalCols).fill(null);
+      gtValues[0] = L.grandTotal;
+      gtValues[totalCols - 1] = fmtDecimalHours(grandTotalMs);
+      const gtRow = ws.addRow(gtValues);
+      if (totalCols > 1) ws.mergeCells(gtRow.number, 1, gtRow.number, totalCols - 1);
+      gtRow.getCell(1).font = { bold: true, size: 11, color: { argb: 'FF1E3A5F' } };
+      gtRow.getCell(1).alignment = { horizontal: 'right', vertical: 'middle' };
+      gtRow.getCell(totalCols).font = { bold: true, size: 12, color: { argb: 'FFDC2626' } };
+      gtRow.getCell(totalCols).alignment = { horizontal: 'center', vertical: 'middle' };
+      gtRow.getCell(totalCols).numFmt = '0.##';
+      gtRow.height = 24;
+    } else {
+      const gtRow = ws.addRow([`${L.grandTotal}: ${fmtDecimalHours(grandTotalMs)}`]);
+      gtRow.getCell(1).font = { bold: true, size: 11, color: { argb: 'FF1E3A5F' } };
+      gtRow.height = 24;
+    }
 
     const buf = await wb.xlsx.writeBuffer();
     return Buffer.from(buf as ArrayBuffer);
