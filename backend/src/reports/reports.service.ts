@@ -40,6 +40,16 @@ function fmtDecimalHours(ms: number): number {
   return Math.round((ms / 3600000) * 100) / 100;
 }
 
+function colLetter(n: number): string {
+  let s = '';
+  while (n > 0) {
+    const rem = (n - 1) % 26;
+    s = String.fromCharCode(65 + rem) + s;
+    n = Math.floor((n - 1) / 26);
+  }
+  return s;
+}
+
 type Lang = 'en' | 'ru' | 'tr';
 
 function getL(lang: Lang = 'tr', tenantName = 'WorkForce') {
@@ -60,6 +70,7 @@ function getL(lang: Lang = 'tr', tenantName = 'WorkForce') {
       came: 'Present', notCame: 'Absent', pct: 'Percentage',
       total: 'Total', days: (n: number) => `${n} days`,
       grandTotal: 'Grand Total',
+      generatedAt: 'Generated',
       reportLabels: {
         daily_all: 'All Workers', daily_staff: 'Staff Only',
         daily_shift_day: 'Day Shift', daily_shift_night: 'Night Shift',
@@ -82,6 +93,7 @@ function getL(lang: Lang = 'tr', tenantName = 'WorkForce') {
       came: 'Пришёл', notCame: 'Не пришёл', pct: 'Процент',
       total: 'Всего', days: (n: number) => `${n} дн.`,
       grandTotal: 'Общий итог',
+      generatedAt: 'Сформирован',
       reportLabels: {
         daily_all: 'Все работники', daily_staff: 'Только персонал',
         daily_shift_day: 'Дневная смена', daily_shift_night: 'Ночная смена',
@@ -104,6 +116,7 @@ function getL(lang: Lang = 'tr', tenantName = 'WorkForce') {
       came: 'Geldi', notCame: 'Gelmedi', pct: 'Yüzde',
       total: 'Toplam', days: (n: number) => `${n} gün`,
       grandTotal: 'Genel Toplam',
+      generatedAt: 'Oluşturulma Tarihi',
       reportLabels: {
         daily_all: 'Tüm İşçiler', daily_staff: 'Sadece Personel',
         daily_shift_day: 'Gündüz Vardiyası', daily_shift_night: 'Gece Vardiyası',
@@ -734,11 +747,22 @@ export class ReportsService {
     const { dates, workers } = matrix;
     const FIXED_COLS = 3; // #, Sicil No, Ad Familiya
     const totalCols = FIXED_COLS + dates.length + 1; // + Jemi (period total) column
+    const hourUnit = lang === 'ru' ? '\u0447' : lang === 'en' ? 'h' : 'sa';
+    const hourNumFmt = `0.##" ${hourUnit}"`;
 
     const wb = new ExcelJS.Workbook();
     wb.creator = tenantName;
     wb.created = new Date();
-    const ws = wb.addWorksheet(L.report);
+    const ws = wb.addWorksheet(L.report, {
+      properties: { tabColor: { argb: 'FF1E3A5F' } },
+      pageSetup: {
+        orientation: 'landscape',
+        fitToPage: true,
+        fitToWidth: 1,
+        fitToHeight: 0,
+        margins: { left: 0.3, right: 0.3, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 },
+      },
+    });
 
     ws.columns = [
       { width: 5 },
@@ -748,42 +772,88 @@ export class ReportsService {
       { width: 13 },
     ];
 
-    // Title
+    // ── Title band ─────────────────────────────────────────────────────────────
     const titleRow = ws.addRow([L.rangeTitle(isMonthly)]);
     ws.mergeCells(titleRow.number, 1, titleRow.number, totalCols);
     Object.assign(titleRow.getCell(1), {
       fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } },
-      font: { bold: true, size: 15, color: { argb: 'FFFFFFFF' } },
+      font: { name: 'Calibri', bold: true, size: 16, color: { argb: 'FFFFFFFF' } },
       alignment: { horizontal: 'center', vertical: 'middle' },
     });
-    titleRow.height = 30;
+    titleRow.height = 32;
 
-    // Subtitle: period
-    const subRow = ws.addRow([`${L.period}: ${startDate} - ${endDate}`]);
+    const subRow = ws.addRow([`${L.period}: ${startDate}  -  ${endDate}`]);
     ws.mergeCells(subRow.number, 1, subRow.number, totalCols);
     Object.assign(subRow.getCell(1), {
       fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2D5E8E' } },
-      font: { size: 11, color: { argb: 'FFCFE2FF' } },
+      font: { name: 'Calibri', size: 11, color: { argb: 'FFCFE2FF' } },
       alignment: { horizontal: 'center', vertical: 'middle' },
     });
     subRow.height = 20;
 
+    ws.addRow([]);
+
+    // ── KPI summary band ─────────────────────────────────────────────────────────
+    const workedWorkers = workers.filter(w => w.totalMs > 0);
+    const grandTotalMs = workers.reduce((s, w) => s + w.totalMs, 0);
+    const avgMs = workedWorkers.length > 0 ? Math.floor(grandTotalMs / workedWorkers.length) : 0;
+
+    const kpis: { label: string; value: string; color: string; bg: string }[] = [
+      { label: L.totalWorkers, value: String(workers.length), color: 'FF1D4ED8', bg: 'FFEFF6FF' },
+      { label: L.workedWorkers, value: String(workedWorkers.length), color: 'FF16A34A', bg: 'FFF0FDF4' },
+      { label: L.totalHours, value: fmtMs(grandTotalMs, lang), color: 'FF4F46E5', bg: 'FFEEF2FF' },
+      { label: L.avgPerWorker, value: fmtMs(avgMs, lang), color: 'FFB45309', bg: 'FFFEF9C3' },
+    ];
+    const kpiSpan = Math.max(1, Math.floor(totalCols / kpis.length));
+    const kpiLabelRow = ws.addRow([]);
+    const kpiValueRow = ws.addRow([]);
+    kpis.forEach((kpi, idx) => {
+      const startCol = idx * kpiSpan + 1;
+      const endCol = idx === kpis.length - 1 ? totalCols : startCol + kpiSpan - 1;
+      ws.mergeCells(kpiLabelRow.number, startCol, kpiLabelRow.number, endCol);
+      ws.mergeCells(kpiValueRow.number, startCol, kpiValueRow.number, endCol);
+      const lc = kpiLabelRow.getCell(startCol);
+      lc.value = kpi.label;
+      lc.font = { name: 'Calibri', size: 9, color: { argb: 'FF64748B' } };
+      lc.alignment = { horizontal: 'center', vertical: 'middle' };
+      lc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: kpi.bg } };
+      const vc = kpiValueRow.getCell(startCol);
+      vc.value = kpi.value;
+      vc.font = { name: 'Calibri', size: 15, bold: true, color: { argb: kpi.color } };
+      vc.alignment = { horizontal: 'center', vertical: 'middle' };
+      vc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: kpi.bg } };
+      if (idx < kpis.length - 1) {
+        kpiLabelRow.getCell(endCol).border = { right: { style: 'thin', color: { argb: 'FFFFFFFF' } } };
+        kpiValueRow.getCell(endCol).border = { right: { style: 'thin', color: { argb: 'FFFFFFFF' } } };
+      }
+    });
+    kpiLabelRow.height = 16;
+    kpiValueRow.height = 24;
+
+    ws.addRow([]);
+
+    // ── Table header: # | Sicil No | Ad Familiya | 01.08.2026 | ... | TOPLAM ──────
     const sundayFlags = dates.map(d => new Date(`${d}T00:00:00Z`).getUTCDay() === 0);
     const isDateCol = (colNumber: number) => colNumber > FIXED_COLS && colNumber <= FIXED_COLS + dates.length;
 
-    // Header row: # | Sicil No | Ad Familiya | 01.08.2026 | 02.08.2026 | ... | Jemi
     const headerValues = ['#', L.colTabNo, L.colWorker, ...dates.map(d => d.split('-').reverse().join('.')), L.footer];
     const headerRow = ws.addRow(headerValues);
     headerRow.eachCell((c: any, colNumber: number) => {
       const sunday = isDateCol(colNumber) && sundayFlags[colNumber - FIXED_COLS - 1];
       c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: sunday ? 'FF7F1D1D' : 'FF1E3A5F' } };
-      c.font = { bold: true, size: 9, color: { argb: 'FFFFFFFF' } };
+      c.font = { name: 'Calibri', bold: true, size: 9, color: { argb: 'FFFFFFFF' } };
       c.alignment = { horizontal: 'center', vertical: 'middle' };
-      c.border = { bottom: { style: 'medium', color: { argb: 'FF93C5FD' } } };
+      c.border = {
+        top: { style: 'thin', color: { argb: 'FF1E3A5F' } },
+        bottom: { style: 'medium', color: { argb: 'FF93C5FD' } },
+        left: { style: 'thin', color: { argb: 'FF33547A' } },
+        right: { style: 'thin', color: { argb: 'FF33547A' } },
+      };
     });
-    headerRow.height = 20;
+    headerRow.height = 22;
 
-    // Data rows: one per worker, cells = that day's worked hours (decimal), last column = period total
+    // ── Data rows: one per worker, cells = daily hours, last col = period total ────
+    const firstDataRowNum = headerRow.number + 1;
     workers.forEach((w, i) => {
       const rowValues = [
         i + 1, w.workerId, w.name,
@@ -794,38 +864,95 @@ export class ReportsService {
         w.totalMs > 0 ? fmtDecimalHours(w.totalMs) : null,
       ];
       const r = ws.addRow(rowValues);
-      const bg = i % 2 === 0 ? 'FFFAFAFA' : 'FFFFFFFF';
+      const bg = i % 2 === 0 ? 'FFF8FAFC' : 'FFFFFFFF';
       r.eachCell((c: any, colNumber: number) => {
         const sunday = isDateCol(colNumber) && sundayFlags[colNumber - FIXED_COLS - 1];
-        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: sunday ? 'FFFDECEC' : bg } };
-        c.font = { size: 9 };
-        c.alignment = { horizontal: colNumber <= FIXED_COLS ? 'left' : 'center', vertical: 'middle' };
-        c.border = { bottom: { style: 'hair', color: { argb: 'FFE2E8F0' } } };
-        if (colNumber > FIXED_COLS) c.numFmt = '0.##';
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: sunday ? 'FFFDF2F2' : bg } };
+        c.font = { name: 'Calibri', size: 9 };
+        c.alignment = { horizontal: colNumber <= FIXED_COLS ? (colNumber === 1 ? 'center' : 'left') : 'right', vertical: 'middle' };
+        c.border = {
+          bottom: { style: 'hair', color: { argb: 'FFE2E8F0' } },
+          left: { style: 'hair', color: { argb: 'FFEEF2F6' } },
+          right: { style: 'hair', color: { argb: 'FFEEF2F6' } },
+        };
+        if (colNumber > FIXED_COLS) c.numFmt = hourNumFmt;
       });
-      r.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
-      r.getCell(totalCols).font = { size: 9, bold: true, color: { argb: 'FF1E3A5F' } };
+      r.getCell(2).font = { name: 'Calibri', size: 9, color: { argb: 'FF64748B' } };
+      r.getCell(3).font = { name: 'Calibri', size: 9, bold: true, color: { argb: 'FF1E293B' } };
+      r.getCell(totalCols).font = { name: 'Calibri', size: 9, bold: true, color: { argb: 'FF1E3A5F' } };
       r.height = 16;
     });
+    const lastDataRowNum = headerRow.number + workers.length;
 
-    // Footer row: per-date totals across all workers, grand total in the very last cell
-    const perDateTotals = dates.map(d => workers.reduce((s, w) => s + (w.totalsByDate.get(d) ?? 0), 0));
-    const grandTotalMs = workers.reduce((s, w) => s + w.totalMs, 0);
-    const footerValues = [
-      '', '', L.footer,
-      ...perDateTotals.map(ms => ms > 0 ? fmtDecimalHours(ms) : null),
-      fmtDecimalHours(grandTotalMs),
-    ];
-    const footRow = ws.addRow(footerValues);
+    // ── Footer / totals row — live SUBTOTAL formulas so filtering updates them ─────
+    const footRow = ws.addRow(['', '', L.footer]);
     ws.mergeCells(footRow.number, 1, footRow.number, FIXED_COLS);
+    for (let ci = FIXED_COLS + 1; ci <= totalCols; ci++) {
+      const letter = colLetter(ci);
+      footRow.getCell(ci).value = { formula: `SUBTOTAL(109,${letter}${firstDataRowNum}:${letter}${lastDataRowNum})` };
+    }
     footRow.eachCell((c: any, colNumber: number) => {
       c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
-      c.font = { bold: true, size: 9, color: { argb: 'FFFFFFFF' } };
-      c.alignment = { horizontal: 'center', vertical: 'middle' };
-      if (colNumber > FIXED_COLS) c.numFmt = '0.##';
+      c.font = { name: 'Calibri', bold: true, size: 9, color: { argb: 'FFFFFFFF' } };
+      c.alignment = { horizontal: colNumber <= FIXED_COLS ? 'center' : 'right', vertical: 'middle' };
+      if (colNumber > FIXED_COLS) c.numFmt = hourNumFmt;
     });
-    footRow.getCell(totalCols).font = { bold: true, size: 12, color: { argb: 'FFFACC15' } };
+    const grandCell = footRow.getCell(totalCols);
+    grandCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF59E0B' } };
+    grandCell.font = { name: 'Calibri', bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
     footRow.height = 22;
+
+    // ── Generated-at footnote ───────────────────────────────────────────────────
+    ws.addRow([]);
+    const now = new Date(Date.now() + TZ_OFFSET_MS);
+    const stamp = `${String(now.getUTCDate()).padStart(2, '0')}.${String(now.getUTCMonth() + 1).padStart(2, '0')}.${now.getUTCFullYear()} ${String(now.getUTCHours()).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')}`;
+    const noteRow = ws.addRow([`${L.generatedAt}: ${stamp}  -  ${tenantName}`]);
+    ws.mergeCells(noteRow.number, 1, noteRow.number, totalCols);
+    noteRow.getCell(1).font = { name: 'Calibri', size: 8, italic: true, color: { argb: 'FF94A3B8' } };
+    noteRow.getCell(1).alignment = { horizontal: 'right' };
+
+    // ── AutoFilter — per-column dropdowns, including every date column ─────────────
+    if (workers.length > 0) {
+      ws.autoFilter = {
+        from: { row: headerRow.number, column: 1 },
+        to: { row: lastDataRowNum, column: totalCols },
+      };
+    }
+
+    // ── Conditional formatting — blue heat-scale on daily hours + data bar on Jemi ──
+    if (dates.length > 0 && workers.length > 0) {
+      const firstDateColLetter = colLetter(FIXED_COLS + 1);
+      const lastDateColLetter = colLetter(FIXED_COLS + dates.length);
+      ws.addConditionalFormatting({
+        ref: `${firstDateColLetter}${firstDataRowNum}:${lastDateColLetter}${lastDataRowNum}`,
+        rules: [
+          {
+            type: 'colorScale',
+            cfvo: [{ type: 'min' }, { type: 'percentile', value: 50 }, { type: 'max' }],
+            color: [{ argb: 'FFEFF6FF' }, { argb: 'FF7DB3F5' }, { argb: 'FF1E3A5F' }],
+          },
+        ],
+      });
+      const jemiLetter = colLetter(totalCols);
+      ws.addConditionalFormatting({
+        ref: `${jemiLetter}${firstDataRowNum}:${jemiLetter}${lastDataRowNum}`,
+        rules: [
+          {
+            type: 'dataBar',
+            minLength: 0, maxLength: 100,
+            cfvo: [{ type: 'min' }, { type: 'max' }],
+            color: { argb: 'FF60A5FA' },
+          },
+        ],
+      });
+    }
+
+    // ── Freeze panes: header + identity columns always visible while scrolling ──────
+    ws.views = [{ state: 'frozen', xSplit: FIXED_COLS, ySplit: headerRow.number, showGridLines: false }];
+
+    // ── Print setup: repeat header row + identity columns on every printed page ─────
+    ws.pageSetup.printTitlesRow = `${headerRow.number}:${headerRow.number}`;
+    ws.pageSetup.printTitlesColumn = 'A:C';
 
     const buf = await wb.xlsx.writeBuffer();
     return Buffer.from(buf as ArrayBuffer);
