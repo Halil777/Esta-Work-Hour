@@ -56,6 +56,28 @@ function colLetter(n: number): string {
   return s;
 }
 
+// Black + gold brand palette for the range-report workbook (matches the
+// company's shield/lion mark). Shared by every sheet the workbook builds.
+const BRAND = {
+  black: 'FF0D0D0D',
+  blackSoft: 'FF171717',
+  gold: 'FFD4AF37',
+  goldBright: 'FFF0D273',
+  goldSoft: 'FFE8C568',
+  goldDeep: 'FF8B6914',
+  goldLine: 'FF33291A',
+  cream: 'FFFAF0D7',
+  creamSoft: 'FFFCEFC7',
+  hairline: 'FFEEE0BE',
+  hairlineSoft: 'FFF5EBD0',
+  ink: 'FF1A1A1A',
+  mutedGold: 'FF9C8A5C',
+  dayBadgeBg: 'FFF3D9A6',
+  dayBadgeText: 'FF6B4A0A',
+  nightBadgeBg: 'FF241D0A',
+  nightBadgeText: 'FFE8C568',
+};
+
 type Lang = 'en' | 'ru' | 'tr';
 
 function getL(lang: Lang = 'tr', tenantName = 'WorkForce') {
@@ -77,6 +99,8 @@ function getL(lang: Lang = 'tr', tenantName = 'WorkForce') {
       total: 'Total', days: (n: number) => `${n} days`,
       grandTotal: 'Grand Total',
       generatedAt: 'Generated',
+      scanSheetName: 'Check In-Out',
+      scanTitle: (tenantName: string) => `${tenantName} — Check-In/Check-Out Log`,
       reportLabels: {
         daily_all: 'All Workers', daily_staff: 'Staff Only',
         daily_shift_day: 'Day Shift', daily_shift_night: 'Night Shift',
@@ -100,6 +124,8 @@ function getL(lang: Lang = 'tr', tenantName = 'WorkForce') {
       total: 'Всего', days: (n: number) => `${n} дн.`,
       grandTotal: 'Общий итог',
       generatedAt: 'Сформирован',
+      scanSheetName: 'Приход-Уход',
+      scanTitle: (tenantName: string) => `${tenantName} — Записи прихода-ухода`,
       reportLabels: {
         daily_all: 'Все работники', daily_staff: 'Только персонал',
         daily_shift_day: 'Дневная смена', daily_shift_night: 'Ночная смена',
@@ -123,6 +149,8 @@ function getL(lang: Lang = 'tr', tenantName = 'WorkForce') {
       total: 'Toplam', days: (n: number) => `${n} gün`,
       grandTotal: 'Genel Toplam',
       generatedAt: 'Oluşturulma Tarihi',
+      scanSheetName: 'Giriş-Çıkış',
+      scanTitle: (tenantName: string) => `${tenantName} — Giriş-Çıkış Kayıtları`,
       reportLabels: {
         daily_all: 'Tüm İşçiler', daily_staff: 'Sadece Personel',
         daily_shift_day: 'Gündüz Vardiyası', daily_shift_night: 'Gece Vardiyası',
@@ -154,6 +182,18 @@ export type RangeRow = {
   brigade: string;
   totalMs: number;
   daysPresent: number;
+};
+
+type RangeMatrix = {
+  dates: string[];
+  workers: {
+    workerId: string;
+    name: string;
+    shift: string | null;
+    totalsByDate: Map<string, number>;
+    totalMs: number;
+    scansByDate: Map<string, { checkIn: number | null; checkOut: number | null }>;
+  }[];
 };
 
 // ─── Service ────────────────────────────────────────────────────────────────────
@@ -652,10 +692,7 @@ export class ReportsService {
     endDate: string,
     filterWorkerIds?: string[],
     tenantId?: string,
-  ): Promise<{
-    dates: string[];
-    workers: { workerId: string; name: string; shift: string | null; totalsByDate: Map<string, number>; totalMs: number }[];
-  }> {
+  ): Promise<RangeMatrix> {
     const events: { employeeNumber: string; eventType: string; eventTime: string }[] =
       await this.eventRepo.query(
         `SELECT "employeeNumber", "eventType", "eventTime"
@@ -710,28 +747,36 @@ export class ReportsService {
     const resultWorkers = filteredEmpNums.map(empNum => {
       const w = workerMap.get(empNum);
       const totalsByDate = new Map<string, number>();
+      const scansByDate = new Map<string, { checkIn: number | null; checkOut: number | null }>();
       let totalMs = 0;
       for (const date of dates) {
         const ovKey = w ? `${w.id}:${date}` : null;
         const ov = ovKey ? overrideMap.get(ovKey) : undefined;
         let dayMs = 0;
+        let checkIn: number | null = null;
+        let checkOut: number | null = null;
         if (ov) {
           dayMs = (ov.checkInMs && ov.checkOutMs) ? ov.checkOutMs - ov.checkInMs : 0;
+          checkIn = ov.checkInMs;
+          checkOut = ov.checkOutMs;
         } else {
           const evs = byWorkerDate.get(`${empNum}:${date}`) ?? [];
           let clockIn: number | null = null;
           for (const ev of evs) {
             if (ev.eventType === 'CHECK_IN') {
+              if (checkIn === null) checkIn = ev.eventTime;
               if (clockIn === null) clockIn = ev.eventTime;
             } else {
               if (clockIn !== null) { dayMs += ev.eventTime - clockIn; clockIn = null; }
+              checkOut = ev.eventTime;
             }
           }
         }
         if (dayMs > 0) totalsByDate.set(date, dayMs);
+        if (checkIn !== null || checkOut !== null) scansByDate.set(date, { checkIn, checkOut });
         totalMs += dayMs;
       }
-      return { workerId: empNum, name: w?.name ?? empNum, shift: w?.shift ?? null, totalsByDate, totalMs };
+      return { workerId: empNum, name: w?.name ?? empNum, shift: w?.shift ?? null, totalsByDate, totalMs, scansByDate };
     });
 
     resultWorkers.sort((a, b) => a.name.localeCompare(b.name));
@@ -742,42 +787,39 @@ export class ReportsService {
   private async buildRangeXlsx(
     startDate: string,
     endDate: string,
-    matrix: { dates: string[]; workers: { workerId: string; name: string; shift: string | null; totalsByDate: Map<string, number>; totalMs: number }[] },
+    matrix: RangeMatrix,
     isMonthly: boolean,
     tenantName = 'WorkForce',
     lang: Lang = 'tr',
   ): Promise<Buffer> {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const ExcelJS = require('exceljs');
+    const wb = new ExcelJS.Workbook();
+    wb.creator = tenantName;
+    wb.created = new Date();
+
+    this.addHoursSheet(wb, startDate, endDate, matrix, isMonthly, tenantName, lang);
+    this.addScanTimesSheet(wb, startDate, endDate, matrix, tenantName, lang);
+
+    const buf = await wb.xlsx.writeBuffer();
+    return Buffer.from(buf as ArrayBuffer);
+  }
+
+  // ── Sheet 1: "Çalışma Saatleri" — the filterable, totalled, heat-mapped hours grid ──
+  private addHoursSheet(
+    wb: any,
+    startDate: string,
+    endDate: string,
+    matrix: RangeMatrix,
+    isMonthly: boolean,
+    tenantName: string,
+    lang: Lang,
+  ): void {
     const L = getL(lang, tenantName);
     const { dates, workers } = matrix;
     const FIXED_COLS = 4; // #, Sicil No, Ad Familiya, Vardiya
     const totalCols = FIXED_COLS + dates.length + 1; // + Jemi (period total) column
 
-    // Black + gold brand palette (matches the company's shield/lion mark).
-    const BRAND = {
-      black: 'FF0D0D0D',
-      blackSoft: 'FF171717',
-      gold: 'FFD4AF37',
-      goldBright: 'FFF0D273',
-      goldSoft: 'FFE8C568',
-      goldDeep: 'FF8B6914',
-      goldLine: 'FF33291A',
-      cream: 'FFFAF0D7',
-      creamSoft: 'FFFCEFC7',
-      hairline: 'FFEEE0BE',
-      hairlineSoft: 'FFF5EBD0',
-      ink: 'FF1A1A1A',
-      mutedGold: 'FF9C8A5C',
-      dayBadgeBg: 'FFF3D9A6',
-      dayBadgeText: 'FF6B4A0A',
-      nightBadgeBg: 'FF241D0A',
-      nightBadgeText: 'FFE8C568',
-    };
-
-    const wb = new ExcelJS.Workbook();
-    wb.creator = tenantName;
-    wb.created = new Date();
     const ws = wb.addWorksheet(L.report, {
       properties: { tabColor: { argb: BRAND.gold } },
       pageSetup: {
@@ -858,7 +900,7 @@ export class ReportsService {
 
     ws.addRow([]);
 
-    // ── Table header: # | Sicil No | Ad Familiya | 01.08.2026 | ... | TOPLAM ──────
+    // ── Table header: # | Sicil No | Ad Familiya | Vardiya | 01.08 | ... | TOPLAM ──
     const sundayFlags = dates.map(d => new Date(`${d}T00:00:00Z`).getUTCDay() === 0);
     const isDateCol = (colNumber: number) => colNumber > FIXED_COLS && colNumber <= FIXED_COLS + dates.length;
 
@@ -989,9 +1031,204 @@ export class ReportsService {
     // ── Print setup: repeat header row + identity columns on every printed page ─────
     ws.pageSetup.printTitlesRow = `${headerRow.number}:${headerRow.number}`;
     ws.pageSetup.printTitlesColumn = 'A:D';
+  }
 
-    const buf = await wb.xlsx.writeBuffer();
-    return Buffer.from(buf as ArrayBuffer);
+  // ── Sheet 2: "Giriş-Çıkış" — the audit trail (actual scan times), a separate tab ──
+  private addScanTimesSheet(
+    wb: any,
+    startDate: string,
+    endDate: string,
+    matrix: RangeMatrix,
+    tenantName: string,
+    lang: Lang,
+  ): void {
+    const L = getL(lang, tenantName);
+    const { dates, workers } = matrix;
+    const FIXED_COLS = 4; // #, Sicil No, Ad Familiya, Vardiya
+    const totalCols = FIXED_COLS + dates.length * 2 + 1; // + a cross-reference Jemi (hours) column
+
+    const ws = wb.addWorksheet(L.scanSheetName, {
+      properties: { tabColor: { argb: BRAND.goldDeep } },
+      pageSetup: {
+        orientation: 'landscape',
+        fitToPage: true,
+        fitToWidth: 1,
+        fitToHeight: 0,
+        margins: { left: 0.3, right: 0.3, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 },
+      },
+    });
+
+    ws.columns = [
+      { width: 5 },
+      { width: 13 },
+      { width: 26 },
+      { width: 9 },
+      ...dates.flatMap(() => [{ width: 8 }, { width: 8 }]),
+      { width: 9 },
+    ];
+
+    // ── Title band ─────────────────────────────────────────────────────────────
+    const titleRow = ws.addRow([L.scanTitle(tenantName)]);
+    ws.mergeCells(titleRow.number, 1, titleRow.number, totalCols);
+    Object.assign(titleRow.getCell(1), {
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: BRAND.black } },
+      font: { name: 'Calibri', bold: true, size: 16, color: { argb: BRAND.gold } },
+      alignment: { horizontal: 'center', vertical: 'middle' },
+    });
+    titleRow.height = 32;
+
+    const subRow = ws.addRow([`${L.period}: ${startDate}  -  ${endDate}`]);
+    ws.mergeCells(subRow.number, 1, subRow.number, totalCols);
+    Object.assign(subRow.getCell(1), {
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: BRAND.blackSoft } },
+      font: { name: 'Calibri', size: 11, color: { argb: BRAND.goldSoft } },
+      alignment: { horizontal: 'center', vertical: 'middle' },
+    });
+    subRow.height = 20;
+
+    ws.addRow([]);
+
+    // ── Two-row header: a merged date label spans each Giriş/Çıkış pair ─────────────
+    const sundayFlags = dates.map(d => new Date(`${d}T00:00:00Z`).getUTCDay() === 0);
+    const groupHeaderRow = ws.addRow([]);
+    const subHeaderRow = ws.addRow([]);
+
+    const styleGroupCell = (cell: any, sunday: boolean) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: sunday ? BRAND.gold : BRAND.black } };
+      cell.font = { name: 'Calibri', bold: true, size: 9, color: { argb: sunday ? BRAND.black : BRAND.gold } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border = {
+        top: { style: 'thin', color: { argb: BRAND.black } },
+        bottom: { style: 'medium', color: { argb: BRAND.gold } },
+        left: { style: 'thin', color: { argb: BRAND.goldLine } },
+        right: { style: 'thin', color: { argb: BRAND.goldLine } },
+      };
+    };
+
+    // Fixed identity columns: value in the top row, vertically merged across both header rows.
+    const fixedLabels = ['#', L.colTabNo, L.colWorker, L.colShift];
+    fixedLabels.forEach((label, idx) => {
+      const col = idx + 1;
+      ws.mergeCells(groupHeaderRow.number, col, subHeaderRow.number, col);
+      const cell = groupHeaderRow.getCell(col);
+      cell.value = label;
+      styleGroupCell(cell, false);
+      styleGroupCell(subHeaderRow.getCell(col), false);
+    });
+
+    // One merged date label per day, with Giriş/Çıkış sub-labels underneath.
+    let col = FIXED_COLS + 1;
+    dates.forEach((d, i) => {
+      const sunday = sundayFlags[i];
+      const colIn = col;
+      const colOut = col + 1;
+      ws.mergeCells(groupHeaderRow.number, colIn, groupHeaderRow.number, colOut);
+      const dateCell = groupHeaderRow.getCell(colIn);
+      dateCell.value = d.split('-').slice(1).reverse().join('.');
+      styleGroupCell(dateCell, sunday);
+      styleGroupCell(groupHeaderRow.getCell(colOut), sunday);
+
+      const inCell = subHeaderRow.getCell(colIn);
+      inCell.value = L.colCheckIn;
+      styleGroupCell(inCell, sunday);
+      const outCell = subHeaderRow.getCell(colOut);
+      outCell.value = L.colCheckOut;
+      styleGroupCell(outCell, sunday);
+
+      col += 2;
+    });
+
+    // Trailing cross-reference "TOPLAM" (hours) column, vertically merged.
+    ws.mergeCells(groupHeaderRow.number, totalCols, subHeaderRow.number, totalCols);
+    const totalHeaderCell = groupHeaderRow.getCell(totalCols);
+    totalHeaderCell.value = L.footer;
+    styleGroupCell(totalHeaderCell, false);
+    styleGroupCell(subHeaderRow.getCell(totalCols), false);
+
+    groupHeaderRow.height = 20;
+    subHeaderRow.height = 18;
+
+    // ── Data rows: one per worker, cells = that day's first check-in / last check-out ──
+    const isDateSubCol = (colNumber: number) => colNumber > FIXED_COLS && colNumber <= FIXED_COLS + dates.length * 2;
+    const firstDataRowNum = subHeaderRow.number + 1;
+    workers.forEach((w, i) => {
+      const shiftLabel = w.shift === 'day' ? L.shiftDay : w.shift === 'night' ? L.shiftNight : '\u2014';
+      const rowValues: (string | number | null)[] = [i + 1, w.workerId, w.name, shiftLabel];
+      dates.forEach(d => {
+        const s = w.scansByDate.get(d);
+        rowValues.push(fmtTime(s?.checkIn ?? null), fmtTime(s?.checkOut ?? null));
+      });
+      rowValues.push(w.totalMs > 0 ? msToExcelDuration(w.totalMs) : null);
+
+      const r = ws.addRow(rowValues);
+      const bg = i % 2 === 0 ? BRAND.cream : 'FFFFFFFF';
+      r.eachCell((c: any, colNumber: number) => {
+        const sunday = isDateSubCol(colNumber) && sundayFlags[Math.floor((colNumber - FIXED_COLS - 1) / 2)];
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: sunday ? BRAND.creamSoft : bg } };
+        c.font = { name: 'Calibri', size: 9 };
+        c.alignment = { horizontal: colNumber <= FIXED_COLS ? (colNumber === 1 || colNumber === 4 ? 'center' : 'left') : 'right', vertical: 'middle' };
+        c.border = {
+          bottom: { style: 'hair', color: { argb: BRAND.hairline } },
+          left: { style: 'hair', color: { argb: BRAND.hairlineSoft } },
+          right: { style: 'hair', color: { argb: BRAND.hairlineSoft } },
+        };
+        if (colNumber === totalCols) c.numFmt = '[h]:mm';
+      });
+      r.getCell(2).font = { name: 'Calibri', size: 9, color: { argb: BRAND.mutedGold } };
+      r.getCell(3).font = { name: 'Calibri', size: 9, bold: true, color: { argb: BRAND.ink } };
+      if (w.shift === 'day' || w.shift === 'night') {
+        const badge = w.shift === 'day'
+          ? { bg: BRAND.dayBadgeBg, text: BRAND.dayBadgeText }
+          : { bg: BRAND.nightBadgeBg, text: BRAND.nightBadgeText };
+        r.getCell(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: badge.bg } };
+        r.getCell(4).font = { name: 'Calibri', size: 9, bold: true, color: { argb: badge.text } };
+      } else {
+        r.getCell(4).font = { name: 'Calibri', size: 9, color: { argb: BRAND.mutedGold } };
+      }
+      r.getCell(totalCols).font = { name: 'Calibri', size: 9, bold: true, color: { argb: BRAND.goldDeep } };
+      r.height = 16;
+    });
+    const lastDataRowNum = subHeaderRow.number + workers.length;
+
+    // ── Footer row: only the cross-reference hours column is summable ───────────────
+    const footRow = ws.addRow(['', '', '', L.footer]);
+    ws.mergeCells(footRow.number, 1, footRow.number, FIXED_COLS);
+    const totalLetter = colLetter(totalCols);
+    footRow.getCell(totalCols).value = { formula: `SUBTOTAL(109,${totalLetter}${firstDataRowNum}:${totalLetter}${lastDataRowNum})` };
+    footRow.eachCell((c: any) => {
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BRAND.black } };
+      c.font = { name: 'Calibri', bold: true, size: 9, color: { argb: BRAND.gold } };
+      c.alignment = { horizontal: 'center', vertical: 'middle' };
+    });
+    const grandCell = footRow.getCell(totalCols);
+    grandCell.numFmt = '[h]:mm';
+    grandCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BRAND.gold } };
+    grandCell.font = { name: 'Calibri', bold: true, size: 12, color: { argb: BRAND.black } };
+    footRow.height = 22;
+
+    // ── Generated-at footnote ───────────────────────────────────────────────────
+    ws.addRow([]);
+    const now = new Date(Date.now() + TZ_OFFSET_MS);
+    const stamp = `${String(now.getUTCDate()).padStart(2, '0')}.${String(now.getUTCMonth() + 1).padStart(2, '0')}.${now.getUTCFullYear()} ${String(now.getUTCHours()).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')}`;
+    const noteRow = ws.addRow([`${L.generatedAt}: ${stamp}  -  ${tenantName}`]);
+    ws.mergeCells(noteRow.number, 1, noteRow.number, totalCols);
+    noteRow.getCell(1).font = { name: 'Calibri', size: 8, italic: true, color: { argb: BRAND.mutedGold } };
+    noteRow.getCell(1).alignment = { horizontal: 'right' };
+
+    // ── AutoFilter on the sub-header row (Giriş/Çıkış are the real column names) ─────
+    if (workers.length > 0) {
+      ws.autoFilter = {
+        from: { row: subHeaderRow.number, column: 1 },
+        to: { row: lastDataRowNum, column: totalCols },
+      };
+    }
+
+    // ── Freeze panes: both header rows + identity columns always visible ────────────
+    ws.views = [{ state: 'frozen', xSplit: FIXED_COLS, ySplit: subHeaderRow.number, showGridLines: false }];
+
+    // ── Print setup: repeat both header rows + identity columns on every page ───────
+    ws.pageSetup.printTitlesRow = `${groupHeaderRow.number}:${subHeaderRow.number}`;
+    ws.pageSetup.printTitlesColumn = 'A:D';
   }
 
   private buildRangeEmailHtml(
