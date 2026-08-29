@@ -732,7 +732,8 @@ export class ReportsService {
     const ExcelJS = require('exceljs');
     const L = getL(lang, tenantName);
     const { dates, workers } = matrix;
-    const totalCols = 1 + workers.length; // date column + one column per worker
+    const FIXED_COLS = 3; // #, Sicil No, Ad Familiya
+    const totalCols = FIXED_COLS + dates.length + 1; // + Jemi (period total) column
 
     const wb = new ExcelJS.Workbook();
     wb.creator = tenantName;
@@ -740,8 +741,11 @@ export class ReportsService {
     const ws = wb.addWorksheet(L.report);
 
     ws.columns = [
+      { width: 5 },
       { width: 13 },
-      ...workers.map(() => ({ width: 13 })),
+      { width: 26 },
+      ...dates.map(() => ({ width: 11 })),
+      { width: 13 },
     ];
 
     // Title
@@ -764,73 +768,64 @@ export class ReportsService {
     });
     subRow.height = 20;
 
-    // Header row: Date | worker columns (Sicil No + Ad Familiya)
-    const headerRow = ws.addRow([L.date, ...workers.map(w => `${w.workerId}\n${w.name}`)]);
-    headerRow.eachCell((c: any) => {
-      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
+    const sundayFlags = dates.map(d => new Date(`${d}T00:00:00Z`).getUTCDay() === 0);
+    const isDateCol = (colNumber: number) => colNumber > FIXED_COLS && colNumber <= FIXED_COLS + dates.length;
+
+    // Header row: # | Sicil No | Ad Familiya | 01.08.2026 | 02.08.2026 | ... | Jemi
+    const headerValues = ['#', L.colTabNo, L.colWorker, ...dates.map(d => d.split('-').reverse().join('.')), L.footer];
+    const headerRow = ws.addRow(headerValues);
+    headerRow.eachCell((c: any, colNumber: number) => {
+      const sunday = isDateCol(colNumber) && sundayFlags[colNumber - FIXED_COLS - 1];
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: sunday ? 'FF7F1D1D' : 'FF1E3A5F' } };
       c.font = { bold: true, size: 9, color: { argb: 'FFFFFFFF' } };
-      c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      c.alignment = { horizontal: 'center', vertical: 'middle' };
       c.border = { bottom: { style: 'medium', color: { argb: 'FF93C5FD' } } };
     });
-    headerRow.height = 34;
+    headerRow.height = 20;
 
-    // Data rows: one per calendar date, cells = that day's worked hours (decimal)
-    dates.forEach((date, i) => {
-      const isSunday = new Date(`${date}T00:00:00Z`).getUTCDay() === 0;
-      const label = date.split('-').reverse().join('.'); // YYYY-MM-DD -> DD.MM.YYYY
-      const r = ws.addRow([
-        label,
-        ...workers.map(w => {
-          const ms = w.totalsByDate.get(date) ?? 0;
+    // Data rows: one per worker, cells = that day's worked hours (decimal), last column = period total
+    workers.forEach((w, i) => {
+      const rowValues = [
+        i + 1, w.workerId, w.name,
+        ...dates.map(d => {
+          const ms = w.totalsByDate.get(d) ?? 0;
           return ms > 0 ? fmtDecimalHours(ms) : null;
         }),
-      ]);
-      const bg = isSunday ? 'FFFDECEC' : (i % 2 === 0 ? 'FFFAFAFA' : 'FFFFFFFF');
+        w.totalMs > 0 ? fmtDecimalHours(w.totalMs) : null,
+      ];
+      const r = ws.addRow(rowValues);
+      const bg = i % 2 === 0 ? 'FFFAFAFA' : 'FFFFFFFF';
       r.eachCell((c: any, colNumber: number) => {
-        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
+        const sunday = isDateCol(colNumber) && sundayFlags[colNumber - FIXED_COLS - 1];
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: sunday ? 'FFFDECEC' : bg } };
         c.font = { size: 9 };
-        c.alignment = { horizontal: 'center', vertical: 'middle' };
+        c.alignment = { horizontal: colNumber <= FIXED_COLS ? 'left' : 'center', vertical: 'middle' };
         c.border = { bottom: { style: 'hair', color: { argb: 'FFE2E8F0' } } };
-        if (colNumber > 1) c.numFmt = '0.##';
+        if (colNumber > FIXED_COLS) c.numFmt = '0.##';
       });
-      r.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
-      r.getCell(1).font = { size: 9, bold: true };
-      r.height = 15;
+      r.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+      r.getCell(totalCols).font = { size: 9, bold: true, color: { argb: 'FF1E3A5F' } };
+      r.height = 16;
     });
 
-    // Totals row: each worker's period total
-    const totalsRow = ws.addRow([
-      L.footer,
-      ...workers.map(w => w.totalMs > 0 ? fmtDecimalHours(w.totalMs) : null),
-    ]);
-    totalsRow.eachCell((c: any, colNumber: number) => {
+    // Footer row: per-date totals across all workers, grand total in the very last cell
+    const perDateTotals = dates.map(d => workers.reduce((s, w) => s + (w.totalsByDate.get(d) ?? 0), 0));
+    const grandTotalMs = workers.reduce((s, w) => s + w.totalMs, 0);
+    const footerValues = [
+      '', '', L.footer,
+      ...perDateTotals.map(ms => ms > 0 ? fmtDecimalHours(ms) : null),
+      fmtDecimalHours(grandTotalMs),
+    ];
+    const footRow = ws.addRow(footerValues);
+    ws.mergeCells(footRow.number, 1, footRow.number, FIXED_COLS);
+    footRow.eachCell((c: any, colNumber: number) => {
       c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
       c.font = { bold: true, size: 9, color: { argb: 'FFFFFFFF' } };
       c.alignment = { horizontal: 'center', vertical: 'middle' };
-      if (colNumber > 1) c.numFmt = '0.##';
+      if (colNumber > FIXED_COLS) c.numFmt = '0.##';
     });
-    totalsRow.height = 20;
-
-    // Grand total: sum of every worker's period total
-    ws.addRow([]);
-    const grandTotalMs = workers.reduce((s, w) => s + w.totalMs, 0);
-    if (workers.length > 0) {
-      const gtValues: any[] = new Array(totalCols).fill(null);
-      gtValues[0] = L.grandTotal;
-      gtValues[totalCols - 1] = fmtDecimalHours(grandTotalMs);
-      const gtRow = ws.addRow(gtValues);
-      if (totalCols > 1) ws.mergeCells(gtRow.number, 1, gtRow.number, totalCols - 1);
-      gtRow.getCell(1).font = { bold: true, size: 11, color: { argb: 'FF1E3A5F' } };
-      gtRow.getCell(1).alignment = { horizontal: 'right', vertical: 'middle' };
-      gtRow.getCell(totalCols).font = { bold: true, size: 12, color: { argb: 'FFDC2626' } };
-      gtRow.getCell(totalCols).alignment = { horizontal: 'center', vertical: 'middle' };
-      gtRow.getCell(totalCols).numFmt = '0.##';
-      gtRow.height = 24;
-    } else {
-      const gtRow = ws.addRow([`${L.grandTotal}: ${fmtDecimalHours(grandTotalMs)}`]);
-      gtRow.getCell(1).font = { bold: true, size: 11, color: { argb: 'FF1E3A5F' } };
-      gtRow.height = 24;
-    }
+    footRow.getCell(totalCols).font = { bold: true, size: 12, color: { argb: 'FFFACC15' } };
+    footRow.height = 22;
 
     const buf = await wb.xlsx.writeBuffer();
     return Buffer.from(buf as ArrayBuffer);
