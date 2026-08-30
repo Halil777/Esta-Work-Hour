@@ -6,14 +6,15 @@ export type ShiftSetting = {
   startTime: string;
   endTime: string;
   graceMinutes: number;
+  standardMinutes: number;
 };
 
 export const shiftSettingsApi = {
   getAll: () => req<ShiftSetting[]>('/shift-settings'),
-  update: (shiftType: 'day' | 'night', startTime: string, endTime: string, graceMinutes: number) =>
+  update: (shiftType: 'day' | 'night', startTime: string, endTime: string, graceMinutes: number, standardMinutes: number) =>
     req<ShiftSetting>(`/shift-settings/${shiftType}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ startTime, endTime, graceMinutes }),
+      body: JSON.stringify({ startTime, endTime, graceMinutes, standardMinutes }),
     }),
 };

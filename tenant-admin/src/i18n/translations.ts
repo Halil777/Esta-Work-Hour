@@ -318,6 +318,7 @@ const en = {
     start: 'Start',
     end: 'End',
     graceMins: 'Grace (min)',
+    standardHours: 'Standard Hours (h)',
   },
   reportEmails: {
     title: 'Auto Report Sender',
@@ -1185,6 +1186,7 @@ const ru: typeof en = {
     start: 'Начало',
     end: 'Конец',
     graceMins: 'Допуск (мин)',
+    standardHours: 'Норма часов (ч)',
   },
   reportEmails: {
     title: 'Авто-отправка отчётов',
@@ -2052,6 +2054,7 @@ const tr: typeof en = {
     start: 'Başlangıç',
     end: 'Bitiş',
     graceMins: 'Tolerans (dk)',
+    standardHours: 'Standart Saat (sa)',
   },
   reportEmails: {
     title: 'Otomatik Rapor Gönderici',

@@ -6,6 +6,7 @@ import { AttendanceEvent } from '../attendance-events/attendance-event.entity';
 import { AttendanceOverride } from '../attendance-overrides/attendance-override.entity';
 import { WorkAdjustment, AdjustmentType, AdjustmentStatus } from '../work-adjustments/work-adjustment.entity';
 import { APP_TZ } from '../common/date-utils';
+import { buildDailyAttendance } from '../common/attendance-pairing.util';
 
 const TZ_OFFSET_MS = 3 * 60 * 60 * 1000; // UTC+3 fixed offset (same as reports.service)
 
@@ -86,15 +87,16 @@ export class WorkTimeService {
         [workerIds, startDate, endDate],
       );
 
-    // Group: workerId -> workDate -> events[]
+    // Group: workerId -> chronological events. Pairing is done globally per
+    // worker (see attendance-pairing.util.ts) rather than pre-bucketed by
+    // calendar date, so overnight/night-shift sessions that cross midnight
+    // are paired and credited correctly instead of silently coming out as 0.
     type Ev = { eventType: string; eventTime: number };
-    const byWorkerDate = new Map<string, Map<string, Ev[]>>();
+    const byWorker = new Map<string, Ev[]>();
     for (const ev of events) {
-      const date = new Date(Number(ev.eventTime) + TZ_OFFSET_MS).toISOString().split('T')[0];
-      if (!byWorkerDate.has(ev.employeeNumber)) byWorkerDate.set(ev.employeeNumber, new Map());
-      const dm = byWorkerDate.get(ev.employeeNumber)!;
-      if (!dm.has(date)) dm.set(date, []);
-      dm.get(date)!.push({ eventType: ev.eventType, eventTime: Number(ev.eventTime) });
+      const arr = byWorker.get(ev.employeeNumber) ?? [];
+      arr.push({ eventType: ev.eventType, eventTime: Number(ev.eventTime) });
+      byWorker.set(ev.employeeNumber, arr);
     }
 
     // Load overrides for all workers in range
@@ -112,27 +114,25 @@ export class WorkTimeService {
     // Build result
     const result = new Map<string, Map<string, number>>();
 
-    for (const [workerId, dateMap] of byWorkerDate) {
+    for (const [workerId, evList] of byWorker) {
       const entityId = workerIdToEntityId.get(workerId);
       if (!entityId) continue;
       if (!result.has(entityId)) result.set(entityId, new Map());
       const workerResult = result.get(entityId)!;
 
-      for (const [date, evList] of dateMap) {
+      const daily = buildDailyAttendance(evList, (t) => new Date(t + TZ_OFFSET_MS).toISOString().split('T')[0]);
+      const datesForWorker = new Set<string>(daily.keys());
+      for (const key of overrideMap.keys()) {
+        if (key.startsWith(`${entityId}:`)) datesForWorker.add(key.split(':')[1]);
+      }
+
+      for (const date of datesForWorker) {
         const ov = overrideMap.get(`${entityId}:${date}`);
         let totalMs = 0;
         if (ov) {
           totalMs = ov.checkInMs && ov.checkOutMs ? Number(ov.checkOutMs) - Number(ov.checkInMs) : 0;
         } else {
-          let clockIn: number | null = null;
-          for (const ev of evList) {
-            if (ev.eventType === 'CHECK_IN') {
-              if (clockIn === null) clockIn = ev.eventTime;
-            } else if (clockIn !== null) {
-              totalMs += ev.eventTime - clockIn;
-              clockIn = null;
-            }
-          }
+          totalMs = daily.get(date)?.ms ?? 0;
         }
         workerResult.set(date, msToMinutes(totalMs));
       }

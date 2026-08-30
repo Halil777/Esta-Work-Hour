@@ -28,9 +28,11 @@ function ShiftSettingsCard() {
   const [dayStart,    setDayStart]    = useState('')
   const [dayEnd,      setDayEnd]      = useState('')
   const [dayGrace,    setDayGrace]    = useState('')
+  const [dayStandard, setDayStandard] = useState('')
   const [nightStart,  setNightStart]  = useState('')
   const [nightEnd,    setNightEnd]    = useState('')
   const [nightGrace,  setNightGrace]  = useState('')
+  const [nightStandard, setNightStandard] = useState('')
   const [saved,       setSaved]       = useState(false)
 
   const dayS   = settings.find(s => s.shiftType === 'day')
@@ -43,12 +45,14 @@ function ShiftSettingsCard() {
         dayStart   || dayS?.startTime   || '07:00',
         dayEnd     || dayS?.endTime     || '19:00',
         Number(dayGrace   || dayS?.graceMinutes   || 60),
+        Math.round(Number(dayStandard   || (dayS?.standardMinutes   ?? 660) / 60) * 60),
       )
       await shiftSettingsApi.update(
         'night',
         nightStart || nightS?.startTime || '19:00',
         nightEnd   || nightS?.endTime   || '07:00',
         Number(nightGrace || nightS?.graceMinutes || 60),
+        Math.round(Number(nightStandard || (nightS?.standardMinutes ?? 660) / 60) * 60),
       )
     },
     onSuccess: () => {
@@ -73,7 +77,7 @@ function ShiftSettingsCard() {
               <Sun size={13} style={{ color: 'var(--warning)' }} />
               <span style={{ fontSize: 12, fontWeight: 600 }}>{t.shiftSettings.dayShift}</span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8 }}>
               <div className="form-row">
                 <label className="form-label">{t.shiftSettings.start}</label>
                 <input type="time" value={dayStart || dayS?.startTime || '07:00'}
@@ -90,6 +94,12 @@ function ShiftSettingsCard() {
                   value={dayGrace || String(dayS?.graceMinutes ?? 60)}
                   onChange={e => setDayGrace(e.target.value)} />
               </div>
+              <div className="form-row">
+                <label className="form-label">{t.shiftSettings.standardHours}</label>
+                <input type="number" min="0" max="24" step="0.5"
+                  value={dayStandard || String((dayS?.standardMinutes ?? 660) / 60)}
+                  onChange={e => setDayStandard(e.target.value)} />
+              </div>
             </div>
           </div>
 
@@ -99,7 +109,7 @@ function ShiftSettingsCard() {
               <Moon size={13} style={{ color: 'var(--info)' }} />
               <span style={{ fontSize: 12, fontWeight: 600 }}>{t.shiftSettings.nightShift}</span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8 }}>
               <div className="form-row">
                 <label className="form-label">{t.shiftSettings.start}</label>
                 <input type="time" value={nightStart || nightS?.startTime || '19:00'}
@@ -115,6 +125,12 @@ function ShiftSettingsCard() {
                 <input type="number" min="0" max="120"
                   value={nightGrace || String(nightS?.graceMinutes ?? 60)}
                   onChange={e => setNightGrace(e.target.value)} />
+              </div>
+              <div className="form-row">
+                <label className="form-label">{t.shiftSettings.standardHours}</label>
+                <input type="number" min="0" max="24" step="0.5"
+                  value={nightStandard || String((nightS?.standardMinutes ?? 660) / 60)}
+                  onChange={e => setNightStandard(e.target.value)} />
               </div>
             </div>
           </div>

@@ -5,9 +5,10 @@ import { Worker } from '../workers/worker.entity';
 import { ReportsService } from './reports.service';
 import { ReportsController } from './reports.controller';
 import { AttendanceOverridesModule } from '../attendance-overrides/attendance-overrides.module';
+import { ShiftSettingsModule } from '../shift-settings/shift-settings.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AttendanceEvent, Worker]), AttendanceOverridesModule],
+  imports: [TypeOrmModule.forFeature([AttendanceEvent, Worker]), AttendanceOverridesModule, ShiftSettingsModule],
   controllers: [ReportsController],
   providers: [ReportsService],
   exports: [ReportsService],

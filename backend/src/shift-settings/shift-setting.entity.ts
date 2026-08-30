@@ -18,6 +18,11 @@ export class ShiftSetting {
   @Column({ type: 'int', default: 60 })
   graceMinutes: number;
 
+  /** Standard scheduled shift duration in minutes (e.g. 660 = 11h). Used to
+   *  compute grace-adjusted "policy" hours in the Reports range export. */
+  @Column({ type: 'int', default: 660 })
+  standardMinutes: number;
+
   @Column({ type: 'uuid', nullable: true, default: null })
   tenantId: string | null;
 

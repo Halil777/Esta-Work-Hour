@@ -14,6 +14,8 @@ import { Worker } from '../workers/worker.entity';
 import { APP_TZ } from '../common/date-utils';
 import { ReportType } from '../report-config/report-config.entity';
 import { AttendanceOverridesService } from '../attendance-overrides/attendance-overrides.service';
+import { ShiftSettingsService } from '../shift-settings/shift-settings.service';
+import { buildDailyAttendance } from '../common/attendance-pairing.util';
 
 // ─── Formatters ────────────────────────────────────────────────────────────────
 
@@ -101,6 +103,9 @@ function getL(lang: Lang = 'tr', tenantName = 'WorkForce') {
       generatedAt: 'Generated',
       scanSheetName: 'Check In-Out',
       scanTitle: (tenantName: string) => `${tenantName} — Check-In/Check-Out Log`,
+      policySheetName: 'Scheduled Hours',
+      policyTitle: (tenantName: string) => `${tenantName} — Scheduled Hours Report`,
+      policyNote: 'Hours adjusted to the scheduled shift window within the grace-period tolerance.',
       reportLabels: {
         daily_all: 'All Workers', daily_staff: 'Staff Only',
         daily_shift_day: 'Day Shift', daily_shift_night: 'Night Shift',
@@ -126,6 +131,9 @@ function getL(lang: Lang = 'tr', tenantName = 'WorkForce') {
       generatedAt: 'Сформирован',
       scanSheetName: 'Приход-Уход',
       scanTitle: (tenantName: string) => `${tenantName} — Записи прихода-ухода`,
+      policySheetName: 'Плановые часы',
+      policyTitle: (tenantName: string) => `${tenantName} — Отчёт по плановым часам`,
+      policyNote: 'Часы, скорректированные по графику смены в пределах допуска (grace).',
       reportLabels: {
         daily_all: 'Все работники', daily_staff: 'Только персонал',
         daily_shift_day: 'Дневная смена', daily_shift_night: 'Ночная смена',
@@ -151,6 +159,9 @@ function getL(lang: Lang = 'tr', tenantName = 'WorkForce') {
       generatedAt: 'Oluşturulma Tarihi',
       scanSheetName: 'Giriş-Çıkış',
       scanTitle: (tenantName: string) => `${tenantName} — Giriş-Çıkış Kayıtları`,
+      policySheetName: 'Planlanan Saat',
+      policyTitle: (tenantName: string) => `${tenantName} — Planlanan Çalışma Saatleri Raporu`,
+      policyNote: 'Tolerans (grace) payı içinde, planlanan vardiya saatine göre düzeltilmiş saatler.',
       reportLabels: {
         daily_all: 'Tüm İşçiler', daily_staff: 'Sadece Personel',
         daily_shift_day: 'Gündüz Vardiyası', daily_shift_night: 'Gece Vardiyası',
@@ -193,8 +204,50 @@ type RangeMatrix = {
     totalsByDate: Map<string, number>;
     totalMs: number;
     scansByDate: Map<string, { checkIn: number | null; checkOut: number | null }>;
+    /** Grace-adjusted "policy" hours: scan noise within the shift's grace
+     *  window is snapped to the scheduled shift boundary; deviations beyond
+     *  grace reflect the actual scan (see computePolicyMs). */
+    policyByDate: Map<string, number>;
+    policyTotalMs: number;
   }[];
 };
+
+/** Per-shift-type settings needed to compute grace-adjusted policy hours. */
+type ShiftPolicy = { startTime: string; standardMinutes: number; graceMinutes: number };
+
+/** Epoch ms for `HH:mm` local time (APP_TZ) on the given YYYY-MM-DD date. */
+function scheduledEpoch(dateStr: string, hhmm: string): number {
+  const [h, m] = hhmm.split(':').map(Number);
+  const utcMidnight = new Date(`${dateStr}T00:00:00Z`).getTime();
+  return utcMidnight + (h * 60 + m) * 60000 - TZ_OFFSET_MS;
+}
+
+/**
+ * Computes grace-adjusted "policy" minutes for one worker-day.
+ * - No scan pair -> 0.
+ * - No shift assigned / no policy configured -> falls back to the raw diff.
+ * - Otherwise: scheduled start = policy.startTime on dateStr; scheduled end =
+ *   scheduled start + policy.standardMinutes (this naturally spans midnight
+ *   for a night shift, without needing a separate "next day" date string).
+ *   If the actual scan is within grace of a boundary, that boundary is used
+ *   (absorbing early/late scan noise both ways); otherwise the actual scan
+ *   is used, so a real shortfall or a real overrun still shows through.
+ */
+function computePolicyMs(
+  dateStr: string,
+  policy: ShiftPolicy | undefined,
+  rawCheckIn: number | null,
+  rawCheckOut: number | null,
+): number {
+  if (rawCheckIn === null || rawCheckOut === null) return 0;
+  if (!policy) return Math.max(0, rawCheckOut - rawCheckIn);
+  const graceMs = policy.graceMinutes * 60000;
+  const schedStart = scheduledEpoch(dateStr, policy.startTime);
+  const schedEnd = schedStart + policy.standardMinutes * 60000;
+  const effStart = Math.abs(rawCheckIn - schedStart) <= graceMs ? schedStart : rawCheckIn;
+  const effEnd = Math.abs(rawCheckOut - schedEnd) <= graceMs ? schedEnd : rawCheckOut;
+  return Math.max(0, effEnd - effStart);
+}
 
 // ─── Service ────────────────────────────────────────────────────────────────────
 
@@ -206,6 +259,7 @@ export class ReportsService {
     @InjectRepository(Worker)
     private readonly workerRepo: Repository<Worker>,
     private readonly attendanceOverridesService: AttendanceOverridesService,
+    private readonly shiftSettingsService: ShiftSettingsService,
   ) {}
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -604,33 +658,24 @@ export class ReportsService {
 
       const w = workerMap.get(empNum);
 
-      // Group events by date
-      const byDate = new Map<string, Ev[]>();
-      for (const ev of evList) {
-        const arr = byDate.get(ev.date) ?? [];
-        arr.push(ev);
-        byDate.set(ev.date, arr);
-      }
+      // Pair check-in/check-out chronologically across the whole range (not
+      // pre-bucketed by calendar date), so an overnight/night-shift session
+      // that crosses midnight is attributed correctly instead of silently
+      // coming out as 0 — see attendance-pairing.util.ts.
+      const daily = buildDailyAttendance(evList, (t) => new Date(t + TZ_OFFSET_MS).toISOString().split('T')[0]);
 
       // Compute total hours + unique days present, applying overrides per day
       let totalMs = 0;
       const uniqueDates = new Set<string>();
 
-      for (const [date, dayEvs] of byDate) {
+      for (const [date, day] of daily) {
         uniqueDates.add(date);
         const ovKey = w ? `${w.id}:${date}` : null;
         const ov = ovKey ? overrideMap.get(ovKey) : undefined;
         if (ov) {
           totalMs += (ov.checkInMs && ov.checkOutMs) ? ov.checkOutMs - ov.checkInMs : 0;
         } else {
-          let clockIn: number | null = null;
-          for (const ev of dayEvs) {
-            if (ev.eventType === 'CHECK_IN') {
-              if (clockIn === null) clockIn = ev.eventTime;
-            } else {
-              if (clockIn !== null) { totalMs += ev.eventTime - clockIn; clockIn = null; }
-            }
-          }
+          totalMs += day.ms;
         }
       }
 
@@ -721,14 +766,24 @@ export class ReportsService {
     );
 
     type Ev = { eventType: string; eventTime: number };
-    const byWorkerDate = new Map<string, Ev[]>();
+    const byWorker = new Map<string, Ev[]>();
     for (const ev of events) {
-      const date = new Date(Number(ev.eventTime) + TZ_OFFSET_MS).toISOString().split('T')[0];
-      const key = `${ev.employeeNumber}:${date}`;
-      const arr = byWorkerDate.get(key) ?? [];
+      const arr = byWorker.get(ev.employeeNumber) ?? [];
       arr.push({ eventType: ev.eventType, eventTime: Number(ev.eventTime) });
-      byWorkerDate.set(key, arr);
+      byWorker.set(ev.employeeNumber, arr);
     }
+    // Pair chronologically per worker (not pre-bucketed by calendar date) so
+    // overnight/night-shift sessions crossing midnight pair correctly.
+    const dailyByEmp = new Map<string, ReturnType<typeof buildDailyAttendance>>();
+    for (const [empNum, evList] of byWorker) {
+      dailyByEmp.set(empNum, buildDailyAttendance(evList, (t) => new Date(t + TZ_OFFSET_MS).toISOString().split('T')[0]));
+    }
+
+    // Shift-type settings for grace-adjusted "policy" hours.
+    const shiftSettingsList = await this.shiftSettingsService.getAll(tenantId);
+    const policyByType = new Map<string, ShiftPolicy>(
+      shiftSettingsList.map(s => [s.shiftType, { startTime: s.startTime, standardMinutes: s.standardMinutes, graceMinutes: s.graceMinutes }]),
+    );
 
     const dates: string[] = [];
     {
@@ -748,35 +803,39 @@ export class ReportsService {
       const w = workerMap.get(empNum);
       const totalsByDate = new Map<string, number>();
       const scansByDate = new Map<string, { checkIn: number | null; checkOut: number | null }>();
+      const policyByDate = new Map<string, number>();
+      const daily = dailyByEmp.get(empNum);
+      const policy = w?.shift ? policyByType.get(w.shift) : undefined;
       let totalMs = 0;
+      let policyTotalMs = 0;
       for (const date of dates) {
         const ovKey = w ? `${w.id}:${date}` : null;
         const ov = ovKey ? overrideMap.get(ovKey) : undefined;
         let dayMs = 0;
+        let policyMs = 0;
         let checkIn: number | null = null;
         let checkOut: number | null = null;
         if (ov) {
           dayMs = (ov.checkInMs && ov.checkOutMs) ? ov.checkOutMs - ov.checkInMs : 0;
+          policyMs = dayMs; // a manual override already represents the intended ground truth
           checkIn = ov.checkInMs;
           checkOut = ov.checkOutMs;
         } else {
-          const evs = byWorkerDate.get(`${empNum}:${date}`) ?? [];
-          let clockIn: number | null = null;
-          for (const ev of evs) {
-            if (ev.eventType === 'CHECK_IN') {
-              if (checkIn === null) checkIn = ev.eventTime;
-              if (clockIn === null) clockIn = ev.eventTime;
-            } else {
-              if (clockIn !== null) { dayMs += ev.eventTime - clockIn; clockIn = null; }
-              checkOut = ev.eventTime;
-            }
+          const d = daily?.get(date);
+          if (d) {
+            dayMs = d.ms;
+            checkIn = d.checkIn;
+            checkOut = d.checkOut;
           }
+          policyMs = computePolicyMs(date, policy, checkIn, checkOut);
         }
         if (dayMs > 0) totalsByDate.set(date, dayMs);
+        if (policyMs > 0) policyByDate.set(date, policyMs);
         if (checkIn !== null || checkOut !== null) scansByDate.set(date, { checkIn, checkOut });
         totalMs += dayMs;
+        policyTotalMs += policyMs;
       }
-      return { workerId: empNum, name: w?.name ?? empNum, shift: w?.shift ?? null, totalsByDate, totalMs, scansByDate };
+      return { workerId: empNum, name: w?.name ?? empNum, shift: w?.shift ?? null, totalsByDate, totalMs, scansByDate, policyByDate, policyTotalMs };
     });
 
     resultWorkers.sort((a, b) => a.name.localeCompare(b.name));
@@ -799,6 +858,7 @@ export class ReportsService {
     wb.created = new Date();
 
     this.addHoursSheet(wb, startDate, endDate, matrix, isMonthly, tenantName, lang);
+    this.addPolicyHoursSheet(wb, startDate, endDate, matrix, tenantName, lang);
     this.addScanTimesSheet(wb, startDate, endDate, matrix, tenantName, lang);
 
     const buf = await wb.xlsx.writeBuffer();
@@ -931,6 +991,246 @@ export class ReportsService {
           return ms > 0 ? msToExcelDuration(ms) : null;
         }),
         w.totalMs > 0 ? msToExcelDuration(w.totalMs) : null,
+      ];
+      const r = ws.addRow(rowValues);
+      const bg = i % 2 === 0 ? BRAND.cream : 'FFFFFFFF';
+      r.eachCell((c: any, colNumber: number) => {
+        const sunday = isDateCol(colNumber) && sundayFlags[colNumber - FIXED_COLS - 1];
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: sunday ? BRAND.creamSoft : bg } };
+        c.font = { name: 'Calibri', size: 9 };
+        c.alignment = { horizontal: colNumber <= FIXED_COLS ? (colNumber === 1 || colNumber === 4 ? 'center' : 'left') : 'right', vertical: 'middle' };
+        c.border = {
+          bottom: { style: 'hair', color: { argb: BRAND.hairline } },
+          left: { style: 'hair', color: { argb: BRAND.hairlineSoft } },
+          right: { style: 'hair', color: { argb: BRAND.hairlineSoft } },
+        };
+        if (colNumber > FIXED_COLS) c.numFmt = '[h]:mm';
+      });
+      r.getCell(2).font = { name: 'Calibri', size: 9, color: { argb: BRAND.mutedGold } };
+      r.getCell(3).font = { name: 'Calibri', size: 9, bold: true, color: { argb: BRAND.ink } };
+      if (w.shift === 'day' || w.shift === 'night') {
+        const badge = w.shift === 'day'
+          ? { bg: BRAND.dayBadgeBg, text: BRAND.dayBadgeText }
+          : { bg: BRAND.nightBadgeBg, text: BRAND.nightBadgeText };
+        r.getCell(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: badge.bg } };
+        r.getCell(4).font = { name: 'Calibri', size: 9, bold: true, color: { argb: badge.text } };
+      } else {
+        r.getCell(4).font = { name: 'Calibri', size: 9, color: { argb: BRAND.mutedGold } };
+      }
+      r.getCell(totalCols).font = { name: 'Calibri', size: 9, bold: true, color: { argb: BRAND.goldDeep } };
+      r.height = 16;
+    });
+    const lastDataRowNum = headerRow.number + workers.length;
+
+    // ── Footer / totals row — live SUBTOTAL formulas so filtering updates them ─────
+    const footRow = ws.addRow(['', '', '', L.footer]);
+    ws.mergeCells(footRow.number, 1, footRow.number, FIXED_COLS);
+    for (let ci = FIXED_COLS + 1; ci <= totalCols; ci++) {
+      const letter = colLetter(ci);
+      footRow.getCell(ci).value = { formula: `SUBTOTAL(109,${letter}${firstDataRowNum}:${letter}${lastDataRowNum})` };
+    }
+    footRow.eachCell((c: any, colNumber: number) => {
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BRAND.black } };
+      c.font = { name: 'Calibri', bold: true, size: 9, color: { argb: BRAND.gold } };
+      c.alignment = { horizontal: colNumber <= FIXED_COLS ? 'center' : 'right', vertical: 'middle' };
+      if (colNumber > FIXED_COLS) c.numFmt = '[h]:mm';
+    });
+    const grandCell = footRow.getCell(totalCols);
+    grandCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BRAND.gold } };
+    grandCell.font = { name: 'Calibri', bold: true, size: 12, color: { argb: BRAND.black } };
+    footRow.height = 22;
+
+    // ── Generated-at footnote ───────────────────────────────────────────────────
+    ws.addRow([]);
+    const now = new Date(Date.now() + TZ_OFFSET_MS);
+    const stamp = `${String(now.getUTCDate()).padStart(2, '0')}.${String(now.getUTCMonth() + 1).padStart(2, '0')}.${now.getUTCFullYear()} ${String(now.getUTCHours()).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')}`;
+    const noteRow = ws.addRow([`${L.generatedAt}: ${stamp}  -  ${tenantName}`]);
+    ws.mergeCells(noteRow.number, 1, noteRow.number, totalCols);
+    noteRow.getCell(1).font = { name: 'Calibri', size: 8, italic: true, color: { argb: BRAND.mutedGold } };
+    noteRow.getCell(1).alignment = { horizontal: 'right' };
+
+    // ── AutoFilter — per-column dropdowns, including every date column ─────────────
+    if (workers.length > 0) {
+      ws.autoFilter = {
+        from: { row: headerRow.number, column: 1 },
+        to: { row: lastDataRowNum, column: totalCols },
+      };
+    }
+
+    // ── Conditional formatting — gold heat-scale on daily hours + data bar on Jemi ──
+    if (dates.length > 0 && workers.length > 0) {
+      const firstDateColLetter = colLetter(FIXED_COLS + 1);
+      const lastDateColLetter = colLetter(FIXED_COLS + dates.length);
+      ws.addConditionalFormatting({
+        ref: `${firstDateColLetter}${firstDataRowNum}:${lastDateColLetter}${lastDataRowNum}`,
+        rules: [
+          {
+            type: 'colorScale',
+            cfvo: [{ type: 'min' }, { type: 'percentile', value: 50 }, { type: 'max' }],
+            color: [{ argb: 'FFFFFBF0' }, { argb: 'FFEED9A0' }, { argb: 'FFC9A227' }],
+          },
+        ],
+      });
+      const jemiLetter = colLetter(totalCols);
+      ws.addConditionalFormatting({
+        ref: `${jemiLetter}${firstDataRowNum}:${jemiLetter}${lastDataRowNum}`,
+        rules: [
+          {
+            type: 'dataBar',
+            minLength: 0, maxLength: 100,
+            cfvo: [{ type: 'min' }, { type: 'max' }],
+            color: { argb: BRAND.gold },
+          },
+        ],
+      });
+    }
+
+    // ── Freeze panes: header + identity columns always visible while scrolling ──────
+    ws.views = [{ state: 'frozen', xSplit: FIXED_COLS, ySplit: headerRow.number, showGridLines: false }];
+
+    // ── Print setup: repeat header row + identity columns on every printed page ─────
+    ws.pageSetup.printTitlesRow = `${headerRow.number}:${headerRow.number}`;
+    ws.pageSetup.printTitlesColumn = 'A:D';
+  }
+
+  // ── Sheet: "Planlanan Saat" — grace-adjusted policy hours, a separate tab ──────
+  // Mirrors addHoursSheet's structure exactly, but every hour cell comes from
+  // policyByDate/policyTotalMs (computePolicyMs) instead of the raw scan
+  // totals, so admins can compare the two side by side without either
+  // sheet's numbers ever being silently replaced.
+  private addPolicyHoursSheet(
+    wb: any,
+    startDate: string,
+    endDate: string,
+    matrix: RangeMatrix,
+    tenantName: string,
+    lang: Lang,
+  ): void {
+    const L = getL(lang, tenantName);
+    const { dates, workers } = matrix;
+    const FIXED_COLS = 4; // #, Sicil No, Ad Familiya, Vardiya
+    const totalCols = FIXED_COLS + dates.length + 1; // + Jemi (period total) column
+
+    const ws = wb.addWorksheet(L.policySheetName, {
+      properties: { tabColor: { argb: BRAND.goldSoft } },
+      pageSetup: {
+        orientation: 'landscape',
+        fitToPage: true,
+        fitToWidth: 1,
+        fitToHeight: 0,
+        margins: { left: 0.3, right: 0.3, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 },
+      },
+    });
+
+    ws.columns = [
+      { width: 5 },
+      { width: 13 },
+      { width: 26 },
+      { width: 9 },
+      ...dates.map(() => ({ width: 7 })),
+      { width: 9 },
+    ];
+
+    // ── Title band ─────────────────────────────────────────────────────────────
+    const titleRow = ws.addRow([L.policyTitle(tenantName)]);
+    ws.mergeCells(titleRow.number, 1, titleRow.number, totalCols);
+    Object.assign(titleRow.getCell(1), {
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: BRAND.black } },
+      font: { name: 'Calibri', bold: true, size: 16, color: { argb: BRAND.gold } },
+      alignment: { horizontal: 'center', vertical: 'middle' },
+    });
+    titleRow.height = 32;
+
+    const subRow = ws.addRow([`${L.period}: ${startDate}  -  ${endDate}`]);
+    ws.mergeCells(subRow.number, 1, subRow.number, totalCols);
+    Object.assign(subRow.getCell(1), {
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: BRAND.blackSoft } },
+      font: { name: 'Calibri', size: 11, color: { argb: BRAND.goldSoft } },
+      alignment: { horizontal: 'center', vertical: 'middle' },
+    });
+    subRow.height = 20;
+
+    const noteRow0 = ws.addRow([L.policyNote]);
+    ws.mergeCells(noteRow0.number, 1, noteRow0.number, totalCols);
+    Object.assign(noteRow0.getCell(1), {
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: BRAND.blackSoft } },
+      font: { name: 'Calibri', italic: true, size: 9, color: { argb: BRAND.mutedGold } },
+      alignment: { horizontal: 'center', vertical: 'middle' },
+    });
+    noteRow0.height = 16;
+
+    ws.addRow([]);
+
+    // ── KPI summary band ─────────────────────────────────────────────────────────
+    const workedWorkers = workers.filter(w => w.policyTotalMs > 0);
+    const grandTotalMs = workers.reduce((s, w) => s + w.policyTotalMs, 0);
+    const avgMs = workedWorkers.length > 0 ? Math.floor(grandTotalMs / workedWorkers.length) : 0;
+
+    const kpis: { label: string; value: string; color: string; bg: string }[] = [
+      { label: L.totalWorkers, value: String(workers.length), color: BRAND.gold, bg: BRAND.blackSoft },
+      { label: L.workedWorkers, value: String(workedWorkers.length), color: BRAND.goldSoft, bg: BRAND.blackSoft },
+      { label: L.totalHours, value: fmtMs(grandTotalMs, lang), color: BRAND.goldBright, bg: BRAND.blackSoft },
+      { label: L.avgPerWorker, value: fmtMs(avgMs, lang), color: BRAND.goldDeep, bg: BRAND.blackSoft },
+    ];
+    const kpiSpan = Math.max(1, Math.floor(totalCols / kpis.length));
+    const kpiLabelRow = ws.addRow([]);
+    const kpiValueRow = ws.addRow([]);
+    kpis.forEach((kpi, idx) => {
+      const startCol = idx * kpiSpan + 1;
+      const endCol = idx === kpis.length - 1 ? totalCols : startCol + kpiSpan - 1;
+      ws.mergeCells(kpiLabelRow.number, startCol, kpiLabelRow.number, endCol);
+      ws.mergeCells(kpiValueRow.number, startCol, kpiValueRow.number, endCol);
+      const lc = kpiLabelRow.getCell(startCol);
+      lc.value = kpi.label;
+      lc.font = { name: 'Calibri', size: 9, color: { argb: BRAND.mutedGold } };
+      lc.alignment = { horizontal: 'center', vertical: 'middle' };
+      lc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: kpi.bg } };
+      const vc = kpiValueRow.getCell(startCol);
+      vc.value = kpi.value;
+      vc.font = { name: 'Calibri', size: 15, bold: true, color: { argb: kpi.color } };
+      vc.alignment = { horizontal: 'center', vertical: 'middle' };
+      vc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: kpi.bg } };
+      if (idx < kpis.length - 1) {
+        kpiLabelRow.getCell(endCol).border = { right: { style: 'thin', color: { argb: BRAND.goldLine } } };
+        kpiValueRow.getCell(endCol).border = { right: { style: 'thin', color: { argb: BRAND.goldLine } } };
+      }
+    });
+    kpiLabelRow.height = 16;
+    kpiValueRow.height = 24;
+
+    ws.addRow([]);
+
+    // ── Table header: # | Sicil No | Ad Familiya | Vardiya | 01.08 | ... | TOPLAM ──
+    const sundayFlags = dates.map(d => new Date(`${d}T00:00:00Z`).getUTCDay() === 0);
+    const isDateCol = (colNumber: number) => colNumber > FIXED_COLS && colNumber <= FIXED_COLS + dates.length;
+
+    const headerValues = ['#', L.colTabNo, L.colWorker, L.colShift, ...dates.map(d => d.split('-').slice(1).reverse().join('.')), L.footer];
+    const headerRow = ws.addRow(headerValues);
+    headerRow.eachCell((c: any, colNumber: number) => {
+      const sunday = isDateCol(colNumber) && sundayFlags[colNumber - FIXED_COLS - 1];
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: sunday ? BRAND.gold : BRAND.black } };
+      c.font = { name: 'Calibri', bold: true, size: 9, color: { argb: sunday ? BRAND.black : BRAND.gold } };
+      c.alignment = { horizontal: 'center', vertical: 'middle' };
+      c.border = {
+        top: { style: 'thin', color: { argb: BRAND.black } },
+        bottom: { style: 'medium', color: { argb: BRAND.gold } },
+        left: { style: 'thin', color: { argb: BRAND.goldLine } },
+        right: { style: 'thin', color: { argb: BRAND.goldLine } },
+      };
+    });
+    headerRow.height = 22;
+
+    // ── Data rows: one per worker, cells = daily policy hours, last col = period total ──
+    const firstDataRowNum = headerRow.number + 1;
+    workers.forEach((w, i) => {
+      const shiftLabel = w.shift === 'day' ? L.shiftDay : w.shift === 'night' ? L.shiftNight : '\u2014';
+      const rowValues = [
+        i + 1, w.workerId, w.name, shiftLabel,
+        ...dates.map(d => {
+          const ms = w.policyByDate.get(d) ?? 0;
+          return ms > 0 ? msToExcelDuration(ms) : null;
+        }),
+        w.policyTotalMs > 0 ? msToExcelDuration(w.policyTotalMs) : null,
       ];
       const r = ws.addRow(rowValues);
       const bg = i % 2 === 0 ? BRAND.cream : 'FFFFFFFF';

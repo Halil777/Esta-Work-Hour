@@ -4,8 +4,8 @@ import { Repository } from 'typeorm';
 import { ShiftSetting } from './shift-setting.entity';
 
 const DEFAULTS = {
-  day:   { startTime: '06:30', endTime: '19:30', graceMinutes: 60 },
-  night: { startTime: '19:30', endTime: '06:30', graceMinutes: 60 },
+  day:   { startTime: '06:30', endTime: '19:30', graceMinutes: 60, standardMinutes: 660 },
+  night: { startTime: '19:30', endTime: '06:30', graceMinutes: 60, standardMinutes: 660 },
 };
 
 @Injectable()
@@ -29,6 +29,7 @@ export class ShiftSettingsService {
             startTime: d.startTime,
             endTime: d.endTime,
             graceMinutes: d.graceMinutes,
+            standardMinutes: d.standardMinutes,
             tenantId: tenantId ?? null,
           }),
         );
@@ -44,6 +45,7 @@ export class ShiftSettingsService {
     startTime: string,
     endTime: string,
     graceMinutes: number,
+    standardMinutes: number,
     tenantId?: string,
   ): Promise<ShiftSetting> {
     const where: any = { shiftType, ...(tenantId ? { tenantId } : {}) };
@@ -54,6 +56,7 @@ export class ShiftSettingsService {
     setting.startTime = startTime;
     setting.endTime = endTime;
     setting.graceMinutes = graceMinutes;
+    setting.standardMinutes = standardMinutes;
     return this.repo.save(setting);
   }
 }

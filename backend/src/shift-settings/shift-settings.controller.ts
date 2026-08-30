@@ -21,7 +21,10 @@ export class ShiftSettingsController {
     @Body('startTime') startTime: string,
     @Body('endTime') endTime: string,
     @Body('graceMinutes') graceMinutes: number,
+    @Body('standardMinutes') standardMinutes: number,
   ) {
-    return this.service.update(shiftType, startTime, endTime ?? '', Number(graceMinutes), req.adminUser?.tenantId);
+    return this.service.update(
+      shiftType, startTime, endTime ?? '', Number(graceMinutes), Number(standardMinutes ?? 660), req.adminUser?.tenantId,
+    );
   }
 }
