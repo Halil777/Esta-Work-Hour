@@ -48,6 +48,17 @@ function msToExcelDuration(ms: number): number {
   return roundedMs / 86400000;
 }
 
+// Plain decimal hours (e.g. 11, 9.5, 0.75) rounded to the nearest minute then
+// to 2 decimal places — meant to be shown with a '0.##' number format so a
+// clean grace-snapped value reads as "11", not a clock-like "11:00". Used on
+// the Planlanan Saat (policy hours) sheet, where the whole point is to
+// surface plain hour counts rather than elapsed clock durations.
+function msToHoursNumber(ms: number): number {
+  if (!ms || ms <= 0) return 0;
+  const roundedMs = Math.round(ms / 60000) * 60000;
+  return Math.round((roundedMs / 3600000) * 100) / 100;
+}
+
 function colLetter(n: number): string {
   let s = '';
   while (n > 0) {
@@ -106,6 +117,7 @@ function getL(lang: Lang = 'tr', tenantName = 'WorkForce') {
       policySheetName: 'Scheduled Hours',
       policyTitle: (tenantName: string) => `${tenantName} — Scheduled Hours Report`,
       policyNote: 'Hours adjusted to the scheduled shift window within the grace-period tolerance.',
+      colNormal: 'Normal', colShortfall: 'Shortfall', colOvertime: 'Overtime',
       reportLabels: {
         daily_all: 'All Workers', daily_staff: 'Staff Only',
         daily_shift_day: 'Day Shift', daily_shift_night: 'Night Shift',
@@ -134,6 +146,7 @@ function getL(lang: Lang = 'tr', tenantName = 'WorkForce') {
       policySheetName: 'Плановые часы',
       policyTitle: (tenantName: string) => `${tenantName} — Отчёт по плановым часам`,
       policyNote: 'Часы, скорректированные по графику смены в пределах допуска (grace).',
+      colNormal: 'Норма', colShortfall: 'Недоработка', colOvertime: 'Переработка',
       reportLabels: {
         daily_all: 'Все работники', daily_staff: 'Только персонал',
         daily_shift_day: 'Дневная смена', daily_shift_night: 'Ночная смена',
@@ -162,6 +175,7 @@ function getL(lang: Lang = 'tr', tenantName = 'WorkForce') {
       policySheetName: 'Planlanan Saat',
       policyTitle: (tenantName: string) => `${tenantName} — Planlanan Çalışma Saatleri Raporu`,
       policyNote: 'Tolerans (grace) payı içinde, planlanan vardiya saatine göre düzeltilmiş saatler.',
+      colNormal: 'Normal', colShortfall: 'Eksik', colOvertime: 'Mesai',
       reportLabels: {
         daily_all: 'Tüm İşçiler', daily_staff: 'Sadece Personel',
         daily_shift_day: 'Gündüz Vardiyası', daily_shift_night: 'Gece Vardiyası',
@@ -206,9 +220,19 @@ type RangeMatrix = {
     scansByDate: Map<string, { checkIn: number | null; checkOut: number | null }>;
     /** Grace-adjusted "policy" hours: scan noise within the shift's grace
      *  window is snapped to the scheduled shift boundary; deviations beyond
-     *  grace reflect the actual scan (see computePolicyMs). */
+     *  grace reflect the actual scan (see computePolicyMs). Not capped at
+     *  the standard shift length — a day can exceed it (real overtime). */
     policyByDate: Map<string, number>;
     policyTotalMs: number;
+    /** Sum over the period of min(policyMs, standard) per day — the "normal"
+     *  hours a day counts for, capped at the shift's standard duration. */
+    normalTotalMs: number;
+    /** Sum over the period of max(0, standard - policyMs) on days the
+     *  worker scanned but fell short of the standard (excludes absences). */
+    shortfallTotalMs: number;
+    /** Sum over the period of max(0, policyMs - standard) — hours worked
+     *  beyond the standard shift length (overtime). */
+    overtimeTotalMs: number;
   }[];
 };
 
@@ -806,8 +830,12 @@ export class ReportsService {
       const policyByDate = new Map<string, number>();
       const daily = dailyByEmp.get(empNum);
       const policy = w?.shift ? policyByType.get(w.shift) : undefined;
+      const standardMs = (policy?.standardMinutes ?? 0) * 60000;
       let totalMs = 0;
       let policyTotalMs = 0;
+      let normalTotalMs = 0;
+      let shortfallTotalMs = 0;
+      let overtimeTotalMs = 0;
       for (const date of dates) {
         const ovKey = w ? `${w.id}:${date}` : null;
         const ov = ovKey ? overrideMap.get(ovKey) : undefined;
@@ -834,8 +862,19 @@ export class ReportsService {
         if (checkIn !== null || checkOut !== null) scansByDate.set(date, { checkIn, checkOut });
         totalMs += dayMs;
         policyTotalMs += policyMs;
+        if (policyMs > 0 && standardMs > 0) {
+          normalTotalMs += Math.min(policyMs, standardMs);
+          if (policyMs < standardMs) shortfallTotalMs += standardMs - policyMs;
+          if (policyMs > standardMs) overtimeTotalMs += policyMs - standardMs;
+        } else {
+          normalTotalMs += policyMs; // no standard configured (or no shift) -> nothing to split
+        }
       }
-      return { workerId: empNum, name: w?.name ?? empNum, shift: w?.shift ?? null, totalsByDate, totalMs, scansByDate, policyByDate, policyTotalMs };
+      return {
+        workerId: empNum, name: w?.name ?? empNum, shift: w?.shift ?? null,
+        totalsByDate, totalMs, scansByDate, policyByDate, policyTotalMs,
+        normalTotalMs, shortfallTotalMs, overtimeTotalMs,
+      };
     });
 
     resultWorkers.sort((a, b) => a.name.localeCompare(b.name));
@@ -1109,7 +1148,13 @@ export class ReportsService {
     const L = getL(lang, tenantName);
     const { dates, workers } = matrix;
     const FIXED_COLS = 4; // #, Sicil No, Ad Familiya, Vardiya
-    const totalCols = FIXED_COLS + dates.length + 1; // + Jemi (period total) column
+    // + 3 summary columns: Normal (capped at standard) | Shortfall | Overtime —
+    // reported separately instead of one blended total, per the tenant's request.
+    const SUMMARY_COLS = 3;
+    const totalCols = FIXED_COLS + dates.length + SUMMARY_COLS;
+    const normalCol = FIXED_COLS + dates.length + 1;
+    const shortfallCol = normalCol + 1;
+    const overtimeCol = normalCol + 2;
 
     const ws = wb.addWorksheet(L.policySheetName, {
       properties: { tabColor: { argb: BRAND.goldSoft } },
@@ -1129,6 +1174,8 @@ export class ReportsService {
       { width: 9 },
       ...dates.map(() => ({ width: 7 })),
       { width: 9 },
+      { width: 9 },
+      { width: 10 },
     ];
 
     // ── Title band ─────────────────────────────────────────────────────────────
@@ -1161,16 +1208,16 @@ export class ReportsService {
 
     ws.addRow([]);
 
-    // ── KPI summary band ─────────────────────────────────────────────────────────
+    // ── KPI summary band — normal vs overtime reported separately ──────────────────
     const workedWorkers = workers.filter(w => w.policyTotalMs > 0);
-    const grandTotalMs = workers.reduce((s, w) => s + w.policyTotalMs, 0);
-    const avgMs = workedWorkers.length > 0 ? Math.floor(grandTotalMs / workedWorkers.length) : 0;
+    const normalGrandMs = workers.reduce((s, w) => s + w.normalTotalMs, 0);
+    const overtimeGrandMs = workers.reduce((s, w) => s + w.overtimeTotalMs, 0);
 
     const kpis: { label: string; value: string; color: string; bg: string }[] = [
       { label: L.totalWorkers, value: String(workers.length), color: BRAND.gold, bg: BRAND.blackSoft },
       { label: L.workedWorkers, value: String(workedWorkers.length), color: BRAND.goldSoft, bg: BRAND.blackSoft },
-      { label: L.totalHours, value: fmtMs(grandTotalMs, lang), color: BRAND.goldBright, bg: BRAND.blackSoft },
-      { label: L.avgPerWorker, value: fmtMs(avgMs, lang), color: BRAND.goldDeep, bg: BRAND.blackSoft },
+      { label: L.colNormal, value: fmtMs(normalGrandMs, lang), color: BRAND.goldBright, bg: BRAND.blackSoft },
+      { label: L.colOvertime, value: fmtMs(overtimeGrandMs, lang), color: BRAND.goldDeep, bg: BRAND.blackSoft },
     ];
     const kpiSpan = Math.max(1, Math.floor(totalCols / kpis.length));
     const kpiLabelRow = ws.addRow([]);
@@ -1200,17 +1247,17 @@ export class ReportsService {
 
     ws.addRow([]);
 
-    // ── Table header: # | Sicil No | Ad Familiya | Vardiya | 01.08 | ... | TOPLAM ──
+    // ── Table header: # | Sicil No | Ad Familiya | Vardiya | 01.08 | ... | Normal | Eksik | Mesai ──
     const sundayFlags = dates.map(d => new Date(`${d}T00:00:00Z`).getUTCDay() === 0);
     const isDateCol = (colNumber: number) => colNumber > FIXED_COLS && colNumber <= FIXED_COLS + dates.length;
 
-    const headerValues = ['#', L.colTabNo, L.colWorker, L.colShift, ...dates.map(d => d.split('-').slice(1).reverse().join('.')), L.footer];
+    const headerValues = ['#', L.colTabNo, L.colWorker, L.colShift, ...dates.map(d => d.split('-').slice(1).reverse().join('.')), L.colNormal, L.colShortfall, L.colOvertime];
     const headerRow = ws.addRow(headerValues);
     headerRow.eachCell((c: any, colNumber: number) => {
       const sunday = isDateCol(colNumber) && sundayFlags[colNumber - FIXED_COLS - 1];
       c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: sunday ? BRAND.gold : BRAND.black } };
       c.font = { name: 'Calibri', bold: true, size: 9, color: { argb: sunday ? BRAND.black : BRAND.gold } };
-      c.alignment = { horizontal: 'center', vertical: 'middle' };
+      c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
       c.border = {
         top: { style: 'thin', color: { argb: BRAND.black } },
         bottom: { style: 'medium', color: { argb: BRAND.gold } },
@@ -1218,9 +1265,14 @@ export class ReportsService {
         right: { style: 'thin', color: { argb: BRAND.goldLine } },
       };
     });
-    headerRow.height = 22;
+    headerRow.height = 26;
 
-    // ── Data rows: one per worker, cells = daily policy hours, last col = period total ──
+    // ── Data rows: one per worker. Daily cells show plain decimal hours (not a
+    // clock-like "[h]:mm" duration) since the whole point of this sheet is a
+    // clean hour count once grace has absorbed scan noise. Normal/Shortfall/
+    // Overtime are reported as separate period totals rather than blended
+    // into one number, so "worked less" and "worked more than standard" are
+    // never hidden inside a single figure. ──────────────────────────────────
     const firstDataRowNum = headerRow.number + 1;
     workers.forEach((w, i) => {
       const shiftLabel = w.shift === 'day' ? L.shiftDay : w.shift === 'night' ? L.shiftNight : '\u2014';
@@ -1228,9 +1280,11 @@ export class ReportsService {
         i + 1, w.workerId, w.name, shiftLabel,
         ...dates.map(d => {
           const ms = w.policyByDate.get(d) ?? 0;
-          return ms > 0 ? msToExcelDuration(ms) : null;
+          return ms > 0 ? msToHoursNumber(ms) : null;
         }),
-        w.policyTotalMs > 0 ? msToExcelDuration(w.policyTotalMs) : null,
+        w.normalTotalMs > 0 ? msToHoursNumber(w.normalTotalMs) : null,
+        w.shortfallTotalMs > 0 ? msToHoursNumber(w.shortfallTotalMs) : null,
+        w.overtimeTotalMs > 0 ? msToHoursNumber(w.overtimeTotalMs) : null,
       ];
       const r = ws.addRow(rowValues);
       const bg = i % 2 === 0 ? BRAND.cream : 'FFFFFFFF';
@@ -1244,7 +1298,7 @@ export class ReportsService {
           left: { style: 'hair', color: { argb: BRAND.hairlineSoft } },
           right: { style: 'hair', color: { argb: BRAND.hairlineSoft } },
         };
-        if (colNumber > FIXED_COLS) c.numFmt = '[h]:mm';
+        if (colNumber > FIXED_COLS) c.numFmt = '0.##';
       });
       r.getCell(2).font = { name: 'Calibri', size: 9, color: { argb: BRAND.mutedGold } };
       r.getCell(3).font = { name: 'Calibri', size: 9, bold: true, color: { argb: BRAND.ink } };
@@ -1257,7 +1311,17 @@ export class ReportsService {
       } else {
         r.getCell(4).font = { name: 'Calibri', size: 9, color: { argb: BRAND.mutedGold } };
       }
-      r.getCell(totalCols).font = { name: 'Calibri', size: 9, bold: true, color: { argb: BRAND.goldDeep } };
+      r.getCell(normalCol).font = { name: 'Calibri', size: 9, bold: true, color: { argb: BRAND.goldDeep } };
+      // Shortfall — flagged in a soft warm tone only on the days it applies.
+      if (w.shortfallTotalMs > 0) {
+        r.getCell(shortfallCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF6DCC8' } };
+        r.getCell(shortfallCol).font = { name: 'Calibri', size: 9, bold: true, color: { argb: 'FF9C4A1A' } };
+      }
+      // Overtime — flagged bright gold, distinct from the normal-hours gold.
+      if (w.overtimeTotalMs > 0) {
+        r.getCell(overtimeCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BRAND.goldBright } };
+        r.getCell(overtimeCol).font = { name: 'Calibri', size: 9, bold: true, color: { argb: BRAND.black } };
+      }
       r.height = 16;
     });
     const lastDataRowNum = headerRow.number + workers.length;
@@ -1273,11 +1337,11 @@ export class ReportsService {
       c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BRAND.black } };
       c.font = { name: 'Calibri', bold: true, size: 9, color: { argb: BRAND.gold } };
       c.alignment = { horizontal: colNumber <= FIXED_COLS ? 'center' : 'right', vertical: 'middle' };
-      if (colNumber > FIXED_COLS) c.numFmt = '[h]:mm';
+      if (colNumber > FIXED_COLS) c.numFmt = '0.##';
     });
-    const grandCell = footRow.getCell(totalCols);
-    grandCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BRAND.gold } };
-    grandCell.font = { name: 'Calibri', bold: true, size: 12, color: { argb: BRAND.black } };
+    const normalGrandCell = footRow.getCell(normalCol);
+    normalGrandCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BRAND.gold } };
+    normalGrandCell.font = { name: 'Calibri', bold: true, size: 12, color: { argb: BRAND.black } };
     footRow.height = 22;
 
     // ── Generated-at footnote ───────────────────────────────────────────────────
@@ -1297,7 +1361,7 @@ export class ReportsService {
       };
     }
 
-    // ── Conditional formatting — gold heat-scale on daily hours + data bar on Jemi ──
+    // ── Conditional formatting — gold heat-scale on daily hours + data bar on Normal ──
     if (dates.length > 0 && workers.length > 0) {
       const firstDateColLetter = colLetter(FIXED_COLS + 1);
       const lastDateColLetter = colLetter(FIXED_COLS + dates.length);
@@ -1311,9 +1375,9 @@ export class ReportsService {
           },
         ],
       });
-      const jemiLetter = colLetter(totalCols);
+      const normalLetter = colLetter(normalCol);
       ws.addConditionalFormatting({
-        ref: `${jemiLetter}${firstDataRowNum}:${jemiLetter}${lastDataRowNum}`,
+        ref: `${normalLetter}${firstDataRowNum}:${normalLetter}${lastDataRowNum}`,
         rules: [
           {
             type: 'dataBar',
