@@ -25,6 +25,7 @@ const en = {
     workTime: 'Work Time',
     adjustmentReasons: 'Adjustment Reasons',
     workTimeDay: 'Day View',
+    adjustmentsAnalytics: 'Adjustments Analytics',
     inbox: 'Inbox',
   },
   sidebar: {
@@ -894,6 +895,7 @@ const ru: typeof en = {
     workTime: 'Рабочее время',
     adjustmentReasons: 'Причины корректировок',
     workTimeDay: 'По дням',
+    adjustmentsAnalytics: 'Аналитика корректировок',
     inbox: 'Входящие',
   },
   sidebar: {
@@ -1763,6 +1765,7 @@ const tr: typeof en = {
     workTime: 'Mesai Takibi',
     adjustmentReasons: 'Düzeltme Sebepleri',
     workTimeDay: 'Gün Görnüşi',
+    adjustmentsAnalytics: 'Üýtgetme Analitikasy',
     inbox: 'Iş merkezi',
   },
   sidebar: {

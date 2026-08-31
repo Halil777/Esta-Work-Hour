@@ -16,6 +16,8 @@ import { ReportType } from '../report-config/report-config.entity';
 import { AttendanceOverridesService } from '../attendance-overrides/attendance-overrides.service';
 import { ShiftSettingsService } from '../shift-settings/shift-settings.service';
 import { buildDailyAttendance } from '../common/attendance-pairing.util';
+import { computeCredited, groupAdjustmentsByWorkerDate } from '../common/credited-hours.util';
+import { WorkAdjustment, AdjustmentStatus } from '../work-adjustments/work-adjustment.entity';
 
 // ─── Formatters ────────────────────────────────────────────────────────────────
 
@@ -205,7 +207,14 @@ export type RangeRow = {
   name: string;
   profession: string;
   brigade: string;
+  /** Officially counted total for the period: admin-corrected (credited) minutes
+   *  where an adjustment exists for a day, raw scan-based minutes otherwise.
+   *  This is the number shown everywhere as "the" total (reports table, PDF,
+   *  emailed HTML digest, Excel main sheet). */
   totalMs: number;
+  /** True scan-based total, with no admin corrections applied — always kept
+   *  alongside the credited total, never discarded. */
+  rawTotalMs: number;
   daysPresent: number;
 };
 
@@ -224,6 +233,13 @@ type RangeMatrix = {
      *  the standard shift length — a day can exceed it (real overtime). */
     policyByDate: Map<string, number>;
     policyTotalMs: number;
+    /** Admin-corrected (credited) minutes per day: an active WorkAdjustment's
+     *  effect on that day's raw minutes, or the raw minutes unchanged when no
+     *  adjustment exists. This is the "official" number the main hours sheet
+     *  reports — never a replacement for the raw scan record, which stays
+     *  available via totalsByDate/scansByDate. */
+    creditedByDate: Map<string, number>;
+    creditedTotalMs: number;
     /** Sum over the period of min(policyMs, standard) per day — the "normal"
      *  hours a day counts for, capped at the shift's standard duration. */
     normalTotalMs: number;
@@ -282,9 +298,29 @@ export class ReportsService {
     private readonly eventRepo: Repository<AttendanceEvent>,
     @InjectRepository(Worker)
     private readonly workerRepo: Repository<Worker>,
+    @InjectRepository(WorkAdjustment)
+    private readonly adjRepo: Repository<WorkAdjustment>,
     private readonly attendanceOverridesService: AttendanceOverridesService,
     private readonly shiftSettingsService: ShiftSettingsService,
   ) {}
+
+  /** Active admin adjustments for a set of workers over a date range, grouped by `${workerEntityId}:${workDate}`. */
+  private async loadAdjustmentsByWorkerDate(
+    workerEntityIds: string[],
+    startDate: string,
+    endDate: string,
+    tenantId?: string,
+  ): Promise<Map<string, WorkAdjustment[]>> {
+    if (workerEntityIds.length === 0) return new Map();
+    const qb = this.adjRepo
+      .createQueryBuilder('a')
+      .where('a.workerEntityId IN (:...ids)', { ids: workerEntityIds })
+      .andWhere('a.workDate BETWEEN :start AND :end', { start: startDate, end: endDate })
+      .andWhere('a.status = :status', { status: AdjustmentStatus.ACTIVE });
+    if (tenantId) qb.andWhere('a.tenantId = :tenantId', { tenantId });
+    const adjustments = await qb.getMany();
+    return groupAdjustmentsByWorkerDate(adjustments);
+  }
 
   // ════════════════════════════════════════════════════════════════════════════
   //  DAILY REPORT  (existing logic, unchanged)
@@ -659,6 +695,10 @@ export class ReportsService {
       overrides.map(o => [`${o.workerEntityId}:${o.date}`, { checkInMs: o.checkInMs ? Number(o.checkInMs) : null, checkOutMs: o.checkOutMs ? Number(o.checkOutMs) : null }]),
     );
 
+    // Admin-entered corrections for this date range — the source of the
+    // "credited" total reported everywhere alongside the raw scan total.
+    const adjustmentsByWorkerDate = await this.loadAdjustmentsByWorkerDate(workerEntityIds, startDate, endDate, tenantId);
+
     // Group events per worker
     type Ev = { eventType: string; eventTime: number; date: string };
     const byWorker = new Map<string, Ev[]>();
@@ -688,30 +728,44 @@ export class ReportsService {
       // coming out as 0 — see attendance-pairing.util.ts.
       const daily = buildDailyAttendance(evList, (t) => new Date(t + TZ_OFFSET_MS).toISOString().split('T')[0]);
 
-      // Compute total hours + unique days present, applying overrides per day
-      let totalMs = 0;
+      // Compute raw + credited total hours and unique days present, applying
+      // overrides per day, then admin adjustments (if any) on top.
+      let rawTotalMs = 0;
+      let creditedTotalMs = 0;
       const uniqueDates = new Set<string>();
 
       for (const [date, day] of daily) {
         uniqueDates.add(date);
         const ovKey = w ? `${w.id}:${date}` : null;
         const ov = ovKey ? overrideMap.get(ovKey) : undefined;
-        if (ov) {
-          totalMs += (ov.checkInMs && ov.checkOutMs) ? ov.checkOutMs - ov.checkInMs : 0;
-        } else {
-          totalMs += day.ms;
-        }
+        const dayMs = ov ? ((ov.checkInMs && ov.checkOutMs) ? ov.checkOutMs - ov.checkInMs : 0) : day.ms;
+        rawTotalMs += dayMs;
+        const adjs = w ? (adjustmentsByWorkerDate.get(`${w.id}:${date}`) ?? []) : [];
+        creditedTotalMs += computeCredited(Math.floor(dayMs / 60000), adjs) * 60000;
       }
 
-      // Also add days covered by overrides but not in scan events
       if (w) {
+        // Also add days covered by overrides but not in scan events
         for (const [key, ov] of overrideMap) {
           if (!key.startsWith(`${w.id}:`)) continue;
           const ovDate = key.split(':')[1];
           if (!uniqueDates.has(ovDate)) {
             uniqueDates.add(ovDate);
-            totalMs += (ov.checkInMs && ov.checkOutMs) ? ov.checkOutMs - ov.checkInMs : 0;
+            const dayMs = (ov.checkInMs && ov.checkOutMs) ? ov.checkOutMs - ov.checkInMs : 0;
+            rawTotalMs += dayMs;
+            const adjs = adjustmentsByWorkerDate.get(`${w.id}:${ovDate}`) ?? [];
+            creditedTotalMs += computeCredited(Math.floor(dayMs / 60000), adjs) * 60000;
           }
+        }
+        // Also add days that only have an admin adjustment (e.g. a fully
+        // absent day the admin still chose to credit some hours to) — raw
+        // stays 0 for that day, credited reflects the correction.
+        for (const [key, adjs] of adjustmentsByWorkerDate) {
+          if (!key.startsWith(`${w.id}:`)) continue;
+          const adjDate = key.split(':')[1];
+          if (uniqueDates.has(adjDate)) continue;
+          uniqueDates.add(adjDate);
+          creditedTotalMs += computeCredited(0, adjs) * 60000;
         }
       }
 
@@ -720,7 +774,8 @@ export class ReportsService {
         name: w?.name ?? empNum,
         profession: w?.profession ?? '—',
         brigade: w?.brigadeName ?? '—',
-        totalMs,
+        totalMs: creditedTotalMs,
+        rawTotalMs,
         daysPresent: uniqueDates.size,
       });
     }
@@ -731,18 +786,33 @@ export class ReportsService {
       const missing = filterWorkerIds.filter(id => !present.has(id));
       if (missing.length > 0) {
         const missingWorkers = await this.workerRepo.find({ where: missing.map(workerId => ({ workerId, ...(tenantId ? { tenantId } : {}) })) });
+        const missingAdjustments = await this.loadAdjustmentsByWorkerDate(missingWorkers.map(w => w.id), startDate, endDate, tenantId);
         for (const w of missingWorkers) {
           // Check if this worker has overrides in the range
           const workerOverrides = overrides.filter(o => o.workerEntityId === w.id);
-          const overrideTotalMs = workerOverrides.reduce((sum, o) => {
-            return sum + ((o.checkInMs && o.checkOutMs) ? Number(o.checkOutMs) - Number(o.checkInMs) : 0);
-          }, 0);
+          const rawByDate = new Map(workerOverrides.map(o => [
+            o.date,
+            (o.checkInMs && o.checkOutMs) ? Number(o.checkOutMs) - Number(o.checkInMs) : 0,
+          ]));
+          const dateSet = new Set<string>(rawByDate.keys());
+          for (const key of missingAdjustments.keys()) {
+            if (key.startsWith(`${w.id}:`)) dateSet.add(key.split(':')[1]);
+          }
+          let overrideTotalMs = 0;
+          let creditedTotalMs = 0;
+          for (const d of dateSet) {
+            const dayMs = rawByDate.get(d) ?? 0;
+            overrideTotalMs += dayMs;
+            const adjs = missingAdjustments.get(`${w.id}:${d}`) ?? [];
+            creditedTotalMs += computeCredited(Math.floor(dayMs / 60000), adjs) * 60000;
+          }
           rows.push({
             workerId: w.workerId,
             name: w.name,
             profession: w.profession,
             brigade: w.brigadeName ?? '—',
-            totalMs: overrideTotalMs,
+            totalMs: creditedTotalMs,
+            rawTotalMs: overrideTotalMs,
             daysPresent: workerOverrides.filter(o => o.checkInMs || o.checkOutMs).length,
           });
         }
@@ -789,6 +859,9 @@ export class ReportsService {
       overrides.map(o => [`${o.workerEntityId}:${o.date}`, { checkInMs: o.checkInMs ? Number(o.checkInMs) : null, checkOutMs: o.checkOutMs ? Number(o.checkOutMs) : null }]),
     );
 
+    // Admin-entered corrections — drive creditedByDate/creditedTotalMs below.
+    const adjustmentsByWorkerDate = await this.loadAdjustmentsByWorkerDate(workerEntityIds, startDate, endDate, tenantId);
+
     type Ev = { eventType: string; eventTime: number };
     const byWorker = new Map<string, Ev[]>();
     for (const ev of events) {
@@ -826,12 +899,14 @@ export class ReportsService {
     const resultWorkers = filteredEmpNums.map(empNum => {
       const w = workerMap.get(empNum);
       const totalsByDate = new Map<string, number>();
+      const creditedByDate = new Map<string, number>();
       const scansByDate = new Map<string, { checkIn: number | null; checkOut: number | null }>();
       const policyByDate = new Map<string, number>();
       const daily = dailyByEmp.get(empNum);
       const policy = w?.shift ? policyByType.get(w.shift) : undefined;
       const standardMs = (policy?.standardMinutes ?? 0) * 60000;
       let totalMs = 0;
+      let creditedTotalMs = 0;
       let policyTotalMs = 0;
       let normalTotalMs = 0;
       let shortfallTotalMs = 0;
@@ -857,10 +932,14 @@ export class ReportsService {
           }
           policyMs = computePolicyMs(date, policy, checkIn, checkOut);
         }
+        const adjs = w ? (adjustmentsByWorkerDate.get(`${w.id}:${date}`) ?? []) : [];
+        const creditedMs = computeCredited(Math.floor(dayMs / 60000), adjs) * 60000;
         if (dayMs > 0) totalsByDate.set(date, dayMs);
+        if (creditedMs > 0) creditedByDate.set(date, creditedMs);
         if (policyMs > 0) policyByDate.set(date, policyMs);
         if (checkIn !== null || checkOut !== null) scansByDate.set(date, { checkIn, checkOut });
         totalMs += dayMs;
+        creditedTotalMs += creditedMs;
         policyTotalMs += policyMs;
         if (policyMs > 0 && standardMs > 0) {
           normalTotalMs += Math.min(policyMs, standardMs);
@@ -873,6 +952,7 @@ export class ReportsService {
       return {
         workerId: empNum, name: w?.name ?? empNum, shift: w?.shift ?? null,
         totalsByDate, totalMs, scansByDate, policyByDate, policyTotalMs,
+        creditedByDate, creditedTotalMs,
         normalTotalMs, shortfallTotalMs, overtimeTotalMs,
       };
     });
@@ -961,8 +1041,8 @@ export class ReportsService {
     ws.addRow([]);
 
     // ── KPI summary band ─────────────────────────────────────────────────────────
-    const workedWorkers = workers.filter(w => w.totalMs > 0);
-    const grandTotalMs = workers.reduce((s, w) => s + w.totalMs, 0);
+    const workedWorkers = workers.filter(w => w.creditedTotalMs > 0);
+    const grandTotalMs = workers.reduce((s, w) => s + w.creditedTotalMs, 0);
     const avgMs = workedWorkers.length > 0 ? Math.floor(grandTotalMs / workedWorkers.length) : 0;
 
     const kpis: { label: string; value: string; color: string; bg: string }[] = [
@@ -1026,10 +1106,10 @@ export class ReportsService {
       const rowValues = [
         i + 1, w.workerId, w.name, shiftLabel,
         ...dates.map(d => {
-          const ms = w.totalsByDate.get(d) ?? 0;
+          const ms = w.creditedByDate.get(d) ?? 0;
           return ms > 0 ? msToExcelDuration(ms) : null;
         }),
-        w.totalMs > 0 ? msToExcelDuration(w.totalMs) : null,
+        w.creditedTotalMs > 0 ? msToExcelDuration(w.creditedTotalMs) : null,
       ];
       const r = ws.addRow(rowValues);
       const bg = i % 2 === 0 ? BRAND.cream : 'FFFFFFFF';

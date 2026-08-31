@@ -9,6 +9,9 @@ import { APP_TZ } from '../common/date-utils';
 import { LateArrivalsService } from './late-arrivals.service';
 import { MissingCheckoutsService } from './missing-checkouts.service';
 import { AttendanceOverridesService } from '../attendance-overrides/attendance-overrides.service';
+import { buildDailyAttendance } from '../common/attendance-pairing.util';
+import { computeCredited, groupAdjustmentsByWorkerDate } from '../common/credited-hours.util';
+import { WorkAdjustment, AdjustmentStatus } from '../work-adjustments/work-adjustment.entity';
 
 @Injectable()
 export class AttendanceEventsService {
@@ -20,6 +23,8 @@ export class AttendanceEventsService {
     private readonly lateArrivalsService: LateArrivalsService,
     private readonly missingCheckoutsService: MissingCheckoutsService,
     private readonly attendanceOverridesService: AttendanceOverridesService,
+    @InjectRepository(WorkAdjustment)
+    private readonly adjRepo: Repository<WorkAdjustment>,
   ) {}
 
   getLateArrivals(foremanWorkerEntityId?: string, staffFilter?: 'staff' | 'workers', tenantId?: string) {
@@ -240,13 +245,15 @@ export class AttendanceEventsService {
         params,
       );
 
-    const byDate = new Map<string, { eventType: string; eventTime: number }[]>();
-    for (const ev of events) {
-      const d = ev.date as string;
-      const arr = byDate.get(d) ?? [];
-      arr.push({ eventType: ev.eventType, eventTime: Number(ev.eventTime) });
-      byDate.set(d, arr);
-    }
+    // Pair check-in/check-out chronologically across the whole range (not
+    // pre-bucketed by calendar date), so an overnight/night-shift session
+    // that crosses midnight is attributed correctly instead of silently
+    // coming out as 0 — see attendance-pairing.util.ts.
+    const TZ_OFFSET_MS = 3 * 60 * 60 * 1000;
+    const evList = events
+      .map(ev => ({ eventType: ev.eventType, eventTime: Number(ev.eventTime) }))
+      .sort((a, b) => a.eventTime - b.eventTime);
+    const dailyMap = buildDailyAttendance(evList, (t) => new Date(t + TZ_OFFSET_MS).toISOString().split('T')[0]);
 
     let totalMs = 0;
     const days: {
@@ -257,32 +264,12 @@ export class AttendanceEventsService {
       sessions: { checkIn: number; checkOut: number | null }[];
     }[] = [];
 
-    for (const [date, evList] of byDate) {
-      const sessions: { checkIn: number; checkOut: number | null }[] = [];
-      let dayTotalMs = 0;
-      let clockIn: number | null = null;
-      let firstIn: number | null = null;
-      let lastOut: number | null = null;
-
-      for (const ev of evList) {
-        if (ev.eventType === 'CHECK_IN') {
-          if (clockIn === null) clockIn = ev.eventTime;
-          if (firstIn === null) firstIn = ev.eventTime;
-        } else {
-          if (clockIn !== null) {
-            sessions.push({ checkIn: clockIn, checkOut: ev.eventTime });
-            dayTotalMs += ev.eventTime - clockIn;
-            clockIn = null;
-          }
-          lastOut = ev.eventTime;
-        }
-      }
-      if (clockIn !== null) {
-        sessions.push({ checkIn: clockIn, checkOut: null });
-      }
-
-      totalMs += dayTotalMs;
-      days.push({ date, totalMs: dayTotalMs, checkIn: firstIn, checkOut: lastOut, sessions });
+    for (const [date, day] of dailyMap) {
+      totalMs += day.ms;
+      days.push({
+        date, totalMs: day.ms, checkIn: day.checkIn, checkOut: day.checkOut,
+        sessions: day.checkIn !== null ? [{ checkIn: day.checkIn, checkOut: day.checkOut }] : [],
+      });
     }
 
     days.sort((a, b) => (a.date as string).localeCompare(b.date as string));
@@ -329,6 +316,39 @@ export class AttendanceEventsService {
     }
     correctedDays.sort((a, b) => a.date.localeCompare(b.date));
 
+    // Apply admin-entered credited-hours adjustments (WorkAdjustment) on top
+    // of the override-corrected values. This is the same computeCredited()
+    // used by Work Time / the day-view admin screen / the range reports, so
+    // a correction made anywhere shows up everywhere consistently. The
+    // override-corrected value is kept as `actualMs` so the true underlying
+    // number is never lost, only the "official" totalMs changes.
+    const adjustments = await this.adjRepo.find({ where: { workerEntityId, status: AdjustmentStatus.ACTIVE } });
+    const relevantAdjustments = adjustments.filter(a => (!startDate || a.workDate >= startDate) && (!endDate || a.workDate <= endDate));
+    const adjByDate = groupAdjustmentsByWorkerDate(relevantAdjustments);
+
+    let creditedTotalMs = 0;
+    const finalDays = correctedDays.map(day => {
+      const adjs = adjByDate.get(`${workerEntityId}:${day.date}`) ?? [];
+      const creditedMs = adjs.length ? computeCredited(Math.floor(day.totalMs / 60000), adjs) * 60000 : day.totalMs;
+      creditedTotalMs += creditedMs;
+      return adjs.length
+        ? { ...day, actualMs: day.totalMs, totalMs: creditedMs, adjustmentApplied: true }
+        : { ...day, actualMs: day.totalMs, adjustmentApplied: false };
+    });
+
+    // Also add adjustment-only days (credited hours on a day with no scan/override at all)
+    for (const [key, adjs] of adjByDate) {
+      const date = key.split(':')[1];
+      if (finalDays.find(d => d.date === date)) continue;
+      const creditedMs = computeCredited(0, adjs) * 60000;
+      creditedTotalMs += creditedMs;
+      finalDays.push({
+        date, totalMs: creditedMs, actualMs: 0, checkIn: null, checkOut: null,
+        sessions: [], overrideApplied: false, adjustmentApplied: true,
+      } as any);
+    }
+    finalDays.sort((a, b) => a.date.localeCompare(b.date));
+
     return {
       worker: {
         id: worker.id,
@@ -345,8 +365,8 @@ export class AttendanceEventsService {
         extraSaat: worker.extraSaat,
         nfcCardUid: worker.nfcCardUid,
       },
-      days: correctedDays,
-      totalMs: correctedTotalMs,
+      days: finalDays,
+      totalMs: creditedTotalMs,
     };
   }
 

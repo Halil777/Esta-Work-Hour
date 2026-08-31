@@ -7,9 +7,10 @@ import { AttendanceEventsService } from './attendance-events.service';
 import { LateArrivalsService } from './late-arrivals.service';
 import { MissingCheckoutsService } from './missing-checkouts.service';
 import { AttendanceOverridesModule } from '../attendance-overrides/attendance-overrides.module';
+import { WorkAdjustment } from '../work-adjustments/work-adjustment.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AttendanceEvent, Worker]), AttendanceOverridesModule],
+  imports: [TypeOrmModule.forFeature([AttendanceEvent, Worker, WorkAdjustment]), AttendanceOverridesModule],
   controllers: [AttendanceEventsController, MobileForemanAttendanceController],
   providers: [AttendanceEventsService, LateArrivalsService, MissingCheckoutsService],
   exports: [AttendanceEventsService],

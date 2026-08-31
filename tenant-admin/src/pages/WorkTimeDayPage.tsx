@@ -351,7 +351,7 @@ export function WorkTimeDayPage() {
 
       {adjModal && selectedWorkers.length > 0 && (
         <AdjustmentModal
-          workers={selectedWorkers.map(w => ({ workerEntityId: w.workerEntityId, name: w.name, actualMinutes: w.actualMinutes }))}
+          workers={selectedWorkers.map(w => ({ workerEntityId: w.workerEntityId, name: w.name, actualMinutes: w.actualMinutes, checkIn: w.checkIn, checkOut: w.checkOut }))}
           workDate={date}
           onClose={() => setAdjModal(false)}
           onSaved={() => setSelected(new Set())}

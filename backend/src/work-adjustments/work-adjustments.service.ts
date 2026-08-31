@@ -5,6 +5,54 @@ import { randomUUID } from 'crypto';
 import { WorkAdjustment, AdjustmentType, AdjustmentStatus } from './work-adjustment.entity';
 import { WorkAdjustmentLog, AdjLogAction } from './work-adjustment-log.entity';
 import { AdjustmentReason } from '../adjustment-reasons/adjustment-reason.entity';
+import { Worker } from '../workers/worker.entity';
+import { AttendanceEvent } from '../attendance-events/attendance-event.entity';
+import { buildDailyAttendance } from '../common/attendance-pairing.util';
+import { computeCredited } from '../common/credited-hours.util';
+
+const TZ_OFFSET_MS = 3 * 60 * 60 * 1000;
+
+export type AdjustmentAnalyticsDay = {
+  date: string;
+  actualMs: number;
+  creditedMs: number;
+  diffMs: number;
+  adjustments: {
+    id: string;
+    adjustmentType: AdjustmentType;
+    minutes: number;
+    reasonLabel: string | null;
+    description: string | null;
+    createdBy: string;
+    createdAt: Date;
+  }[];
+};
+
+export type AdjustmentAnalyticsWorker = {
+  workerEntityId: string;
+  workerId: string;
+  name: string;
+  profession: string;
+  brigade: string;
+  adjustmentCount: number;
+  totalIncreaseMs: number;
+  totalDecreaseMs: number;
+  netDiffMs: number;
+  days: AdjustmentAnalyticsDay[];
+};
+
+export type AdjustmentAnalytics = {
+  startDate: string | null;
+  endDate: string | null;
+  summary: {
+    totalAdjustments: number;
+    workersAffected: number;
+    totalIncreaseMs: number;
+    totalDecreaseMs: number;
+    netDiffMs: number;
+  };
+  workers: AdjustmentAnalyticsWorker[];
+};
 
 export interface CreateAdjustmentDto {
   workerEntityId: string;
@@ -47,6 +95,10 @@ export class WorkAdjustmentsService {
     private readonly logRepo: Repository<WorkAdjustmentLog>,
     @InjectRepository(AdjustmentReason)
     private readonly reasonRepo: Repository<AdjustmentReason>,
+    @InjectRepository(Worker)
+    private readonly workerRepo: Repository<Worker>,
+    @InjectRepository(AttendanceEvent)
+    private readonly eventRepo: Repository<AttendanceEvent>,
   ) {}
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -246,5 +298,146 @@ export class WorkAdjustmentsService {
       .getManyAndCount();
 
     return { data, total };
+  }
+
+  // ── Analytics: scan-vs-credited differences ─────────────────────────────────
+  // Shows, per worker and per day, how much an admin correction changed a
+  // worker's counted hours away from their raw scan time — both increases
+  // ("mesaý ýaly goşulan") and decreases ("azaldylan") — over all time or a
+  // custom date range. Used by the standalone analytics page.
+  async getAnalytics(
+    tenantId: string,
+    startDate?: string,
+    endDate?: string,
+  ): Promise<AdjustmentAnalytics> {
+    const qb = this.adjRepo
+      .createQueryBuilder('a')
+      .where('a.tenantId = :tid', { tid: tenantId })
+      .andWhere('a.status = :status', { status: AdjustmentStatus.ACTIVE });
+    if (startDate) qb.andWhere('a.workDate >= :s', { s: startDate });
+    if (endDate) qb.andWhere('a.workDate <= :e', { e: endDate });
+    const adjustments = await qb
+      .orderBy('a.workerEntityId', 'ASC')
+      .addOrderBy('a.workDate', 'ASC')
+      .addOrderBy('a.createdAt', 'ASC')
+      .getMany();
+
+    if (adjustments.length === 0) {
+      return {
+        startDate: startDate ?? null,
+        endDate: endDate ?? null,
+        summary: { totalAdjustments: 0, workersAffected: 0, totalIncreaseMs: 0, totalDecreaseMs: 0, netDiffMs: 0 },
+        workers: [],
+      };
+    }
+
+    // Group by workerEntityId -> workDate -> adjustments[] (creation order)
+    const byWorkerDate = new Map<string, Map<string, WorkAdjustment[]>>();
+    for (const adj of adjustments) {
+      let byDate = byWorkerDate.get(adj.workerEntityId);
+      if (!byDate) { byDate = new Map(); byWorkerDate.set(adj.workerEntityId, byDate); }
+      const arr = byDate.get(adj.workDate) ?? [];
+      arr.push(adj);
+      byDate.set(adj.workDate, arr);
+    }
+
+    const workerEntityIds = [...byWorkerDate.keys()];
+    const workers = await this.workerRepo.find({ where: workerEntityIds.map(id => ({ id })) });
+    const workerById = new Map(workers.map(w => [w.id, w]));
+
+    // Fetch raw scan events for every involved worker, spanning the full
+    // range of dates actually touched by an adjustment (may be wider than
+    // startDate/endDate if none was given).
+    const workerIds = workers.map(w => w.workerId).filter(Boolean);
+    const events: { employeeNumber: string; eventType: string; eventTime: string }[] =
+      workerIds.length > 0
+        ? await this.eventRepo.query(
+            `SELECT "employeeNumber", "eventType", "eventTime"
+             FROM attendance_events
+             WHERE "employeeNumber" = ANY($1)
+             ORDER BY "employeeNumber", "eventTime" ASC`,
+            [workerIds],
+          )
+        : [];
+    const eventsByWorkerId = new Map<string, { eventType: string; eventTime: number }[]>();
+    for (const ev of events) {
+      const arr = eventsByWorkerId.get(ev.employeeNumber) ?? [];
+      arr.push({ eventType: ev.eventType, eventTime: Number(ev.eventTime) });
+      eventsByWorkerId.set(ev.employeeNumber, arr);
+    }
+    const dailyByWorkerId = new Map<string, ReturnType<typeof buildDailyAttendance>>();
+    for (const [workerId, evList] of eventsByWorkerId) {
+      dailyByWorkerId.set(workerId, buildDailyAttendance(evList, (t) => new Date(t + TZ_OFFSET_MS).toISOString().split('T')[0]));
+    }
+
+    let totalIncreaseMs = 0;
+    let totalDecreaseMs = 0;
+    let totalAdjustments = 0;
+
+    const resultWorkers: AdjustmentAnalyticsWorker[] = [];
+    for (const [workerEntityId, byDate] of byWorkerDate) {
+      const w = workerById.get(workerEntityId);
+      const daily = w ? dailyByWorkerId.get(w.workerId) : undefined;
+
+      let workerIncreaseMs = 0;
+      let workerDecreaseMs = 0;
+      let workerAdjCount = 0;
+      const days: AdjustmentAnalyticsDay[] = [];
+
+      for (const [date, adjs] of byDate) {
+        const actualMs = daily?.get(date)?.ms ?? 0;
+        const creditedMinutes = computeCredited(Math.floor(actualMs / 60000), adjs);
+        const creditedMs = creditedMinutes * 60000;
+        const diffMs = creditedMs - actualMs;
+        if (diffMs > 0) workerIncreaseMs += diffMs;
+        if (diffMs < 0) workerDecreaseMs += -diffMs;
+        workerAdjCount += adjs.length;
+        days.push({
+          date, actualMs, creditedMs, diffMs,
+          adjustments: adjs.map(a => ({
+            id: a.id,
+            adjustmentType: a.adjustmentType,
+            minutes: a.minutes,
+            reasonLabel: a.reasonLabel,
+            description: a.description,
+            createdBy: a.createdBy,
+            createdAt: a.createdAt,
+          })),
+        });
+      }
+      days.sort((a, b) => a.date.localeCompare(b.date));
+
+      totalIncreaseMs += workerIncreaseMs;
+      totalDecreaseMs += workerDecreaseMs;
+      totalAdjustments += workerAdjCount;
+
+      resultWorkers.push({
+        workerEntityId,
+        workerId: w?.workerId ?? '—',
+        name: w?.name ?? '—',
+        profession: w?.profession ?? '—',
+        brigade: w?.brigadeName ?? '—',
+        adjustmentCount: workerAdjCount,
+        totalIncreaseMs: workerIncreaseMs,
+        totalDecreaseMs: workerDecreaseMs,
+        netDiffMs: workerIncreaseMs - workerDecreaseMs,
+        days,
+      });
+    }
+
+    resultWorkers.sort((a, b) => (Math.abs(b.netDiffMs) - Math.abs(a.netDiffMs)) || a.name.localeCompare(b.name));
+
+    return {
+      startDate: startDate ?? null,
+      endDate: endDate ?? null,
+      summary: {
+        totalAdjustments,
+        workersAffected: resultWorkers.length,
+        totalIncreaseMs,
+        totalDecreaseMs,
+        netDiffMs: totalIncreaseMs - totalDecreaseMs,
+      },
+      workers: resultWorkers,
+    };
   }
 }

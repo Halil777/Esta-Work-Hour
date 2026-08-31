@@ -4,9 +4,10 @@ import { Repository, Between } from 'typeorm';
 import { Worker } from '../workers/worker.entity';
 import { AttendanceEvent } from '../attendance-events/attendance-event.entity';
 import { AttendanceOverride } from '../attendance-overrides/attendance-override.entity';
-import { WorkAdjustment, AdjustmentType, AdjustmentStatus } from '../work-adjustments/work-adjustment.entity';
+import { WorkAdjustment, AdjustmentStatus } from '../work-adjustments/work-adjustment.entity';
 import { APP_TZ } from '../common/date-utils';
 import { buildDailyAttendance } from '../common/attendance-pairing.util';
+import { computeCredited } from '../common/credited-hours.util';
 
 const TZ_OFFSET_MS = 3 * 60 * 60 * 1000; // UTC+3 fixed offset (same as reports.service)
 
@@ -18,34 +19,6 @@ function monthRange(month: string): [string, string] {
 
 function msToMinutes(ms: number): number {
   return Math.floor(ms / 60000);
-}
-
-/**
- * Applies adjustments on top of actualMinutes (in creation order).
- * SET resets the running total; ADD/BONUS add to it; SUBTRACT reduces it; MINIMUM enforces a floor.
- */
-function computeCredited(actualMinutes: number, adjustments: WorkAdjustment[]): number {
-  if (!adjustments.length) return actualMinutes;
-  let credited = actualMinutes;
-  const sorted = [...adjustments].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-  for (const adj of sorted) {
-    switch (adj.adjustmentType) {
-      case AdjustmentType.ADD:
-      case AdjustmentType.BONUS:
-        credited += adj.minutes;
-        break;
-      case AdjustmentType.SUBTRACT:
-        credited = Math.max(0, credited - adj.minutes);
-        break;
-      case AdjustmentType.SET:
-        credited = adj.minutes;
-        break;
-      case AdjustmentType.MINIMUM:
-        credited = Math.max(credited, adj.minutes);
-        break;
-    }
-  }
-  return Math.max(0, credited);
 }
 
 @Injectable()

@@ -181,7 +181,57 @@ export const reasonsApi = {
 
 // ── Work Adjustments ───────────────────────────────────────────────────────────
 
+export interface AdjustmentAnalyticsDay {
+  date: string
+  actualMs: number
+  creditedMs: number
+  diffMs: number
+  adjustments: {
+    id: string
+    adjustmentType: AdjustmentType
+    minutes: number
+    reasonLabel: string | null
+    description: string | null
+    createdBy: string
+    createdAt: string
+  }[]
+}
+
+export interface AdjustmentAnalyticsWorker {
+  workerEntityId: string
+  workerId: string
+  name: string
+  profession: string
+  brigade: string
+  adjustmentCount: number
+  totalIncreaseMs: number
+  totalDecreaseMs: number
+  netDiffMs: number
+  days: AdjustmentAnalyticsDay[]
+}
+
+export interface AdjustmentAnalytics {
+  startDate: string | null
+  endDate: string | null
+  summary: {
+    totalAdjustments: number
+    workersAffected: number
+    totalIncreaseMs: number
+    totalDecreaseMs: number
+    netDiffMs: number
+  }
+  workers: AdjustmentAnalyticsWorker[]
+}
+
 export const adjustmentsApi = {
+  getAnalytics: (startDate?: string, endDate?: string) => {
+    const params = new URLSearchParams()
+    if (startDate) params.set('startDate', startDate)
+    if (endDate) params.set('endDate', endDate)
+    const q = params.toString()
+    return apiFetch<AdjustmentAnalytics>(`/admin/work-adjustments/analytics${q ? `?${q}` : ''}`)
+  },
+
   create: (data: {
     workerEntityId: string
     workDate: string

@@ -40,33 +40,47 @@ function nextMonth(month: string): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
-const ADJ_TYPE_LABELS: Record<AdjustmentType, string> = {
-  ADD:      '+ Add Hours',
-  SUBTRACT: '− Subtract Hours',
-  SET:      '= Set Credited To',
-  MINIMUM:  '↑ Minimum Hours',
-  BONUS:    '★ Bonus Hours',
+const ADJ_TYPE_INFO: Record<AdjustmentType, { label: string; icon: string; hint: string }> = {
+  SET:      { label: 'Takyk belle',   icon: '=', hint: 'Hasaba alynjak sagady takyk san bilen belle' },
+  ADD:      { label: 'Sagat goş',     icon: '+', hint: 'Hakyky sagadyň üstüne goş' },
+  SUBTRACT: { label: 'Sagat aýyr',    icon: '−', hint: 'Hakyky sagatdan aýyr' },
+  MINIMUM:  { label: 'Iň az sagat',   icon: '↑', hint: 'Hakyky sagat şondan az bolsa, şu derejä çenli galdyr' },
+  BONUS:    { label: 'Baýrak sagat',  icon: '★', hint: 'Goşmaça baýrak sagat goş' },
 }
 
 // ── Adjustment Modal ──────────────────────────────────────────────────────────
 
 export interface AdjModalProps {
-  workers: { workerEntityId: string; name: string; actualMinutes?: number }[]
+  workers: { workerEntityId: string; name: string; actualMinutes?: number; checkIn?: number | null; checkOut?: number | null }[]
   workDate: string
   onClose: () => void
   onSaved: () => void
+}
+
+const ADJ_TZ_OFFSET = 3 * 60 * 60 * 1000
+function fmtAdjTime(ms: number | null | undefined): string {
+  if (!ms) return '—'
+  const d = new Date(Number(ms) + ADJ_TZ_OFFSET)
+  return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`
 }
 
 export function AdjustmentModal({ workers, workDate, onClose, onSaved }: AdjModalProps) {
   const { data: reasons = [] } = useQuery({ queryKey: ['adjustment-reasons'], queryFn: reasonsApi.getAll })
   const activeReasons = reasons.filter(r => r.isActive)
 
-  const [adjType, setAdjType] = useState<AdjustmentType>('ADD')
-  const [minutes, setMinutes] = useState(60)
+  const [adjType, setAdjType] = useState<AdjustmentType>('SET')
+  const [hours, setHours] = useState(11)
+  const [mins, setMins] = useState(0)
+  const minutes = hours * 60 + mins
   const [reasonId, setReasonId] = useState('')
   const [description, setDescription] = useState('')
   const [date, setDate] = useState(workDate)
   const [error, setError] = useState('')
+
+  const setFromTotalMinutes = (m: number) => {
+    setHours(Math.floor(m / 60))
+    setMins(m % 60)
+  }
 
   const qc = useQueryClient()
   const createMut = useMutation<WorkAdjustment | WorkAdjustment[], Error>({
@@ -97,11 +111,12 @@ export function AdjustmentModal({ workers, workDate, onClose, onSaved }: AdjModa
       onSaved()
       onClose()
     },
-    onError: (e: any) => setError(e.message ?? 'Error'),
+    onError: (e: any) => setError(e.message ?? 'Ýalňyşlyk ýüze çykdy'),
   })
 
-  // Live preview for single worker
-  const singleActual = workers.length === 1 ? (workers[0].actualMinutes ?? 0) : null
+  // Live preview — only meaningful when correcting a single worker
+  const single = workers.length === 1 ? workers[0] : null
+  const singleActual = single ? (single.actualMinutes ?? 0) : null
   const previewCredited = useMemo(() => {
     if (singleActual === null) return null
     switch (adjType) {
@@ -113,159 +128,251 @@ export function AdjustmentModal({ workers, workDate, onClose, onSaved }: AdjModa
     }
   }, [singleActual, adjType, minutes])
 
+  const initials = (name: string) =>
+    name.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]?.toUpperCase()).join('') || '?'
+
   return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }}>
-      <div style={{
-        background: 'var(--bg-card)', borderRadius: 16, padding: 28, width: 460,
-        maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Add Adjustment</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>✕</button>
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000,
+        background: 'rgba(10,10,16,0.6)',
+        backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: 'var(--bg-card)', borderRadius: 20, width: 520,
+          maxHeight: '90vh', overflowY: 'auto',
+          boxShadow: '0 24px 70px rgba(0,0,0,0.45)', border: '1px solid var(--border)',
+        }}
+      >
+        {/* Header */}
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+          padding: '22px 26px 18px', borderBottom: '1px solid var(--border)',
+        }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Iş sagadyny düzet</h3>
+            <p style={{ margin: '4px 0 0', fontSize: 12.5, color: 'var(--text-muted)' }}>
+              {new Date(`${date}T00:00:00Z`).toLocaleDateString('tr-TR', { timeZone: 'UTC', day: 'numeric', month: 'long', year: 'numeric' })} üçin hasaba alynjak sagady belläň
+            </p>
+          </div>
+          <button onClick={onClose} style={{
+            background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8,
+            cursor: 'pointer', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'var(--text-secondary)', flexShrink: 0,
+          }}>✕</button>
         </div>
 
-        {/* Workers */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>
-            {workers.length === 1 ? 'Worker' : `Workers (${workers.length} selected)`}
+        <div style={{ padding: '20px 26px 26px' }}>
+
+          {/* Workers chip card */}
+          <div style={{
+            background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 12,
+            padding: 14, marginBottom: 18,
+          }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 10 }}>
+              {workers.length === 1 ? 'IŞÇI' : `${workers.length} IŞÇI SAÝLANDY`}
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {workers.slice(0, 8).map(w => (
+                <div key={w.workerEntityId} style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  background: 'var(--bg-card)', border: '1px solid var(--border)',
+                  borderRadius: 999, padding: '4px 10px 4px 4px',
+                }}>
+                  <span style={{
+                    width: 20, height: 20, borderRadius: '50%', background: 'var(--accent)', color: '#fff',
+                    fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>{initials(w.name)}</span>
+                  <span style={{ fontSize: 12.5, fontWeight: 600 }}>{w.name}</span>
+                </div>
+              ))}
+              {workers.length > 8 && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', fontSize: 12, color: 'var(--text-muted)',
+                  padding: '4px 10px',
+                }}>+ ýene {workers.length - 8}</div>
+              )}
+            </div>
           </div>
-          {workers.length === 1 ? (
-            <div style={{ fontWeight: 600, fontSize: 14 }}>{workers[0].name}</div>
-          ) : (
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', maxHeight: 80, overflowY: 'auto' }}>
-              {workers.map(w => w.name).join(', ')}
+
+          {/* Raw scan reference — always visible, read-only, only makes sense for one worker */}
+          {single && (single.checkIn || single.checkOut || singleActual !== null) && (
+            <div style={{
+              display: 'flex', gap: 18, alignItems: 'center',
+              background: 'var(--bg-surface)', border: '1px dashed var(--border)', borderRadius: 10,
+              padding: '10px 14px', marginBottom: 18, fontSize: 12.5,
+            }}>
+              <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>🕒 Hakyky scan:</span>
+              <span style={{ color: 'var(--text-secondary)' }}>
+                {fmtAdjTime(single.checkIn)} → {fmtAdjTime(single.checkOut)}
+              </span>
+              {singleActual !== null && (
+                <span style={{ color: 'var(--text-secondary)' }}>
+                  ({fmtMins(singleActual)})
+                </span>
+              )}
+              <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)' }}>üýtgemez</span>
             </div>
           )}
-        </div>
 
-        {/* Date */}
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>Work Date</label>
-          <input
-            type="date"
-            value={date}
-            onChange={e => setDate(e.target.value)}
-            style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontSize: 14, boxSizing: 'border-box' }}
-          />
-        </div>
-
-        {/* Type */}
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>Adjustment Type</label>
-          <select
-            value={adjType}
-            onChange={e => setAdjType(e.target.value as AdjustmentType)}
-            style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontSize: 14 }}
-          >
-            {(Object.entries(ADJ_TYPE_LABELS) as [AdjustmentType, string][]).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Minutes */}
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
-            {adjType === 'SET' || adjType === 'MINIMUM' ? 'Target Minutes' : 'Minutes'}
-          </label>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {/* Date */}
+          <div style={{ marginBottom: 18 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Sene</label>
             <input
-              type="number"
-              min={1}
-              value={minutes}
-              onChange={e => setMinutes(Math.max(1, Number(e.target.value)))}
-              style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontSize: 14 }}
+              type="date"
+              value={date}
+              onChange={e => setDate(e.target.value)}
+              style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontSize: 14, boxSizing: 'border-box' }}
             />
-            <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-              = {Math.floor(minutes / 60)}h {minutes % 60}m
-            </span>
           </div>
-          {/* Quick presets */}
-          <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-            {[30, 60, 120, 180, 240, 330, 480, 660].map(m => (
-              <button
-                key={m}
-                onClick={() => setMinutes(m)}
-                style={{
-                  padding: '3px 10px', borderRadius: 6, fontSize: 11, cursor: 'pointer',
-                  background: minutes === m ? 'var(--accent)' : 'var(--bg-elevated)',
-                  color: minutes === m ? '#fff' : 'var(--text-secondary)',
-                  border: `1px solid ${minutes === m ? 'var(--accent)' : 'var(--border)'}`,
-                }}
-              >
-                {Math.floor(m / 60)}h{m % 60 ? ` ${m % 60}m` : ''}
-              </button>
-            ))}
+
+          {/* Adjustment type — segmented cards instead of a bare <select> */}
+          <div style={{ marginBottom: 18 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 8 }}>Näme etmeli?</label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(96px, 1fr))', gap: 8 }}>
+              {(Object.entries(ADJ_TYPE_INFO) as [AdjustmentType, typeof ADJ_TYPE_INFO[AdjustmentType]][]).map(([k, info]) => (
+                <button
+                  key={k}
+                  onClick={() => setAdjType(k)}
+                  title={info.hint}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                    padding: '10px 6px', borderRadius: 10, cursor: 'pointer',
+                    background: adjType === k ? 'var(--accent)' : 'var(--bg-surface)',
+                    color: adjType === k ? '#fff' : 'var(--text-primary)',
+                    border: `1.5px solid ${adjType === k ? 'var(--accent)' : 'var(--border)'}`,
+                    fontWeight: 600, transition: 'all .12s',
+                  }}
+                >
+                  <span style={{ fontSize: 16, lineHeight: 1 }}>{info.icon}</span>
+                  <span style={{ fontSize: 11, textAlign: 'center', lineHeight: 1.2 }}>{info.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
 
-        {/* Reason */}
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>Reason</label>
-          <select
-            value={reasonId}
-            onChange={e => setReasonId(e.target.value)}
-            style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontSize: 14 }}
-          >
-            <option value="">— Select reason —</option>
-            {activeReasons.map(r => (
-              <option key={r.id} value={r.id}>{r.name}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Description */}
-        <div style={{ marginBottom: 20 }}>
-          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>Description (optional)</label>
-          <textarea
-            value={description}
-            onChange={e => setDescription(e.target.value)}
-            rows={2}
-            placeholder="Additional details..."
-            style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontSize: 13, resize: 'vertical', boxSizing: 'border-box' }}
-          />
-        </div>
-
-        {/* Preview */}
-        {previewCredited !== null && (
-          <div style={{
-            background: 'var(--bg-elevated)', borderRadius: 10, padding: '12px 16px',
-            marginBottom: 20, border: '1px solid var(--border)',
-          }}>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>Preview</div>
-            <div style={{ display: 'flex', gap: 20 }}>
-              <div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Actual</div>
-                <div style={{ fontWeight: 600 }}>{fmtMins(singleActual!)}</div>
+          {/* Hours / minutes duration picker */}
+          <div style={{ marginBottom: 18 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 8 }}>
+              {adjType === 'SET' || adjType === 'MINIMUM' ? 'Näçe sagat bellemeli' : 'Näçe sagat'}
+            </label>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <input
+                  type="number" min={0}
+                  value={hours}
+                  onChange={e => setHours(Math.max(0, Number(e.target.value)))}
+                  style={{ width: 64, padding: '9px 10px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontSize: 15, fontWeight: 700, textAlign: 'center' }}
+                />
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>sagat</span>
               </div>
-              <div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Adjustment</div>
-                <div style={{ fontWeight: 600, color: previewCredited - singleActual! >= 0 ? 'var(--green)' : 'var(--red)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <input
+                  type="number" min={0} max={59}
+                  value={mins}
+                  onChange={e => setMins(Math.min(59, Math.max(0, Number(e.target.value))))}
+                  style={{ width: 64, padding: '9px 10px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontSize: 15, fontWeight: 700, textAlign: 'center' }}
+                />
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>minut</span>
+              </div>
+            </div>
+            {/* Quick presets */}
+            <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+              {[30, 60, 120, 180, 240, 330, 480, 660].map(m => (
+                <button
+                  key={m}
+                  onClick={() => setFromTotalMinutes(m)}
+                  style={{
+                    padding: '4px 11px', borderRadius: 7, fontSize: 11.5, cursor: 'pointer', fontWeight: 600,
+                    background: minutes === m ? 'var(--accent)' : 'var(--bg-elevated)',
+                    color: minutes === m ? '#fff' : 'var(--text-secondary)',
+                    border: `1px solid ${minutes === m ? 'var(--accent)' : 'var(--border)'}`,
+                  }}
+                >
+                  {Math.floor(m / 60)}{m % 60 ? `.${Math.round((m % 60) / 6)}` : ''}s
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Reason */}
+          <div style={{ marginBottom: 18 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Sebäbi</label>
+            <select
+              value={reasonId}
+              onChange={e => setReasonId(e.target.value)}
+              style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontSize: 14 }}
+            >
+              <option value="">— Sebäp saýla (islege görä) —</option>
+              {activeReasons.map(r => (
+                <option key={r.id} value={r.id}>{r.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Description */}
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Bellik (islege görä)</label>
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              rows={2}
+              placeholder="Goşmaça maglumat..."
+              style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontSize: 13, resize: 'vertical', boxSizing: 'border-box' }}
+            />
+          </div>
+
+          {/* Preview */}
+          {previewCredited !== null && (
+            <div style={{
+              background: 'var(--bg-elevated)', borderRadius: 12, padding: '14px 16px',
+              marginBottom: 20, border: '1px solid var(--border)',
+              display: 'flex', gap: 0, justifyContent: 'space-between',
+            }}>
+              <div style={{ flex: 1, textAlign: 'center' }}>
+                <div style={{ fontSize: 10.5, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4 }}>HAKYKY</div>
+                <div style={{ fontWeight: 700, fontSize: 15 }}>{fmtMins(singleActual!)}</div>
+              </div>
+              <div style={{ width: 1, background: 'var(--border)' }} />
+              <div style={{ flex: 1, textAlign: 'center' }}>
+                <div style={{ fontSize: 10.5, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4 }}>ÜÝTGEŞME</div>
+                <div style={{ fontWeight: 700, fontSize: 15, color: previewCredited - singleActual! >= 0 ? 'var(--green)' : 'var(--red)' }}>
                   {previewCredited - singleActual! >= 0 ? '+' : ''}{fmtMins(previewCredited - singleActual!)}
                 </div>
               </div>
-              <div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Credited</div>
-                <div style={{ fontWeight: 700, color: 'var(--accent)' }}>{fmtMins(previewCredited)}</div>
+              <div style={{ width: 1, background: 'var(--border)' }} />
+              <div style={{ flex: 1, textAlign: 'center' }}>
+                <div style={{ fontSize: 10.5, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4 }}>HASABA ALYNAN</div>
+                <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--accent)' }}>{fmtMins(previewCredited)}</div>
               </div>
             </div>
+          )}
+          {workers.length > 1 && (
+            <div style={{
+              background: 'var(--bg-elevated)', borderRadius: 12, padding: '12px 16px',
+              marginBottom: 20, border: '1px solid var(--border)', fontSize: 12.5, color: 'var(--text-secondary)',
+            }}>
+              Bu üýtgetme saýlanan <b>{workers.length}</b> işçiniň hemmesine bir wagtda ulanylar.
+            </div>
+          )}
+
+          {error && <div style={{ color: 'var(--red)', fontSize: 13, marginBottom: 14 }}>{error}</div>}
+
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+            <button onClick={onClose} className="btn btn-ghost">Ýatyr</button>
+            <button
+              onClick={() => createMut.mutate()}
+              disabled={createMut.isPending || !date || minutes < 0}
+              className="btn btn-primary"
+            >
+              {createMut.isPending ? 'Ýazylýar...' : workers.length === 1 ? 'Işçä ulan' : `${workers.length} işçä ulan`}
+            </button>
           </div>
-        )}
-
-        {error && <div style={{ color: 'var(--red)', fontSize: 13, marginBottom: 12 }}>{error}</div>}
-
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} className="btn btn-ghost">Cancel</button>
-          <button
-            onClick={() => createMut.mutate()}
-            disabled={createMut.isPending || !date || minutes < 1}
-            className="btn btn-primary"
-          >
-            {createMut.isPending ? 'Saving...' : `Apply to ${workers.length === 1 ? 'Worker' : `${workers.length} Workers`}`}
-          </button>
         </div>
       </div>
     </div>

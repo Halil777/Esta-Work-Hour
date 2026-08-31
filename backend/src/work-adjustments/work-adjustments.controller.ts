@@ -29,6 +29,17 @@ export class WorkAdjustmentsController {
     });
   }
 
+  // ── Analytics: scan-vs-credited differences (all-time or a date range) ──────
+
+  @Get('analytics')
+  getAnalytics(
+    @Req() req: any,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.svc.getAnalytics(req.adminUser.tenantId, startDate, endDate);
+  }
+
   // ── List adjustments ─────────────────────────────────────────────────────────
 
   @Get()
