@@ -79,7 +79,6 @@ export function WorkersFilterPanel({
   // taking up permanent space in the toolbar — date range, overtime system,
   // and the no-scan checkbox are used far less often than search/foreman/role/status.
   const moreFilterCount = [
-    mesaiSistemi !== "all",
     Boolean(startDate || endDate),
     noScanFilter,
   ].filter(Boolean).length;
@@ -159,6 +158,19 @@ export function WorkersFilterPanel({
           <ChevronDown className="filter-pill__chev" />
         </div>
 
+        <div className={`filter-pill${mesaiSistemi !== "all" ? " filter-pill--active" : ""}`}>
+          <span className="filter-pill__label">{t.workers.overtimeSystem}</span>
+          <select
+            value={mesaiSistemi}
+            onChange={(event) => onMesaiSistemiChange(event.target.value)}
+          >
+            <option value="all">{t.workers.allMesai}</option>
+            <option value="Saatlik">{t.workers.mesaiHourly}</option>
+            <option value="Aylık">{t.workers.mesaiMonthly}</option>
+          </select>
+          <ChevronDown className="filter-pill__chev" />
+        </div>
+
         <div ref={moreRef} style={{ position: "relative" }}>
           <button
             type="button"
@@ -186,18 +198,6 @@ export function WorkersFilterPanel({
                     onChange={(event) => onEndDateChange(event.target.value)}
                   />
                 </div>
-              </div>
-              <div className="filter-popover__field">
-                <label>{t.workers.overtimeSystem}</label>
-                <select
-                  style={{ width: "100%" }}
-                  value={mesaiSistemi}
-                  onChange={(event) => onMesaiSistemiChange(event.target.value)}
-                >
-                  <option value="all">{t.workers.allMesai}</option>
-                  <option value="Saatlik">{t.workers.mesaiHourly}</option>
-                  <option value="Aylık">{t.workers.mesaiMonthly}</option>
-                </select>
               </div>
               <label className="filter-popover__check">
                 <input

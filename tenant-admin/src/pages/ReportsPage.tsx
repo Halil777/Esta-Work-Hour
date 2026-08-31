@@ -168,6 +168,10 @@ export function ReportsPage() {
   const [startDate, setStartDate] = useState(monthStart(0))
   const [endDate, setEndDate] = useState(monthEnd(0))
   const [selectedWorkerIds, setSelectedWorkerIds] = useState<string[]>([])
+  // Hourly (Saatlik) vs Monthly (Aylık) staff filter — mirrors the same
+  // mesaiSistemi field/filter used on the Workers table, applied here on
+  // top of any explicit worker selection so both can be combined.
+  const [mesaiFilter, setMesaiFilter] = useState<'all' | 'Saatlik' | 'Aylık'>('all')
   const [activeTab, setActiveTab] = useState<'report' | 'auto'>('report')
 
   // ── Monthly config local state ────────────────────────────────────────────────
@@ -188,10 +192,27 @@ export function ReportsPage() {
     queryFn: () => reportConfigApi.getConfig(),
   })
 
+  // The worker id list actually sent to the backend: an explicit selection
+  // narrowed further by the Hourly/Monthly filter (if set), or — when no
+  // worker was explicitly picked — every worker matching the mesai filter.
+  // `undefined` means "no filtering at all", preserved so the request shape
+  // stays identical to before this filter existed when it's left on "all".
+  const effectiveWorkerIds = (() => {
+    if (mesaiFilter === 'all') {
+      return selectedWorkerIds.length > 0 ? selectedWorkerIds : undefined
+    }
+    const base = selectedWorkerIds.length > 0 ? selectedWorkerIds : workers.map(w => w.workerId)
+    const matchesMesai = (id: string) => {
+      const w = workers.find(w => w.workerId === id)
+      return (w?.mesaiSistemi ?? 'Saatlik') === mesaiFilter
+    }
+    return base.filter(matchesMesai)
+  })()
+
   const [rangeQueried, setRangeQueried] = useState(false)
   const { data: rangeData, isFetching: isFetchingRange, refetch: fetchRange } = useQuery({
-    queryKey: ['range-data', startDate, endDate, selectedWorkerIds.join(',')],
-    queryFn: () => reportsApi.getRangeData(startDate, endDate, selectedWorkerIds.length > 0 ? selectedWorkerIds : undefined),
+    queryKey: ['range-data', startDate, endDate, selectedWorkerIds.join(','), mesaiFilter],
+    queryFn: () => reportsApi.getRangeData(startDate, endDate, effectiveWorkerIds),
     enabled: false,
   })
 
@@ -227,7 +248,7 @@ export function ReportsPage() {
     try {
       await reportsApi.downloadRangeXlsx(
         startDate, endDate,
-        selectedWorkerIds.length > 0 ? selectedWorkerIds : undefined,
+        effectiveWorkerIds,
         language,
       )
     } catch (e: any) {
@@ -235,14 +256,14 @@ export function ReportsPage() {
     } finally {
       setDownloading(false)
     }
-  }, [startDate, endDate, selectedWorkerIds, language])
+  }, [startDate, endDate, selectedWorkerIds, mesaiFilter, language])
 
   const handleSendEmail = useCallback(async () => {
     setSendingEmail(true)
     try {
       const res = await reportConfigApi.sendRange(
         startDate, endDate,
-        selectedWorkerIds.length > 0 ? selectedWorkerIds : undefined,
+        effectiveWorkerIds,
         undefined,
         language,
       )
@@ -252,7 +273,7 @@ export function ReportsPage() {
     } finally {
       setSendingEmail(false)
     }
-  }, [startDate, endDate, selectedWorkerIds, language])
+  }, [startDate, endDate, selectedWorkerIds, mesaiFilter, language])
 
   // ── Monthly email helpers ─────────────────────────────────────────────────────
   const addMonthlyEmail = () => {
@@ -376,6 +397,22 @@ export function ReportsPage() {
                   selected={selectedWorkerIds}
                   onChange={setSelectedWorkerIds}
                 />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, color: '#64748b', display: 'block', marginBottom: 4, fontWeight: 600 }}>{t.workers.overtimeSystem}</label>
+                <select
+                  value={mesaiFilter}
+                  onChange={e => setMesaiFilter(e.target.value as 'all' | 'Saatlik' | 'Aylık')}
+                  style={{
+                    padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 8,
+                    fontSize: 13, background: '#fff', color: mesaiFilter !== 'all' ? '#1e3a5f' : '#6b7280',
+                    fontWeight: mesaiFilter !== 'all' ? 600 : 400, minWidth: 150, height: 38,
+                  }}
+                >
+                  <option value="all">{t.workers.allMesai}</option>
+                  <option value="Saatlik">{t.workers.mesaiHourly}</option>
+                  <option value="Aylık">{t.workers.mesaiMonthly}</option>
+                </select>
               </div>
               <button
                 onClick={handlePreview}
