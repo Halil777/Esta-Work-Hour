@@ -77,6 +77,33 @@ export interface WorkerTimesheet {
   days: DayRow[]
 }
 
+export interface DayWorkerRow {
+  workerEntityId: string
+  workerId: string
+  name: string
+  profession: string
+  brigade: string
+  shift: 'day' | 'night' | null
+  actualMinutes: number
+  creditedMinutes: number
+  adjustmentMinutes: number
+  checkIn: number | null
+  checkOut: number | null
+  adjustments: {
+    id: string
+    adjustmentType: AdjustmentType
+    minutes: number
+    reasonId: string | null
+    reasonLabel: string | null
+    description: string | null
+  }[]
+}
+
+export interface DaySummary {
+  date: string
+  workers: DayWorkerRow[]
+}
+
 export interface AdjustmentLog {
   id: string
   adjustmentId: string
@@ -100,6 +127,9 @@ export const workTimeApi = {
     apiFetch<WorkerTimesheet>(
       `/admin/work-time/timesheet?workerEntityId=${workerEntityId}&month=${month}`,
     ),
+
+  getDaySummary: (date: string) =>
+    apiFetch<DaySummary>(`/admin/work-time/day-summary?date=${date}`),
 
   exportXlsx: async (month: string, mode: 'times' | 'hours' | 'both', lang?: string): Promise<void> => {
     const token = localStorage.getItem('adminJwt');

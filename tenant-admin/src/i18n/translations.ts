@@ -24,6 +24,7 @@ const en = {
     cardReports: 'Card Issues',
     workTime: 'Work Time',
     adjustmentReasons: 'Adjustment Reasons',
+    workTimeDay: 'Day View',
     inbox: 'Inbox',
   },
   sidebar: {
@@ -892,6 +893,7 @@ const ru: typeof en = {
     cardReports: 'Проблемы с картами',
     workTime: 'Рабочее время',
     adjustmentReasons: 'Причины корректировок',
+    workTimeDay: 'По дням',
     inbox: 'Входящие',
   },
   sidebar: {
@@ -1760,6 +1762,7 @@ const tr: typeof en = {
     cardReports: 'Kart meseleleri',
     workTime: 'Mesai Takibi',
     adjustmentReasons: 'Düzeltme Sebepleri',
+    workTimeDay: 'Gün Görnüşi',
     inbox: 'Iş merkezi',
   },
   sidebar: {

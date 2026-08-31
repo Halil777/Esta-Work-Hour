@@ -20,6 +20,7 @@ import { CardReportsPage } from '../pages/CardReportsPage'
 import { WorkTimePage } from '../pages/WorkTimePage'
 import { WorkTimesheetPage } from '../pages/WorkTimesheetPage'
 import { AdjustmentReasonsPage } from '../pages/AdjustmentReasonsPage'
+import { WorkTimeDayPage } from '../pages/WorkTimeDayPage'
 import { InboxPage } from '../pages/InboxPage'
 
 export const router = createBrowserRouter([
@@ -47,6 +48,7 @@ export const router = createBrowserRouter([
       { path: 'card-reports', element: <CardReportsPage /> },
       { path: 'work-time', element: <WorkTimePage /> },
       { path: 'work-time/reasons', element: <AdjustmentReasonsPage /> },
+      { path: 'work-time/day', element: <WorkTimeDayPage /> },
       { path: 'work-time/:workerEntityId', element: <WorkTimesheetPage /> },
       { path: 'settings', element: <SettingsPage /> },
     ],

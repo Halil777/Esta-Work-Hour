@@ -55,4 +55,15 @@ export class WorkTimeController {
     const m = month ?? new Date().toISOString().slice(0, 7);
     return this.svc.getWorkerTimesheet(workerEntityId, m, req.adminUser.tenantId);
   }
+
+  /**
+   * Single-day summary — all workers, with raw scan check-in/check-out —
+   * powers the day-view admin correction screen.
+   * GET /api/admin/work-time/day-summary?date=2026-08-20
+   */
+  @Get('day-summary')
+  getDaySummary(@Req() req: any, @Query('date') date: string) {
+    const d = date ?? new Date().toISOString().slice(0, 10);
+    return this.svc.getDaySummary(d, req.adminUser.tenantId);
+  }
 }

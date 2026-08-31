@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ChevronLeft, ChevronRight, Clock, TrendingUp, Plus,
-  CheckSquare, Square, Tag, ExternalLink, RotateCcw, Download,
+  CheckSquare, Square, Tag, ExternalLink, RotateCcw, Download, CalendarDays,
 } from 'lucide-react'
 import { workTimeApi, adjustmentsApi, reasonsApi, type AdjustmentType, type WorkAdjustment } from '../api/workTime'
 import { useUiPreferences } from '../app/providers/useUiPreferences'
@@ -50,14 +50,14 @@ const ADJ_TYPE_LABELS: Record<AdjustmentType, string> = {
 
 // ── Adjustment Modal ──────────────────────────────────────────────────────────
 
-interface AdjModalProps {
+export interface AdjModalProps {
   workers: { workerEntityId: string; name: string; actualMinutes?: number }[]
   workDate: string
   onClose: () => void
   onSaved: () => void
 }
 
-function AdjustmentModal({ workers, workDate, onClose, onSaved }: AdjModalProps) {
+export function AdjustmentModal({ workers, workDate, onClose, onSaved }: AdjModalProps) {
   const { data: reasons = [] } = useQuery({ queryKey: ['adjustment-reasons'], queryFn: reasonsApi.getAll })
   const activeReasons = reasons.filter(r => r.isActive)
 
@@ -93,6 +93,7 @@ function AdjustmentModal({ workers, workDate, onClose, onSaved }: AdjModalProps)
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['work-time-summary'] })
       qc.invalidateQueries({ queryKey: ['worker-timesheet'] })
+      qc.invalidateQueries({ queryKey: ['work-time-day'] })
       onSaved()
       onClose()
     },
@@ -438,6 +439,15 @@ export function WorkTimePage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
+          <button
+            onClick={() => navigate('/work-time/day')}
+            className="btn btn-ghost"
+            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+            title="Bir günki sagatlary aralyk boýunça görüp, toparlaýyn düzetmek"
+          >
+            <CalendarDays size={14} />
+            Gün Görnüşi
+          </button>
           <button
             onClick={() => navigate('/work-time/reasons')}
             className="btn btn-ghost"

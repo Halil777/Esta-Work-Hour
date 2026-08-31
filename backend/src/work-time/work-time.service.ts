@@ -274,17 +274,18 @@ export class WorkTimeService {
     const overrideMap     = new Map(overrides.map(o => [`${o.workerEntityId}:${o.date}`, o]));
     const workerIdToEntity = new Map(workers.map(w => [w.workerId, w.id]));
 
-    // Group events by entityId → date → event list
+    // Group events by entityId (chronological, NOT pre-bucketed by calendar
+    // date — pairing is done globally per worker via buildDailyAttendance, so
+    // overnight/night-shift sessions crossing midnight pair correctly instead
+    // of silently coming out as 0. See attendance-pairing.util.ts.
     type Ev = { eventType: string; eventTime: number };
-    const byWorkerDate = new Map<string, Map<string, Ev[]>>();
+    const byWorker = new Map<string, Ev[]>();
     for (const ev of events) {
       const entityId = workerIdToEntity.get(ev.employeeNumber);
       if (!entityId) continue;
-      const date = new Date(Number(ev.eventTime) + TZ_OFFSET_MS).toISOString().split('T')[0];
-      if (!byWorkerDate.has(entityId)) byWorkerDate.set(entityId, new Map());
-      const dm = byWorkerDate.get(entityId)!;
-      if (!dm.has(date)) dm.set(date, []);
-      dm.get(date)!.push({ eventType: ev.eventType, eventTime: Number(ev.eventTime) });
+      const arr = byWorker.get(entityId) ?? [];
+      arr.push({ eventType: ev.eventType, eventTime: Number(ev.eventTime) });
+      byWorker.set(entityId, arr);
     }
 
     // Build per-worker per-day map
@@ -292,29 +293,17 @@ export class WorkTimeService {
     const workerDayMap = new Map<string, Map<string, DayData>>();
     for (const w of workers) workerDayMap.set(w.id, new Map());
 
-    for (const [entityId, dateMap] of byWorkerDate) {
+    for (const [entityId, evList] of byWorker) {
       const wdm = workerDayMap.get(entityId)!;
-      for (const [date, evList] of dateMap) {
+      const daily = buildDailyAttendance(evList, (t) => new Date(t + TZ_OFFSET_MS).toISOString().split('T')[0]);
+      for (const [date, day] of daily) {
         const ov = overrideMap.get(`${entityId}:${date}`);
         if (ov) {
           const ci = ov.checkInMs  ? Number(ov.checkInMs)  : null;
           const co = ov.checkOutMs ? Number(ov.checkOutMs) : null;
           wdm.set(date, { checkIn: ci, checkOut: co, actualMs: (ci && co) ? co - ci : 0 });
         } else {
-          let firstIn: number | null = null;
-          let lastOut: number | null = null;
-          let totalMs = 0;
-          let clockIn: number | null = null;
-          for (const ev of evList) {
-            if (ev.eventType === 'CHECK_IN') {
-              if (firstIn === null) firstIn = ev.eventTime;
-              if (clockIn === null) clockIn  = ev.eventTime;
-            } else {
-              if (clockIn !== null) { totalMs += ev.eventTime - clockIn; clockIn = null; }
-              lastOut = ev.eventTime;
-            }
-          }
-          wdm.set(date, { checkIn: firstIn, checkOut: lastOut, actualMs: totalMs });
+          wdm.set(date, { checkIn: day.checkIn, checkOut: day.checkOut, actualMs: day.ms });
         }
       }
     }
@@ -694,5 +683,112 @@ export class WorkTimeService {
       totalCreditedMinutes:  totalCredited,
       days,
     };
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  Single-day summary — ALL active workers on one date, with their raw scan
+  //  check-in/check-out still attached. Meant to power an admin day-view where
+  //  workers can be grouped by how many hours they actually worked that day
+  //  (e.g. "4-5h", "5-6h", ...) and corrected in bulk or individually via
+  //  work-adjustments — the actual scan record is never overwritten, only
+  //  the credited total is adjusted on top of it.
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  async getDaySummary(date: string, tenantId: string) {
+    const workers = await this.workerRepo.find({
+      where: { tenantId, status: 'Active' as any },
+      order: { name: 'ASC' },
+    });
+    if (workers.length === 0) return { date, workers: [] };
+
+    const workerIds = workers.map(w => w.workerId);
+
+    const events: { employeeNumber: string; eventType: string; eventTime: string }[] =
+      await this.eventRepo.query(
+        `SELECT "employeeNumber", "eventType", "eventTime"
+         FROM attendance_events
+         WHERE "employeeNumber" = ANY($1)
+           AND DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE '${APP_TZ}') = $2
+         ORDER BY "employeeNumber", "eventTime" ASC`,
+        [workerIds, date],
+      );
+
+    type Ev = { eventType: string; eventTime: number };
+    const byWorker = new Map<string, Ev[]>();
+    for (const ev of events) {
+      const arr = byWorker.get(ev.employeeNumber) ?? [];
+      arr.push({ eventType: ev.eventType, eventTime: Number(ev.eventTime) });
+      byWorker.set(ev.employeeNumber, arr);
+    }
+
+    const entityIds = workers.map(w => w.id);
+    const overrides = entityIds.length > 0
+      ? await this.overrideRepo
+          .createQueryBuilder('o')
+          .where('o.workerEntityId = ANY(:ids)', { ids: entityIds })
+          .andWhere('o.date = :d', { d: date })
+          .getMany()
+      : [];
+    const overrideByEntity = new Map(overrides.map(o => [o.workerEntityId, o]));
+
+    const adjustments = await this.adjRepo.find({
+      where: { tenantId, workDate: date, status: AdjustmentStatus.ACTIVE },
+      order: { createdAt: 'ASC' },
+    });
+    const adjByEntity = new Map<string, WorkAdjustment[]>();
+    for (const adj of adjustments) {
+      const arr = adjByEntity.get(adj.workerEntityId) ?? [];
+      arr.push(adj);
+      adjByEntity.set(adj.workerEntityId, arr);
+    }
+
+    const rows = workers.map(w => {
+      const evList = byWorker.get(w.workerId) ?? [];
+      const daily = buildDailyAttendance(evList, (t) => new Date(t + TZ_OFFSET_MS).toISOString().split('T')[0]);
+      const dayAttendance = daily.get(date);
+      const ov = overrideByEntity.get(w.id);
+
+      let actualMinutes: number;
+      let checkIn: number | null;
+      let checkOut: number | null;
+      if (ov) {
+        const ci = ov.checkInMs ? Number(ov.checkInMs) : null;
+        const co = ov.checkOutMs ? Number(ov.checkOutMs) : null;
+        actualMinutes = (ci && co) ? msToMinutes(co - ci) : 0;
+        checkIn = ci;
+        checkOut = co;
+      } else {
+        actualMinutes = msToMinutes(dayAttendance?.ms ?? 0);
+        checkIn = dayAttendance?.checkIn ?? null;
+        checkOut = dayAttendance?.checkOut ?? null;
+      }
+
+      const dayAdjs = adjByEntity.get(w.id) ?? [];
+      const creditedMinutes = computeCredited(actualMinutes, dayAdjs);
+
+      return {
+        workerEntityId: w.id,
+        workerId: w.workerId,
+        name: w.name,
+        profession: w.profession,
+        brigade: w.brigadeName,
+        shift: w.shift,
+        actualMinutes,
+        creditedMinutes,
+        adjustmentMinutes: creditedMinutes - actualMinutes,
+        checkIn,
+        checkOut,
+        adjustments: dayAdjs.map(a => ({
+          id: a.id,
+          adjustmentType: a.adjustmentType,
+          minutes: a.minutes,
+          reasonId: a.reasonId,
+          reasonLabel: a.reasonLabel,
+          description: a.description,
+        })),
+      };
+    });
+
+    return { date, workers: rows };
   }
 }
