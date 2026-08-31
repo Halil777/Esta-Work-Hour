@@ -3,7 +3,7 @@ import type { Response } from 'express';
 import { AdminJwtGuard } from '../admin-auth/admin-auth.guard';
 import { WorkTimeService } from './work-time.service';
 
-@Controller('api/admin/work-time')
+@Controller('admin/work-time')
 @UseGuards(AdminJwtGuard)
 export class WorkTimeController {
   constructor(private readonly svc: WorkTimeService) {}

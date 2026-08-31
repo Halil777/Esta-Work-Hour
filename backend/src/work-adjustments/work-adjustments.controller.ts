@@ -6,7 +6,7 @@ import { AdminJwtGuard } from '../admin-auth/admin-auth.guard';
 import { WorkAdjustmentsService, CreateAdjustmentDto, CreateBulkAdjustmentDto } from './work-adjustments.service';
 import { AdjustmentType } from './work-adjustment.entity';
 
-@Controller('api/admin/work-adjustments')
+@Controller('admin/work-adjustments')
 @UseGuards(AdminJwtGuard)
 export class WorkAdjustmentsController {
   constructor(private readonly svc: WorkAdjustmentsService) {}

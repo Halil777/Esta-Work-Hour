@@ -2,7 +2,7 @@ import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards, Req } fro
 import { AdminJwtGuard } from '../admin-auth/admin-auth.guard';
 import { AdjustmentReasonsService } from './adjustment-reasons.service';
 
-@Controller('api/admin/adjustment-reasons')
+@Controller('admin/adjustment-reasons')
 @UseGuards(AdminJwtGuard)
 export class AdjustmentReasonsController {
   constructor(private readonly svc: AdjustmentReasonsService) {}
