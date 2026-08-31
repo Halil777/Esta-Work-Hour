@@ -3,6 +3,7 @@ import { apiFetch as req } from './http';
 export type ReportType =
   | 'daily_all'
   | 'daily_staff'
+  | 'daily_workers'
   | 'daily_shift_day'
   | 'daily_shift_night'
   | 'daily_attended'
@@ -11,6 +12,7 @@ export type ReportType =
 export const REPORT_TYPE_LABELS: Record<ReportType, string> = {
   daily_all:         'Ähli işçiler',
   daily_staff:       'Staff Personal',
+  daily_workers:     'Diňe adaty işçiler',
   daily_shift_day:   'Gündiz Shift',
   daily_shift_night: 'Gije Shift',
   daily_attended:    'Diňe gelenler',

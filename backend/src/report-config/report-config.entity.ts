@@ -3,6 +3,7 @@ import { Entity, PrimaryGeneratedColumn, Column, UpdateDateColumn } from 'typeor
 export type ReportType =
   | 'daily_all'
   | 'daily_staff'
+  | 'daily_workers'
   | 'daily_shift_day'
   | 'daily_shift_night'
   | 'daily_attended'

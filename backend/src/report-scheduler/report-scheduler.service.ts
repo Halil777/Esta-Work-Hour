@@ -5,7 +5,7 @@ import { ReportConfigService } from '../report-config/report-config.service';
 import { ReportsService } from '../reports/reports.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { ReportType, MonthlySchedule, ReportScheduleItem } from '../report-config/report-config.entity';
-import { yesterdayLocal, todayLocal } from '../common/date-utils';
+import { todayLocal } from '../common/date-utils';
 
 // Filename prefix by language (used for all email attachments)
 const FILE_PREFIXES: Record<string, string> = {
@@ -78,7 +78,12 @@ export class ReportSchedulerService {
         if (schedule.lastSentDate === today) continue;
 
         try {
-          const reportDate = yesterdayLocal();
+          // Sends the report for the SAME calendar day the schedule fires on
+          // (e.g. a 18:00 schedule sends today's 00:00-18:00 attendance),
+          // not the previous day's — admins want "today's numbers at the
+          // set time", and yesterday's report is already covered by
+          // whichever schedule fires for that day.
+          const reportDate = todayLocal();
           const reportType: ReportType = schedule.reportType ?? 'daily_all';
           const tenantName = await this.resolveTenantName(tenantId);
           const { xlsx, html } = await this.reportsService.generateReport(

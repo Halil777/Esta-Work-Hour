@@ -477,6 +477,60 @@ export class AttendanceEventsService {
     };
   }
 
+  /**
+   * Per-operator (= per-device), per-day, per-worker scan log for the
+   * Scanner Devices page's "Operator Journaly" tab — lets an admin see which
+   * operator scanned which workers on which days, e.g. to spot an operator
+   * who isn't scanning their whole crew, or to audit a disputed day.
+   * Grouped (not one row per raw scan) since a worker can be scanned many
+   * times a day; scanCount/firstScan/lastScan summarize that per worker-day.
+   */
+  async getOperatorScanLog(
+    tenantId: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<{
+    deviceId: string;
+    date: string;
+    workerId: string;
+    scanCount: number;
+    firstScan: number;
+    lastScan: number;
+  }[]> {
+    const rows: {
+      deviceId: string;
+      date: string;
+      workerId: string;
+      scan_count: string;
+      first_scan: string;
+      last_scan: string;
+    }[] = await this.repo.query(
+      `SELECT
+         ae."deviceId" as "deviceId",
+         DATE(to_timestamp(ae."eventTime" / 1000.0) AT TIME ZONE '${APP_TZ}') as "date",
+         ae."employeeNumber" as "workerId",
+         COUNT(*) as scan_count,
+         MIN(ae."eventTime") as first_scan,
+         MAX(ae."eventTime") as last_scan
+       FROM attendance_events ae
+       WHERE ae."tenantId" = $1
+         AND ae."deviceId" IS NOT NULL
+         AND DATE(to_timestamp(ae."eventTime" / 1000.0) AT TIME ZONE '${APP_TZ}') BETWEEN $2 AND $3
+       GROUP BY ae."deviceId", DATE(to_timestamp(ae."eventTime" / 1000.0) AT TIME ZONE '${APP_TZ}'), ae."employeeNumber"
+       ORDER BY "date" DESC, ae."deviceId" ASC`,
+      [tenantId, startDate, endDate],
+    );
+
+    return rows.map(r => ({
+      deviceId: r.deviceId,
+      date: typeof r.date === 'string' ? r.date : new Date(r.date).toISOString().split('T')[0],
+      workerId: r.workerId,
+      scanCount: Number(r.scan_count),
+      firstScan: Number(r.first_scan),
+      lastScan: Number(r.last_scan),
+    }));
+  }
+
   async exportEventsExcel(date?: string, tenantId?: string): Promise<Buffer> {
     const events = await this.findAll(date, 5000, tenantId) as any[];
 

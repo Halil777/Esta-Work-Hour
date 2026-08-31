@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { ScannerDevice } from './scanner-device.entity';
 import { Worker } from '../workers/worker.entity';
@@ -54,6 +54,34 @@ export class ScannerDevicesService {
   /** Tenant-wide scan summary for the small dashboard strip on the page. */
   async getScanSummary(tenantId: string) {
     return this.attendanceEventsService.getTenantScanSummary(tenantId);
+  }
+
+  /**
+   * Operator scan log (Operator Journaly tab): who (device/operator)
+   * scanned which workers on which days, with device label + operator name
+   * attached so the frontend doesn't need a second round-trip.
+   */
+  async getOperatorScanLog(tenantId: string, startDate: string, endDate: string) {
+    const [logRows, devices] = await Promise.all([
+      this.attendanceEventsService.getOperatorScanLog(tenantId, startDate, endDate),
+      this.repo.find({ where: { tenantId } }),
+    ]);
+
+    const deviceMap = new Map(devices.map(d => [d.id, d]));
+    const operatorIds = [...new Set(devices.map(d => d.workerEntityId).filter((id): id is string => !!id))];
+    const operators = operatorIds.length > 0
+      ? await this.workerRepo.find({ where: { id: In(operatorIds) }, select: ['id', 'name'] })
+      : [];
+    const operatorNameById = new Map(operators.map(o => [o.id, o.name]));
+
+    return logRows.map(r => {
+      const device = deviceMap.get(r.deviceId);
+      return {
+        ...r,
+        deviceLabel: device?.label ?? 'Näbelli enjam',
+        operatorName: device?.workerEntityId ? (operatorNameById.get(device.workerEntityId) ?? null) : null,
+      };
+    });
   }
 
   async getToken(tenantId: string, id: string) {

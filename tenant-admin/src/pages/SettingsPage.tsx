@@ -335,10 +335,11 @@ function ReportEmailsCard() {
                       onChange={e => updateSchedule(idx, { reportType: e.target.value as ReportType })}
                       style={{ fontSize: 11, padding: '3px 6px' }}
                     >
-                      {(['daily_all','daily_staff','daily_shift_day','daily_shift_night','daily_attended','daily_absent'] as ReportType[]).map(key => {
+                      {(['daily_all','daily_staff','daily_workers','daily_shift_day','daily_shift_night','daily_attended','daily_absent'] as ReportType[]).map(key => {
                         const reportTypeLabel: Record<ReportType, string> = {
                           daily_all: t.settings.reportTypeAll,
                           daily_staff: t.settings.reportTypeStaff,
+                          daily_workers: t.settings.reportTypeWorkers,
                           daily_shift_day: t.settings.reportTypeDayShift,
                           daily_shift_night: t.settings.reportTypeNightShift,
                           daily_attended: t.settings.reportTypeAttended,

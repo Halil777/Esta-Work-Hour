@@ -1,7 +1,10 @@
-import { useState, type ReactNode } from 'react'
+import { useState, useMemo, type ReactNode } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Smartphone, Plus, Trash2, RefreshCw, Eye, Copy, Pencil, Wifi, WifiOff, X, Users, ScanLine } from 'lucide-react'
-import { scannerDevicesApi, type ScannerDevice } from '../api/scannerDevices'
+import {
+  Smartphone, Plus, Trash2, RefreshCw, Eye, Copy, Pencil, Wifi, WifiOff, X, Users, ScanLine,
+  History, ChevronDown, ChevronUp, Calendar,
+} from 'lucide-react'
+import { scannerDevicesApi, type ScannerDevice, type OperatorScanLogRow } from '../api/scannerDevices'
 import { apiFetch } from '../api/http'
 import type { WorkerApi } from '../api/workers'
 
@@ -237,10 +240,193 @@ function StatCard({
   )
 }
 
+// ─── Operator Scan Log tab ─────────────────────────────────────────────────────
+// "Which operator scanned which workers on which days" — grouped by date,
+// then by device/operator within the date, with a per-worker breakdown that
+// expands on demand. Lets an admin audit a disputed day, or spot an operator
+// who isn't scanning their whole crew.
+
+function todayStr(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function daysAgoStr(n: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() - n)
+  return d.toISOString().slice(0, 10)
+}
+
+function fmtLogTime(ms: number): string {
+  if (!ms) return '—'
+  return new Date(ms).toLocaleTimeString('ru-RU', { timeZone: 'Europe/Moscow', hour: '2-digit', minute: '2-digit' })
+}
+
+function OperatorLogTab({ workers }: { workers: WorkerApi[] }) {
+  const [startDate, setStartDate] = useState(daysAgoStr(6))
+  const [endDate, setEndDate] = useState(todayStr())
+  const [deviceFilter, setDeviceFilter] = useState<string>('all')
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+
+  const { data: log = [], isLoading } = useQuery({
+    queryKey: ['scanner-devices-operator-log', startDate, endDate],
+    queryFn: () => scannerDevicesApi.getOperatorLog(startDate, endDate),
+  })
+
+  const workerNameById = useMemo(() => new Map(workers.map(w => [w.workerId, w.name])), [workers])
+
+  const deviceOptions = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const r of log) map.set(r.deviceId, r.operatorName ? `${r.deviceLabel} (${r.operatorName})` : r.deviceLabel)
+    return [...map.entries()]
+  }, [log])
+
+  const filtered = deviceFilter === 'all' ? log : log.filter(r => r.deviceId === deviceFilter)
+
+  // date -> deviceId -> rows
+  const grouped = useMemo(() => {
+    const byDate = new Map<string, Map<string, OperatorScanLogRow[]>>()
+    for (const r of filtered) {
+      const byDevice = byDate.get(r.date) ?? new Map<string, OperatorScanLogRow[]>()
+      const arr = byDevice.get(r.deviceId) ?? []
+      arr.push(r)
+      byDevice.set(r.deviceId, arr)
+      byDate.set(r.date, byDevice)
+    }
+    return [...byDate.entries()].sort((a, b) => b[0].localeCompare(a[0]))
+  }, [filtered])
+
+  const toggleExpand = (key: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
+  }
+
+  return (
+    <div>
+      {/* Filters */}
+      <div style={{
+        display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 20,
+        background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 16,
+      }}>
+        <div>
+          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontWeight: 600 }}>Başlangyç sene</label>
+          <input type="date" value={startDate} max={endDate} onChange={e => setStartDate(e.target.value)}
+            style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontSize: 13 }} />
+        </div>
+        <div>
+          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontWeight: 600 }}>Soňky sene</label>
+          <input type="date" value={endDate} min={startDate} max={todayStr()} onChange={e => setEndDate(e.target.value)}
+            style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontSize: 13 }} />
+        </div>
+        <div>
+          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontWeight: 600 }}>Enjam / Operator</label>
+          <select value={deviceFilter} onChange={e => setDeviceFilter(e.target.value)}
+            style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontSize: 13, minWidth: 200 }}>
+            <option value="all">Ähli enjamlar</option>
+            {deviceOptions.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+          </select>
+        </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {[
+            { label: 'Şu gün', s: todayStr(), e: todayStr() },
+            { label: 'Soňky 7 gün', s: daysAgoStr(6), e: todayStr() },
+            { label: 'Soňky 30 gün', s: daysAgoStr(29), e: todayStr() },
+          ].map(p => (
+            <button key={p.label} onClick={() => { setStartDate(p.s); setEndDate(p.e) }}
+              className="btn btn-ghost" style={{ fontSize: 12 }}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="card"><div className="card-body">Ýüklenýär...</div></div>
+      ) : grouped.length === 0 ? (
+        <div className="card">
+          <div className="card-body" style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+            <History size={32} style={{ opacity: 0.3, marginBottom: 12 }} />
+            <p style={{ margin: 0 }}>Bu aralykda scan tapylmady.</p>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {grouped.map(([date, byDevice]) => (
+            <div key={date}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>
+                <Calendar size={15} color="var(--accent)" /> {date}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {[...byDevice.entries()].map(([deviceId, rows]) => {
+                  const key = `${date}:${deviceId}`
+                  const isOpen = expanded.has(key)
+                  const totalScans = rows.reduce((s, r) => s + r.scanCount, 0)
+                  const label = rows[0].operatorName ? `${rows[0].deviceLabel} (${rows[0].operatorName})` : rows[0].deviceLabel
+                  return (
+                    <div key={key} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+                      <div
+                        onClick={() => toggleExpand(key)}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '10px 16px', cursor: 'pointer', background: 'var(--bg-elevated)',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <Smartphone size={14} color="var(--primary)" />
+                          <span style={{ fontWeight: 600, fontSize: 13 }}>{label}</span>
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                            {rows.length} işçi · {totalScans} scan
+                          </span>
+                        </div>
+                        {isOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                      </div>
+                      {isOpen && (
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                          <thead>
+                            <tr style={{ borderTop: '1px solid var(--border)' }}>
+                              <th style={{ padding: '7px 16px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600, fontSize: 11 }}>Işçi</th>
+                              <th style={{ padding: '7px 8px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600, fontSize: 11 }}>Scan sany</th>
+                              <th style={{ padding: '7px 8px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600, fontSize: 11 }}>Ilkinji</th>
+                              <th style={{ padding: '7px 16px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600, fontSize: 11 }}>Soňky</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rows
+                              .slice()
+                              .sort((a, b) => (workerNameById.get(a.workerId) ?? a.workerId).localeCompare(workerNameById.get(b.workerId) ?? b.workerId))
+                              .map(r => (
+                                <tr key={r.workerId} style={{ borderTop: '1px solid var(--border)' }}>
+                                  <td style={{ padding: '7px 16px' }}>
+                                    <div style={{ fontWeight: 600 }}>{workerNameById.get(r.workerId) ?? r.workerId}</div>
+                                    <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{r.workerId}</div>
+                                  </td>
+                                  <td style={{ padding: '7px 8px', textAlign: 'center' }}>{r.scanCount}</td>
+                                  <td style={{ padding: '7px 8px', textAlign: 'center', color: 'var(--text-secondary)' }}>{fmtLogTime(r.firstScan)}</td>
+                                  <td style={{ padding: '7px 16px', textAlign: 'center', color: 'var(--text-secondary)' }}>{fmtLogTime(r.lastScan)}</td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function ScannerDevicesPage() {
   const qc = useQueryClient()
+  const [activeTab, setActiveTab] = useState<'devices' | 'log'>('devices')
   const [showCreate, setShowCreate] = useState(false)
   const [editDevice, setEditDevice] = useState<ScannerDevice | null>(null)
   const [tokenModal, setTokenModal] = useState<ScannerDevice | null>(null)
@@ -303,19 +489,49 @@ export function ScannerDevicesPage() {
         <h1 style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Smartphone size={20} /> NFC Enjamlar
         </h1>
-        <button
-          className="btn btn--primary btn--sm"
-          style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-          onClick={() => setShowCreate(true)}
-        >
-          <Plus size={14} /> Täze enjam
-        </button>
+        {activeTab === 'devices' && (
+          <button
+            className="btn btn--primary btn--sm"
+            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+            onClick={() => setShowCreate(true)}
+          >
+            <Plus size={14} /> Täze enjam
+          </button>
+        )}
       </div>
 
-      <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: -8, marginBottom: 20 }}>
+      <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: -8, marginBottom: 16 }}>
         Her fiziki NFC scanner enjamy üçin aýratyn token. Operatör — şol enjamy ulanýan işçi.
       </p>
 
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '2px solid var(--border)' }}>
+        {([
+          { key: 'devices' as const, icon: Smartphone, label: 'Enjamlar' },
+          { key: 'log' as const, icon: History, label: 'Operator Žurnaly' },
+        ]).map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '10px 18px', border: 'none', cursor: 'pointer',
+              background: 'none', fontSize: 13, fontWeight: 600,
+              color: activeTab === tab.key ? 'var(--accent)' : 'var(--text-muted)',
+              borderBottom: activeTab === tab.key ? '2px solid var(--accent)' : '2px solid transparent',
+              marginBottom: -2,
+            }}
+          >
+            <tab.icon size={15} />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'log' && <OperatorLogTab workers={workers as WorkerApi[]} />}
+
+      {activeTab === 'devices' && (
+      <>
       {/* Small dashboard: overall device health + how many workers have been
           scanned in, tenant-wide (deduped across every device) — for keeping
           both the workforce and the operators under control at a glance. */}
@@ -500,6 +716,8 @@ export function ScannerDevicesPage() {
             )
           })}
         </div>
+      )}
+      </>
       )}
     </>
   )

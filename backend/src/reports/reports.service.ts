@@ -120,8 +120,9 @@ function getL(lang: Lang = 'tr', tenantName = 'WorkForce') {
       policyTitle: (tenantName: string) => `${tenantName} — Scheduled Hours Report`,
       policyNote: 'Hours adjusted to the scheduled shift window within the grace-period tolerance.',
       colNormal: 'Normal', colShortfall: 'Shortfall', colOvertime: 'Overtime',
+      colMesai: 'Pay Type', mesaiHourly: 'Hourly', mesaiMonthly: 'Monthly',
       reportLabels: {
-        daily_all: 'All Workers', daily_staff: 'Staff Only',
+        daily_all: 'All Workers', daily_staff: 'Staff Only', daily_workers: 'Hourly Workers Only',
         daily_shift_day: 'Day Shift', daily_shift_night: 'Night Shift',
         daily_attended: 'Present Only', daily_absent: 'Absent Only',
       },
@@ -149,8 +150,9 @@ function getL(lang: Lang = 'tr', tenantName = 'WorkForce') {
       policyTitle: (tenantName: string) => `${tenantName} — Отчёт по плановым часам`,
       policyNote: 'Часы, скорректированные по графику смены в пределах допуска (grace).',
       colNormal: 'Норма', colShortfall: 'Недоработка', colOvertime: 'Переработка',
+      colMesai: 'Тип оплаты', mesaiHourly: 'Почасово', mesaiMonthly: 'Ежемесячно',
       reportLabels: {
-        daily_all: 'Все работники', daily_staff: 'Только персонал',
+        daily_all: 'Все работники', daily_staff: 'Только персонал', daily_workers: 'Только почасовые',
         daily_shift_day: 'Дневная смена', daily_shift_night: 'Ночная смена',
         daily_attended: 'Только присутствующие', daily_absent: 'Только отсутствующие',
       },
@@ -178,8 +180,9 @@ function getL(lang: Lang = 'tr', tenantName = 'WorkForce') {
       policyTitle: (tenantName: string) => `${tenantName} — Planlanan Çalışma Saatleri Raporu`,
       policyNote: 'Tolerans (grace) payı içinde, planlanan vardiya saatine göre düzeltilmiş saatler.',
       colNormal: 'Normal', colShortfall: 'Eksik', colOvertime: 'Mesai',
+      colMesai: 'Mesai Sistemi', mesaiHourly: 'Saatlik', mesaiMonthly: 'Aylık',
       reportLabels: {
-        daily_all: 'Tüm İşçiler', daily_staff: 'Sadece Personel',
+        daily_all: 'Tüm İşçiler', daily_staff: 'Sadece Personel', daily_workers: 'Sadece Saatlik İşçiler',
         daily_shift_day: 'Gündüz Vardiyası', daily_shift_night: 'Gece Vardiyası',
         daily_attended: 'Sadece Gelenler', daily_absent: 'Sadece Gelmeyenler',
       },
@@ -195,6 +198,7 @@ type Row = {
   brigade: string;
   shift: string;
   isStaff: boolean;
+  mesaiSistemi: string;
   checkIn: number | null;
   checkOut: number | null;
   totalMs: number;
@@ -395,6 +399,7 @@ export class ReportsService {
         brigade: w?.brigadeName ?? '—',
         shift: w?.shift ?? '—',
         isStaff: w?.isStaff ?? false,
+        mesaiSistemi: w?.mesaiSistemi || 'Saatlik',
         checkIn: firstIn,
         checkOut: lastOut,
         totalMs,
@@ -414,6 +419,7 @@ export class ReportsService {
           brigade: w.brigadeName ?? '—',
           shift: w.shift ?? '—',
           isStaff: w.isStaff ?? false,
+          mesaiSistemi: w.mesaiSistemi || 'Saatlik',
           checkIn: ov?.checkInMs ?? null,
           checkOut: ov?.checkOutMs ?? null,
           totalMs: ov && ov.checkInMs && ov.checkOutMs ? ov.checkOutMs - ov.checkInMs : 0,
@@ -422,6 +428,7 @@ export class ReportsService {
     }
 
     if (reportType === 'daily_staff')       return rows.filter(r => r.isStaff);
+    if (reportType === 'daily_workers')     return rows.filter(r => !r.isStaff);
     if (reportType === 'daily_shift_day')   return rows.filter(r => r.shift === 'day');
     if (reportType === 'daily_shift_night') return rows.filter(r => r.shift === 'night');
     if (reportType === 'daily_attended')    return rows.filter(r => r.checkIn !== null);
@@ -453,7 +460,7 @@ export class ReportsService {
 
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet(L.report);
-    const COLS = 9;
+    const COLS = 10;
 
     ws.columns = [
       { width: 5  },
@@ -465,6 +472,7 @@ export class ReportsService {
       { width: 10 },
       { width: 10 },
       { width: 14 },
+      { width: 12 },
     ];
 
     const titleRow = ws.addRow([L.dailyTitle]);
@@ -497,7 +505,7 @@ export class ReportsService {
       r.height = 22;
     };
 
-    const COL_HEADERS = ['#', L.colWorker, L.colTabNo, L.colProfession, L.colTeam, L.colShift, L.colCheckIn, L.colCheckOut, L.colTotalHours];
+    const COL_HEADERS = ['#', L.colWorker, L.colTabNo, L.colProfession, L.colTeam, L.colShift, L.colCheckIn, L.colCheckOut, L.colTotalHours, L.colMesai];
     const addColHeaders = () => {
       const r = ws.addRow(COL_HEADERS);
       r.eachCell((cell: any) => {
@@ -521,6 +529,7 @@ export class ReportsService {
           fmtTime(row.checkIn),
           fmtTime(row.checkOut),
           fmtMs(row.totalMs, lang),
+          row.mesaiSistemi === 'Aylık' ? L.mesaiMonthly : L.mesaiHourly,
         ]);
         const bg = i % 2 === 0 ? 'FFFAFAFA' : 'FFFFFFFF';
         r.eachCell((cell: any) => {

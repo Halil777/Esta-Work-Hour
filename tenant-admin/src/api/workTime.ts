@@ -84,11 +84,14 @@ export interface DayWorkerRow {
   profession: string
   brigade: string
   shift: 'day' | 'night' | null
+  isStaff: boolean
+  mesaiSistemi: string
   actualMinutes: number
   creditedMinutes: number
   adjustmentMinutes: number
   checkIn: number | null
   checkOut: number | null
+  hasScan: boolean
   adjustments: {
     id: string
     adjustmentType: AdjustmentType

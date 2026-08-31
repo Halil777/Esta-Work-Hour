@@ -21,6 +21,35 @@ function msToMinutes(ms: number): number {
   return Math.floor(ms / 60000);
 }
 
+/**
+ * Day View's hour calculation: the span between the worker's FIRST CHECK_IN
+ * scan of the day and their LAST scan of the day (any type), rather than
+ * summing paired CHECK_IN/CHECK_OUT sessions. Callers must pass events
+ * already scoped to a single calendar date (getDaySummary's query does this).
+ *
+ * This is deliberately different from buildDailyAttendance (used by the
+ * monthly timesheet / reports / worker detail page), which pairs sessions
+ * strictly and is correct there. Here, a duplicate or extra CHECK_OUT scan
+ * for the same worker on the same day (a real, recurring device/operator
+ * issue) would otherwise break the CHECK_IN/CHECK_OUT alternation and leave
+ * the displayed check-out time inconsistent with the counted duration —
+ * first-scan-to-last-scan is robust to that noise and matches how an admin
+ * reading the raw scan list on this page expects the hours to be counted.
+ */
+function computeDaySpan(events: { eventType: string; eventTime: number }[]): {
+  checkIn: number | null;
+  checkOut: number | null;
+  ms: number;
+} {
+  if (events.length === 0) return { checkIn: null, checkOut: null, ms: 0 };
+  const sorted = [...events].sort((a, b) => a.eventTime - b.eventTime);
+  const firstCheckIn = sorted.find(e => e.eventType === 'CHECK_IN');
+  const checkIn = firstCheckIn ? firstCheckIn.eventTime : null;
+  const checkOut = sorted[sorted.length - 1].eventTime;
+  const ms = checkIn !== null && checkOut > checkIn ? checkOut - checkIn : 0;
+  return { checkIn, checkOut, ms };
+}
+
 @Injectable()
 export class WorkTimeService {
   constructor(
@@ -717,8 +746,9 @@ export class WorkTimeService {
 
     const rows = workers.map(w => {
       const evList = byWorker.get(w.workerId) ?? [];
-      const daily = buildDailyAttendance(evList, (t) => new Date(t + TZ_OFFSET_MS).toISOString().split('T')[0]);
-      const dayAttendance = daily.get(date);
+      // evList is already scoped to exactly this `date` by the SQL query
+      // above, so a first-scan-to-last-scan span needs no date bucketing.
+      const span = computeDaySpan(evList);
       const ov = overrideByEntity.get(w.id);
 
       let actualMinutes: number;
@@ -731,9 +761,9 @@ export class WorkTimeService {
         checkIn = ci;
         checkOut = co;
       } else {
-        actualMinutes = msToMinutes(dayAttendance?.ms ?? 0);
-        checkIn = dayAttendance?.checkIn ?? null;
-        checkOut = dayAttendance?.checkOut ?? null;
+        actualMinutes = msToMinutes(span.ms);
+        checkIn = span.checkIn;
+        checkOut = span.checkOut;
       }
 
       const dayAdjs = adjByEntity.get(w.id) ?? [];
@@ -746,11 +776,14 @@ export class WorkTimeService {
         profession: w.profession,
         brigade: w.brigadeName,
         shift: w.shift,
+        isStaff: w.isStaff ?? false,
+        mesaiSistemi: w.mesaiSistemi || 'Saatlik',
         actualMinutes,
         creditedMinutes,
         adjustmentMinutes: creditedMinutes - actualMinutes,
         checkIn,
         checkOut,
+        hasScan: evList.length > 0,
         adjustments: dayAdjs.map(a => ({
           id: a.id,
           adjustmentType: a.adjustmentType,

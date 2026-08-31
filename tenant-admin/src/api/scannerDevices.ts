@@ -29,6 +29,17 @@ export type ScanSummary = {
   todayWorkersScanned: number;
 };
 
+export type OperatorScanLogRow = {
+  deviceId: string;
+  deviceLabel: string;
+  operatorName: string | null;
+  date: string; // YYYY-MM-DD
+  workerId: string;
+  scanCount: number;
+  firstScan: number;
+  lastScan: number;
+};
+
 export type CreateScannerDevicePayload = {
   label: string;
   workerEntityId?: string | null;
@@ -48,6 +59,9 @@ export const scannerDevicesApi = {
 
   getScanSummary: (): Promise<ScanSummary> =>
     apiFetch('/admin/scanner-devices/scan-summary'),
+
+  getOperatorLog: (startDate: string, endDate: string): Promise<OperatorScanLogRow[]> =>
+    apiFetch(`/admin/scanner-devices/operator-log?startDate=${startDate}&endDate=${endDate}`),
 
   getToken: (id: string): Promise<{ token: string }> =>
     apiFetch(`/admin/scanner-devices/${id}/token`),

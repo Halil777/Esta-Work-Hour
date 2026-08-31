@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Req, UseGuards, HttpCode } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, Req, UseGuards, HttpCode } from '@nestjs/common';
 import { ScannerDevicesService } from './scanner-devices.service';
 import { CreateScannerDeviceDto } from './dto/create-scanner-device.dto';
 import { UpdateScannerDeviceDto } from './dto/update-scanner-device.dto';
@@ -18,6 +18,16 @@ export class ScannerDevicesController {
   @Get('scan-summary')
   getScanSummary(@Req() req: any) {
     return this.service.getScanSummary(req.adminUser.tenantId);
+  }
+
+  /** Per-operator/per-day/per-worker scan log for the "Operator Journaly" tab */
+  @Get('operator-log')
+  getOperatorScanLog(
+    @Req() req: any,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+  ) {
+    return this.service.getOperatorScanLog(req.adminUser.tenantId, startDate, endDate);
   }
 
   /** Returns the full token (for copying after creation or on demand) */

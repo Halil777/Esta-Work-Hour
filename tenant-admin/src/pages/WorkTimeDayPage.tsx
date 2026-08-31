@@ -70,6 +70,12 @@ export function WorkTimeDayPage() {
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set())
   const [adjModal, setAdjModal] = useState(false)
   const [search, setSearch] = useState('')
+  // No-scan filter: workers with zero scans that day at all (distinct from
+  // "scanned but very little", which bucket 0 already covers below).
+  const [noScanOnly, setNoScanOnly] = useState(false)
+  // Staff (Aylık/monthly) vs regular (Saatlik/hourly) worker filter — same
+  // mesaiSistemi/isStaff distinction used on the Workers table and Reports.
+  const [staffFilter, setStaffFilter] = useState<'all' | 'staff' | 'workers'>('all')
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['work-time-day', date],
@@ -77,12 +83,13 @@ export function WorkTimeDayPage() {
   })
 
   const workers = data?.workers ?? []
-  const filtered = search
-    ? workers.filter(w =>
-        w.name.toLowerCase().includes(search.toLowerCase()) ||
-        w.workerId.includes(search),
-      )
-    : workers
+  const filtered = workers.filter(w => {
+    if (search && !(w.name.toLowerCase().includes(search.toLowerCase()) || w.workerId.includes(search))) return false
+    if (noScanOnly && w.hasScan) return false
+    if (staffFilter === 'staff' && !w.isStaff) return false
+    if (staffFilter === 'workers' && w.isStaff) return false
+    return true
+  })
 
   const buckets = useMemo(() => {
     const map = new Map<number, DayWorkerRow[]>()
@@ -202,6 +209,41 @@ export function WorkTimeDayPage() {
           {selected.size > 0 && selected.size === filtered.length ? <CheckSquare size={14} /> : <Square size={14} />}
           Hemmesini saýla ({filtered.length})
         </button>
+
+        <button
+          onClick={() => setNoScanOnly(v => !v)}
+          className="btn btn-ghost"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6, fontSize: 12,
+            ...(noScanOnly ? { borderColor: 'var(--accent)', color: 'var(--accent)', fontWeight: 600 } : {}),
+          }}
+          title="Şu gün hiç hili scan edilmedik işçileri görkez"
+        >
+          {noScanOnly ? <CheckSquare size={14} /> : <Square size={14} />}
+          Scan edilmedikler
+        </button>
+
+        <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+          {([
+            { key: 'all' as const, label: 'Hemmesi' },
+            { key: 'workers' as const, label: 'Adaty işçiler' },
+            { key: 'staff' as const, label: 'Staff' },
+          ]).map(opt => (
+            <button
+              key={opt.key}
+              onClick={() => setStaffFilter(opt.key)}
+              style={{
+                padding: '6px 12px', fontSize: 12, fontWeight: staffFilter === opt.key ? 600 : 500,
+                border: 'none', cursor: 'pointer',
+                background: staffFilter === opt.key ? 'var(--accent)' : 'var(--bg-card)',
+                color: staffFilter === opt.key ? '#fff' : 'var(--text-secondary)',
+              }}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
         {selected.size > 0 && (
           <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{selected.size} işçi saýlandy</span>
         )}
