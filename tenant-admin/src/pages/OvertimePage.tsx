@@ -23,6 +23,15 @@ const fmtDate = (d: string) => {
 const sumHours = (items: ExtraHoursRequest['items']) =>
   items.reduce((acc, i) => acc + Number(i.extraHours), 0)
 
+function getRecipientVariant(a: ExtraHoursRequest['recipients'][number]['action']): string {
+  const map: Record<ExtraHoursRequest['recipients'][number]['action'], string> = {
+    pending: 'warning',
+    approved: 'success',
+    rejected: 'danger',
+  }
+  return map[a] ?? 'neutral'
+}
+
 const STATUS_FILTERS: StatusFilter[] = ['all', 'pending', 'seen', 'approved', 'rejected']
 
 export function OvertimePage() {
@@ -46,6 +55,15 @@ export function OvertimePage() {
       rejected: t.overtime.statusRejected,
     }
     return map[s] ?? s
+  }
+
+  const getRecipientActionLabel = (a: ExtraHoursRequest['recipients'][number]['action']): string => {
+    const map: Record<ExtraHoursRequest['recipients'][number]['action'], string> = {
+      pending: t.overtime.statusPending,
+      approved: t.overtime.statusApproved,
+      rejected: t.overtime.statusRejected,
+    }
+    return map[a] ?? a
   }
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
@@ -99,7 +117,7 @@ export function OvertimePage() {
                 <tr>
                   <th>{t.overtime.workDate}</th>
                   <th>{t.overtime.foreman}</th>
-                  <th>{t.overtime.siteChief}</th>
+                  <th>{t.overtime.recipients}</th>
                   <th>{t.overtime.workers}</th>
                   <th>{t.overtime.hours}</th>
                   <th>{t.overtime.reason}</th>
@@ -121,7 +139,22 @@ export function OvertimePage() {
                     <tr key={r.id} style={{ cursor: 'pointer' }} onClick={() => setSelectedId(selectedId === r.id ? null : r.id)}>
                       <td className="fw-600">{r.workDate}</td>
                       <td className="td-muted">{r.foremanName}</td>
-                      <td className="td-muted">{r.siteChiefName}</td>
+                      <td style={{ maxWidth: 200 }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                          {r.recipients.length === 0 ? (
+                            <span className="td-muted">—</span>
+                          ) : r.recipients.map(rec => (
+                            <span
+                              key={rec.id}
+                              className={`badge badge--dot badge--${getRecipientVariant(rec.action)}`}
+                              title={rec.seenAt ? undefined : t.overtime.notSeenYet}
+                              style={{ fontSize: 11 }}
+                            >
+                              {rec.siteChiefName}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                           <span style={{ fontSize: 13, fontWeight: 600 }}>{r.items.length}</span>
@@ -180,7 +213,6 @@ export function OvertimePage() {
                 { label: t.overtime.workDate, value: selected.workDate },
                 { label: t.overtime.requestDate, value: fmtDate(selected.sentAt) },
                 { label: t.overtime.foreman, value: selected.foremanName },
-                { label: t.overtime.siteChief, value: selected.siteChiefName },
                 { label: t.overtime.workers, value: `${selected.items.length} ${t.overtime.workerCount}` },
                 { label: t.overtime.hours, value: `${sumHours(selected.items)}h` },
               ].map(item => (
@@ -195,6 +227,27 @@ export function OvertimePage() {
               <div style={{ marginBottom: 12, background: 'var(--bg-surface-2)', borderRadius: 8, padding: '10px 12px' }}>
                 <div className="text-xs text-muted" style={{ marginBottom: 4 }}>{t.overtime.reason}</div>
                 <div style={{ fontSize: 13 }}>{selected.note}</div>
+              </div>
+            )}
+
+            {selected.recipients.length > 0 && (
+              <div style={{ marginBottom: 12 }}>
+                <div className="text-xs text-muted fw-600" style={{ textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+                  {t.overtime.recipients} ({selected.recipients.length})
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  {selected.recipients.map(rec => (
+                    <div key={rec.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: 'var(--bg-surface-2)', border: '1px solid var(--border)', borderRadius: 6 }}>
+                      <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{rec.siteChiefName}</span>
+                      <span className="text-xs text-muted">
+                        {rec.seenAt ? fmtDate(rec.seenAt) : t.overtime.notSeenYet}
+                      </span>
+                      <span className={`badge badge--dot badge--${getRecipientVariant(rec.action)}`}>
+                        {getRecipientActionLabel(rec.action)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 

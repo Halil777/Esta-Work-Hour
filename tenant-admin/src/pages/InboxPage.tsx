@@ -196,7 +196,9 @@ export function InboxPage() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginBottom: 4 }}>
                     <span style={{ fontWeight: 600, fontSize: 13 }}>{r.workDate}</span>
-                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{r.foremanName} → {r.siteChiefName}</span>
+                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                      {r.foremanName} → {r.recipients.length > 0 ? r.recipients.map(rec => rec.siteChiefName).join(', ') : '—'}
+                    </span>
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                     {r.items.length} {t.overtime.workerCount} · <span style={{ fontWeight: 600, color: 'var(--text)' }}>{sumHours(r.items)}h</span>

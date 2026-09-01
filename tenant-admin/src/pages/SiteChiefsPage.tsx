@@ -20,20 +20,26 @@ export function SiteChiefsPage() {
     queryFn: () => extraHoursApi.list(),
   })
 
+  // A request can now be sent to several (or all) site chiefs at once, so
+  // stats are tallied per recipient row -- each site chief's own
+  // seen/approved/rejected, not the request's aggregate status. Only the
+  // recipient who actually approved gets the hours credited to them.
   const statsMap = new Map<string, SiteChiefStats>()
   for (const request of extraRequests) {
-    const key = request.siteChiefWorkerEntityId
-    const stats = statsMap.get(key) ?? { total: 0, pending: 0, approved: 0, rejected: 0, totalHrs: 0 }
+    for (const recipient of request.recipients) {
+      const key = recipient.siteChiefWorkerEntityId
+      const stats = statsMap.get(key) ?? { total: 0, pending: 0, approved: 0, rejected: 0, totalHrs: 0 }
 
-    stats.total += 1
-    if (request.status === 'pending' || request.status === 'seen') stats.pending += 1
-    if (request.status === 'approved') {
-      stats.approved += 1
-      stats.totalHrs += request.items.reduce((sum, item) => sum + Number(item.extraHours), 0)
+      stats.total += 1
+      if (recipient.action === 'pending') stats.pending += 1
+      if (recipient.action === 'approved') {
+        stats.approved += 1
+        stats.totalHrs += request.items.reduce((sum, item) => sum + Number(item.extraHours), 0)
+      }
+      if (recipient.action === 'rejected') stats.rejected += 1
+
+      statsMap.set(key, stats)
     }
-    if (request.status === 'rejected') stats.rejected += 1
-
-    statsMap.set(key, stats)
   }
 
   return (

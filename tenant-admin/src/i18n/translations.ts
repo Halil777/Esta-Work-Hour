@@ -412,6 +412,8 @@ const en = {
     statusSeen: 'Seen',
     statusApproved: 'Approved',
     statusRejected: 'Rejected',
+    recipients: 'Recipients',
+    notSeenYet: 'Not seen yet',
   },
   absence: {
     title: 'Absence Records',
@@ -1284,6 +1286,8 @@ const ru: typeof en = {
     statusSeen: 'Просмотрен',
     statusApproved: 'Одобрено',
     statusRejected: 'Отклонено',
+    recipients: 'Получатели',
+    notSeenYet: 'Ещё не просмотрено',
   },
   absence: {
     title: 'Отсутствие',
@@ -2156,6 +2160,8 @@ const tr: typeof en = {
     statusSeen: 'Görüldü',
     statusApproved: 'Onaylandı',
     statusRejected: 'Reddedildi',
+    recipients: 'Alıcılar',
+    notSeenYet: 'Henüz görülmedi',
   },
   absence: {
     title: 'Devamsızlık Kayıtları',
