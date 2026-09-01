@@ -27,7 +27,6 @@ import { MobileAuthModule } from './mobile-auth/mobile-auth.module';
 import { ExtraHoursModule } from './extra-hours/extra-hours.module';
 import { MobileForemanModule } from './mobile-foreman/mobile-foreman.module';
 import { ShiftSettingsModule } from './shift-settings/shift-settings.module';
-import { MapSettingsModule } from './map-settings/map-settings.module';
 import { AbsenceNotesModule } from './absence-notes/absence-notes.module';
 import { AttendanceOverridesModule } from './attendance-overrides/attendance-overrides.module';
 import { AdminAuthModule } from './admin-auth/admin-auth.module';
@@ -87,7 +86,6 @@ import { WorkTimeModule } from './work-time/work-time.module';
     ExtraHoursModule,
     MobileForemanModule,
     ShiftSettingsModule,
-    MapSettingsModule,
     AbsenceNotesModule,
     AttendanceOverridesModule,
     AdminAuthModule,

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Sun, Moon, Mail, Clock, Plus, Trash2, Send, Smartphone, Copy, Eye, EyeOff, RefreshCw, Bell, MapPin } from 'lucide-react'
+import { Sun, Moon, Mail, Clock, Plus, Trash2, Send, Smartphone, Copy, Eye, EyeOff, RefreshCw, Bell } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from '../i18n/useTranslation'
 import { useUiPreferences } from '../app/providers/useUiPreferences'
@@ -7,7 +7,6 @@ import { shiftSettingsApi } from '../api/shiftSettings'
 import { reportConfigApi, type ReportScheduleItem, type ReportType } from '../api/reportConfig'
 import { anomaliesApi } from '../api/anomaliesApi'
 import { adminAuthApi } from '../api/adminAuth'
-import { mapSettingsApi } from '../api/mapSettings'
 import type { Language } from '../types/tenant'
 
 const LANGS: Array<{ key: Language; label: string }> = [
@@ -517,74 +516,6 @@ function NfcDeviceCard() {
   )
 }
 
-// ─── Map Settings Card ─────────────────────────────────────────────────────
-
-function MapSettingsCard() {
-  const qc = useQueryClient()
-  const [keyInput, setKeyInput] = useState('')
-  const [initialized, setInitialized] = useState(false)
-  const [saved, setSaved] = useState(false)
-
-  const { data, isLoading } = useQuery({
-    queryKey: ['map-settings'],
-    queryFn: mapSettingsApi.get,
-  })
-
-  if (data && !initialized) {
-    setKeyInput(data.yandexMapsApiKey ?? '')
-    setInitialized(true)
-  }
-
-  const saveMutation = useMutation({
-    mutationFn: (key: string) => mapSettingsApi.update(key || null),
-    onSuccess: (result) => {
-      qc.setQueryData(['map-settings'], result)
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
-    },
-  })
-
-  return (
-    <div className="card" style={{ gridColumn: '1 / -1' }}>
-      <div className="card-header">
-        <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <MapPin size={16} /> Ýandex Karta Sazlamalary
-        </h3>
-      </div>
-      <div className="card-body">
-        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16, marginTop: 0 }}>
-          Skaner enjamlar sahypasyndaky "Lokasiýalar" kartasyny görkezmek üçin
-          öz Ýandex Karta JS API açaryňyzy giriziň (mugt) —{' '}
-          <a href="https://developer.tech.yandex.ru/" target="_blank" rel="noreferrer">
-            developer.tech.yandex.ru
-          </a>{' '}
-          salgysyndan alyp bilersiňiz.
-        </p>
-        {isLoading ? (
-          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Ýüklenýär...</span>
-        ) : (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', maxWidth: 480 }}>
-            <input
-              value={keyInput}
-              onChange={(e) => setKeyInput(e.target.value)}
-              placeholder="Ýandex Maps API açary"
-              style={{ flex: 1, fontSize: 12, fontFamily: 'monospace' }}
-            />
-            <button
-              className="btn btn--sm btn--primary"
-              onClick={() => saveMutation.mutate(keyInput)}
-              disabled={saveMutation.isPending}
-            >
-              {saveMutation.isPending ? 'Ýazylýar...' : 'Ýatda sakla'}
-            </button>
-          </div>
-        )}
-        {saved && <span style={{ fontSize: 12, color: 'var(--success)', marginTop: 8, display: 'block' }}>✓ Ýatda saklandy</span>}
-      </div>
-    </div>
-  )
-}
-
 // ─── Anomaly Alert Card ───────────────────────────────────────────────────────
 
 function AnomalyAlertCard() {
@@ -739,8 +670,6 @@ export function SettingsPage() {
         <AnomalyAlertCard />
 
         <NfcDeviceCard />
-
-        <MapSettingsCard />
       </div>
     </>
   )

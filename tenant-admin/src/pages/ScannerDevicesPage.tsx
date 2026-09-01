@@ -7,7 +7,8 @@ import {
 import { scannerDevicesApi, type ScannerDevice, type OperatorScanLogRow, type ScanLocationRow } from '../api/scannerDevices'
 import { apiFetch } from '../api/http'
 import type { WorkerApi } from '../api/workers'
-import { mapSettingsApi } from '../api/mapSettings'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 
 function formatLastSeen(ts: string | null) {
   if (!ts) return 'Hiç görülmedi'
@@ -423,29 +424,10 @@ function OperatorLogTab({ workers }: { workers: WorkerApi[] }) {
   )
 }
 
-function loadYandexMaps(apiKey: string): Promise<any> {
-  const w = window as any
-  return new Promise((resolve, reject) => {
-    if (w.ymaps && w.__ymapsReady) { resolve(w.ymaps); return }
-    const existing = document.getElementById('yandex-maps-script') as HTMLScriptElement | null
-    if (existing) {
-      existing.addEventListener('load', () => w.ymaps.ready(() => { w.__ymapsReady = true; resolve(w.ymaps) }))
-      existing.addEventListener('error', () => reject(new Error('Ýandex Karta ýüklenip bilmedi')))
-      return
-    }
-    const script = document.createElement('script')
-    script.id = 'yandex-maps-script'
-    script.src = `https://api-maps.yandex.ru/2.1/?apikey=${encodeURIComponent(apiKey)}&lang=ru_RU`
-    script.onload = () => w.ymaps.ready(() => { w.__ymapsReady = true; resolve(w.ymaps) })
-    script.onerror = () => reject(new Error('Ýandex Karta ýüklenip bilmedi'))
-    document.head.appendChild(script)
-  })
-}
-
 // Groups raw per-scan points into "spots" — points within ~15m of each
 // other (rounded to 4 decimal places, ≈11m at this latitude) are treated as
-// the same physical location so the fallback list (no API key) and the
-// map's balloons both read as "who was scanned here", not one row per scan.
+// the same physical location so the list and the map's popups both read as
+// "who was scanned here", not one row per scan.
 function groupIntoSpots(points: ScanLocationRow[]) {
   const spots = new Map<string, { lat: number; lng: number; points: ScanLocationRow[] }>()
   for (const p of points) {
@@ -457,17 +439,26 @@ function groupIntoSpots(points: ScanLocationRow[]) {
   return [...spots.values()]
 }
 
+// Leaflet's default marker icon references image files by a relative path
+// that doesn't resolve once bundled — the standard fix is pointing it at
+// the same version's images on a CDN once, at module load.
+let leafletIconPatched = false
+function patchLeafletIcon(leaflet: typeof import('leaflet')) {
+  if (leafletIconPatched) return
+  leafletIconPatched = true
+  leaflet.Icon.Default.mergeOptions({
+    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+    iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+  })
+}
+
 function LocationsTab() {
   const [startDate, setStartDate] = useState(daysAgoStr(6))
   const [endDate, setEndDate] = useState(todayStr())
   const [selectedSpot, setSelectedSpot] = useState<{ lat: number; lng: number; points: ScanLocationRow[] } | null>(null)
   const mapDivRef = useRef<HTMLDivElement>(null)
-  const mapInstanceRef = useRef<any>(null)
-
-  const { data: mapSettings } = useQuery({
-    queryKey: ['map-settings'],
-    queryFn: mapSettingsApi.get,
-  })
+  const mapInstanceRef = useRef<L.Map | null>(null)
 
   const { data: points = [], isLoading } = useQuery({
     queryKey: ['scanner-devices-scan-locations', startDate, endDate],
@@ -475,38 +466,35 @@ function LocationsTab() {
   })
 
   const spots = useMemo(() => groupIntoSpots(points), [points])
-  const apiKey = mapSettings?.yandexMapsApiKey
 
+  // Free — OpenStreetMap tiles, no API key. Map is created once per
+  // spots-set and torn down on the next effect run / unmount.
   useEffect(() => {
-    if (!apiKey || !mapDivRef.current || spots.length === 0) return
-    let cancelled = false
-    loadYandexMaps(apiKey).then((ymaps) => {
-      if (cancelled || !mapDivRef.current) return
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.destroy()
-        mapInstanceRef.current = null
-      }
-      const center = [spots[0].lat, spots[0].lng]
-      const map = new ymaps.Map(mapDivRef.current, { center, zoom: 12, controls: ['zoomControl', 'fullscreenControl'] })
-      mapInstanceRef.current = map
-      const clusterer = new ymaps.Clusterer({ preset: 'islands#blueClusterIcons' })
-      const placemarks = spots.map(spot => {
-        const pm = new ymaps.Placemark(
-          [spot.lat, spot.lng],
-          { hintContent: `${spot.points.length} scan` },
-          { preset: 'islands#blueCircleDotIcon' },
-        )
-        pm.events.add('click', () => setSelectedSpot(spot))
-        return pm
-      })
-      clusterer.add(placemarks)
-      map.geoObjects.add(clusterer)
-      if (placemarks.length > 1) map.setBounds(clusterer.getBounds(), { checkZoomRange: true, zoomMargin: 40 })
-    }).catch(() => { /* script failed to load — fallback list below still works */ })
-    return () => { cancelled = true }
-  }, [apiKey, spots])
+    if (!mapDivRef.current || spots.length === 0) return
+    patchLeafletIcon(L)
 
-  useEffect(() => () => { mapInstanceRef.current?.destroy?.() }, [])
+    const map = L.map(mapDivRef.current).setView([spots[0].lat, spots[0].lng], 13)
+    mapInstanceRef.current = map
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+      maxZoom: 19,
+    }).addTo(map)
+
+    const markers = spots.map(spot => {
+      const marker = L.marker([spot.lat, spot.lng]).addTo(map)
+      marker.bindTooltip(`${new Set(spot.points.map(p => p.employeeNumber)).size} işçi · ${spot.points.length} scan`)
+      marker.on('click', () => setSelectedSpot(spot))
+      return marker
+    })
+    if (markers.length > 1) {
+      map.fitBounds(L.featureGroup(markers).getBounds().pad(0.2))
+    }
+
+    return () => {
+      map.remove()
+      mapInstanceRef.current = null
+    }
+  }, [spots])
 
   return (
     <div>
@@ -539,15 +527,6 @@ function LocationsTab() {
         </div>
       </div>
 
-      {!apiKey && (
-        <div className="card" style={{ marginBottom: 16, borderColor: 'var(--warning, #F59E0B)' }}>
-          <div className="card-body" style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
-            <MapPin size={16} color="var(--warning, #F59E0B)" />
-            Karta görkezmek üçin Sazlamalar sahypasyndan Ýandex Karta API açaryny goşuň. Aşakda sanaw görnüşinde görkezilýär.
-          </div>
-        </div>
-      )}
-
       {isLoading ? (
         <div className="card"><div className="card-body">Ýüklenýär...</div></div>
       ) : spots.length === 0 ? (
@@ -559,9 +538,7 @@ function LocationsTab() {
         </div>
       ) : (
         <>
-          {apiKey && (
-            <div ref={mapDivRef} style={{ width: '100%', height: 420, borderRadius: 12, overflow: 'hidden', marginBottom: 16, border: '1px solid var(--border)' }} />
-          )}
+          <div ref={mapDivRef} style={{ width: '100%', height: 420, borderRadius: 12, overflow: 'hidden', marginBottom: 16, border: '1px solid var(--border)' }} />
 
           {selectedSpot && (
             <div className="card" style={{ marginBottom: 16 }}>
@@ -603,7 +580,7 @@ function LocationsTab() {
             </div>
           )}
 
-          {/* Fallback / always-available list of spots — works with or without a map key */}
+          {/* List of spots below the map — click either to see who was scanned there */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {spots
               .slice()
