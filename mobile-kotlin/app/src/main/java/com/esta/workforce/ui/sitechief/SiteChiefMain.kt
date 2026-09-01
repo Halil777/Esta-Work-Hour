@@ -75,7 +75,7 @@ fun SiteChiefMain(
         Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
             when (selected) {
                 SCTab.DASHBOARD -> SCDashboardScreen(appVm = appVm, container = container)
-                SCTab.APPROVALS -> ApprovalsScreen(container = container)
+                SCTab.APPROVALS -> ApprovalsScreen(container = container, appVm = appVm)
                 SCTab.ATTENDANCE -> SCAttendanceScreen(container = container)
                 SCTab.REPORTS -> ReportsScreen(container = container)
                 SCTab.NOTIFICATIONS -> NotificationsScreen(container = container)

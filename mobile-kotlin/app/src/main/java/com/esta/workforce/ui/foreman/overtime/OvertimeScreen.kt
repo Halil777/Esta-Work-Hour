@@ -122,7 +122,7 @@ private class OvertimeViewModel(
     }
 
     fun createRequest(
-        siteChiefId: String,
+        siteChiefIds: List<String>,
         workDate: String,
         note: String?,
         items: List<CreateExtraRequestItem>,
@@ -130,7 +130,7 @@ private class OvertimeViewModel(
         onError: (String) -> Unit,
     ) {
         viewModelScope.launch {
-            val body = CreateExtraRequest(siteChiefId, workDate, note?.ifBlank { null }, items)
+            val body = CreateExtraRequest(siteChiefIds, workDate, note?.ifBlank { null }, items)
             if (!isConnected()) {
                 offlineQueue.add("/mobile/foreman/extra-requests", "POST", body, "Mesai soragy")
                 SyncWorker.schedule(getApplication())
@@ -267,6 +267,12 @@ fun OvertimeScreen(container: AppContainer, appVm: AppViewModel) {
                         items(filtered) { r ->
                             val meta = statusMeta(r.status, strings)
                             val totalHrs = r.items.sumOf { it.extraHours }
+                            val approvedBy = r.recipients.firstOrNull { it.action == "approved" }
+                            val recipientsLabel = when {
+                                approvedBy != null -> "→ ${approvedBy.siteChiefName} ✓"
+                                r.recipients.size <= 1 -> "→ ${r.recipients.firstOrNull()?.siteChiefName ?: ""}"
+                                else -> "→ ${r.recipients.joinToString(", ") { it.siteChiefName }}"
+                            }
                             Card(
                                 shape = RoundedCornerShape(16.dp),
                                 colors = CardDefaults.cardColors(containerColor = colors.card),
@@ -276,7 +282,7 @@ fun OvertimeScreen(container: AppContainer, appVm: AppViewModel) {
                                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
                                         Column {
                                             Text(r.workDate, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = colors.text)
-                                            Text("→ ${r.siteChiefName}", fontSize = 12.sp, color = colors.textSecondary)
+                                            Text(recipientsLabel, fontSize = 12.sp, color = colors.textSecondary)
                                         }
                                         StatusPill(meta.label, meta.color, meta.bg)
                                     }
@@ -299,6 +305,7 @@ fun OvertimeScreen(container: AppContainer, appVm: AppViewModel) {
         CreateRequestDialog(
             vm = vm,
             appVm = appVm,
+            container = container,
             strings = strings,
             colors = colors,
             onDismiss = { showCreate = false },
@@ -312,6 +319,7 @@ fun OvertimeScreen(container: AppContainer, appVm: AppViewModel) {
 private fun CreateRequestDialog(
     vm: OvertimeViewModel,
     appVm: AppViewModel,
+    container: AppContainer,
     strings: AppStrings,
     colors: AppColors,
     onDismiss: () -> Unit,
@@ -320,7 +328,7 @@ private fun CreateRequestDialog(
     val workers by vm.myWorkers.collectAsState()
     val shiftMap by vm.shiftSettingsMap.collectAsState()
 
-    var siteChiefId by remember { mutableStateOf("") }
+    var selectedSiteChiefIds by remember { mutableStateOf(setOf<String>()) }
     var workDate by remember { mutableStateOf(SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())) }
     var note by remember { mutableStateOf("") }
     var selectedWorkers by remember { mutableStateOf(mapOf<String, Double>()) }
@@ -347,12 +355,35 @@ private fun CreateRequestDialog(
                         modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        Text(strings.overtimeSelectSiteChief, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = colors.textSecondary)
+                        Text(
+                            "${strings.overtimeSelectSiteChief} (${selectedSiteChiefIds.size} saýlandy)",
+                            fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = colors.textSecondary,
+                        )
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(siteChiefs) { sc ->
-                                val active = siteChiefId == sc.id
+                            item {
+                                val allSelected = siteChiefs.isNotEmpty() && selectedSiteChiefIds.size == siteChiefs.size
                                 Surface(
-                                    onClick = { siteChiefId = sc.id },
+                                    onClick = {
+                                        selectedSiteChiefIds = if (allSelected) emptySet() else siteChiefs.map { it.id }.toSet()
+                                    },
+                                    shape = RoundedCornerShape(99.dp),
+                                    color = if (allSelected) Primary else colors.card2,
+                                    border = BorderStroke(1.dp, if (allSelected) Primary else colors.border),
+                                ) {
+                                    Text(
+                                        "Ählisi",
+                                        fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                                        color = if (allSelected) Color.White else colors.text,
+                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                                    )
+                                }
+                            }
+                            items(siteChiefs) { sc ->
+                                val active = sc.id in selectedSiteChiefIds
+                                Surface(
+                                    onClick = {
+                                        selectedSiteChiefIds = if (active) selectedSiteChiefIds - sc.id else selectedSiteChiefIds + sc.id
+                                    },
                                     shape = RoundedCornerShape(99.dp),
                                     color = if (active) Primary else colors.card2,
                                     border = BorderStroke(1.dp, if (active) Primary else colors.border),
@@ -402,6 +433,7 @@ private fun CreateRequestDialog(
                         nfcMode = nfcMode,
                         onNfcModeChanged = { nfcMode = it },
                         appVm = appVm,
+                        api = container.api,
                         shiftMap = shiftMap,
                         colors = colors,
                         strings = strings,
@@ -409,11 +441,11 @@ private fun CreateRequestDialog(
                         saving = saving,
                         onBack = { step = "form" },
                         onSubmit = {
-                            if (siteChiefId.isEmpty()) { errMsg = "Site Chief saýla"; return@WorkersStep }
+                            if (selectedSiteChiefIds.isEmpty()) { errMsg = "Ýolbaşçy saýla"; return@WorkersStep }
                             if (selectedWorkers.isEmpty()) { errMsg = "Işçi saýla"; return@WorkersStep }
                             saving = true
                             val items = selectedWorkers.map { (id, hrs) -> CreateExtraRequestItem(id, hrs, null) }
-                            vm.createRequest(siteChiefId, workDate, note, items,
+                            vm.createRequest(selectedSiteChiefIds.toList(), workDate, note, items,
                                 onSuccess = { saving = false; onDismiss() },
                                 onError = { msg -> saving = false; errMsg = msg },
                             )
@@ -435,6 +467,7 @@ private fun WorkersStep(
     nfcMode: Boolean,
     onNfcModeChanged: (Boolean) -> Unit,
     appVm: AppViewModel,
+    api: com.esta.workforce.data.network.ApiService,
     shiftMap: Map<String, ShiftSetting>,
     colors: AppColors,
     strings: AppStrings,
@@ -443,37 +476,56 @@ private fun WorkersStep(
     onBack: () -> Unit,
     onSubmit: () -> Unit,
 ) {
-    var linkingUid by remember { mutableStateOf<String?>(null) }
     var scanMsg by remember { mutableStateOf("") }
     var scanMsgIsError by remember { mutableStateOf(false) }
+    var scanLoading by remember { mutableStateOf(false) }
+    // Workers found via NFC scan that weren't already in this foreman's
+    // `workers` list (e.g. just auto-attached from unassigned) -- kept here
+    // so they can still be shown/edited in the "goşulan işçiler" list.
+    var scannedExtraWorkers by remember { mutableStateOf(mapOf<String, MobileWorker>()) }
 
     val nfcUid by appVm.nfcUid.collectAsState()
+    val allKnownWorkers = remember(workers, scannedExtraWorkers) {
+        workers.associateBy { it.id } + scannedExtraWorkers
+    }
 
     LaunchedEffect(nfcUid) {
         val uid = nfcUid ?: return@LaunchedEffect
-        if (!nfcMode) { appVm.consumeNfcUid(); return@LaunchedEffect }
-        val map = appVm.getCardMap()
-        val entityId = map[uid]
-        if (entityId != null) {
-            val worker = workers.find { it.id == entityId }
-            if (worker != null) {
-                if (worker.id !in selectedWorkers) {
-                    onSelectedChanged(selectedWorkers + (worker.id to 2.0))
-                    scanMsg = "✓ ${worker.name} goşuldy"
-                    scanMsgIsError = false
-                } else {
-                    scanMsg = "${worker.name} eýýäm sanawda"
-                    scanMsgIsError = false
-                }
-            } else {
-                // Card is known but worker is not in this foreman's brigade
-                scanMsg = "Bu işçi siziň brigadaňyzda däl"
-                scanMsgIsError = true
-            }
-        } else {
-            linkingUid = uid
-        }
         appVm.consumeNfcUid()
+        if (!nfcMode) return@LaunchedEffect
+        scanMsg = ""
+        scanLoading = true
+        try {
+            // Same card registry the attendance scanners resolve against --
+            // this never records a check-in/check-out, it only looks up (and
+            // auto-attaches, if unassigned) the worker for this request.
+            val cw = api.getWorkerByCard(uid)
+            val existing = allKnownWorkers[cw.id]
+            val mw = existing ?: MobileWorker(
+                id = cw.id, workerId = cw.workerId, name = cw.name,
+                profession = cw.profession, brigadeName = cw.brigadeName,
+                mesaiSistemi = null, mobileRole = null, extraSaat = null,
+                shift = null, lastCheckIn = null, lastCheckOut = null, todayHoursMs = null,
+            )
+            if (existing == null) scannedExtraWorkers = scannedExtraWorkers + (cw.id to mw)
+            if (cw.id !in selectedWorkers) {
+                onSelectedChanged(selectedWorkers + (cw.id to 2.0))
+                scanMsg = "✓ ${cw.name} goşuldy"
+                scanMsgIsError = false
+            } else {
+                scanMsg = "${cw.name} eýýäm sanawda"
+                scanMsgIsError = false
+            }
+        } catch (e: Exception) {
+            scanMsg = when {
+                e is retrofit2.HttpException && e.code() == 404 -> "Bu karta degişli işçi tapylmady"
+                e is retrofit2.HttpException && e.code() == 403 -> "Bu işçi başga formene birikdirilen"
+                else -> e.message ?: "Yalnyslyk"
+            }
+            scanMsgIsError = true
+        } finally {
+            scanLoading = false
+        }
     }
 
     Column(modifier = Modifier.heightIn(max = 440.dp)) {
@@ -528,6 +580,13 @@ private fun WorkersStep(
             ) {
                 NfcScanIndicator(colors = colors)
 
+                if (scanLoading) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        CircularProgressIndicator(color = Primary, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                        Text("Barlanýar...", fontSize = 12.sp, color = colors.textSecondary)
+                    }
+                }
+
                 if (scanMsg.isNotEmpty()) {
                     Surface(
                         shape = RoundedCornerShape(10.dp),
@@ -547,7 +606,7 @@ private fun WorkersStep(
                 if (selectedWorkers.isNotEmpty()) {
                     Text("Goşulan işçiler (${selectedWorkers.size}):", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = colors.textSecondary)
                     LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        val scannedWorkers = workers.filter { it.id in selectedWorkers }
+                        val scannedWorkers = selectedWorkers.keys.mapNotNull { allKnownWorkers[it] }
                         items(scannedWorkers) { w ->
                             val hrs = selectedWorkers[w.id] ?: 2.0
                             WorkerItem(w = w, sel = true, hrs = hrs, shiftMap = shiftMap, colors = colors,
@@ -579,22 +638,6 @@ private fun WorkersStep(
                 else Text("${strings.overtimeSend} ✓", fontWeight = FontWeight.Bold)
             }
         }
-    }
-
-    linkingUid?.let { uid ->
-        LinkCardDialog(
-            uid = uid,
-            workers = workers,
-            colors = colors,
-            onDismiss = { linkingUid = null; scanMsg = "Kart baglanmady"; scanMsgIsError = true },
-            onLink = { worker ->
-                appVm.saveCardMapping(uid, worker.id)
-                onSelectedChanged(selectedWorkers + (worker.id to 2.0))
-                linkingUid = null
-                scanMsg = "✓ ${worker.name} — kart baglanyp goşuldy"
-                scanMsgIsError = false
-            },
-        )
     }
 }
 
@@ -734,85 +777,6 @@ private fun WorkerItem(
                         color = Warning,
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 3.dp),
                     )
-                }
-            }
-        }
-    }
-}
-
-// ─── Link Card Dialog ─────────────────────────────────────────────────────────
-
-@Composable
-private fun LinkCardDialog(
-    uid: String,
-    workers: List<MobileWorker>,
-    colors: AppColors,
-    onDismiss: () -> Unit,
-    onLink: (MobileWorker) -> Unit,
-) {
-    var selected by remember { mutableStateOf<MobileWorker?>(null) }
-
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = colors.card),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Nätanyş Kart", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = colors.text)
-
-                Surface(shape = RoundedCornerShape(8.dp), color = colors.card2, border = BorderStroke(1.dp, colors.border)) {
-                    Text(
-                        uid,
-                        modifier = Modifier.fillMaxWidth().padding(10.dp),
-                        fontSize = 12.sp,
-                        color = colors.textMuted,
-                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                    )
-                }
-
-                Text("Bu kartı haýsy işçä degişli?", fontSize = 13.sp, color = colors.textSecondary)
-
-                LazyColumn(
-                    modifier = Modifier.heightIn(max = 260.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    items(workers) { w ->
-                        val active = selected?.id == w.id
-                        Surface(
-                            onClick = { selected = w },
-                            shape = RoundedCornerShape(10.dp),
-                            color = if (active) Primary.copy(0.12f) else colors.card2,
-                            border = BorderStroke(1.dp, if (active) Primary else colors.border),
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Column {
-                                    Text(w.name, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = colors.text)
-                                    Text(w.workerId, fontSize = 11.sp, color = colors.textMuted)
-                                }
-                                if (active) Text("✓", color = Primary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                            }
-                        }
-                    }
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp)) {
-                        Text("Ýatyr", color = colors.text)
-                    }
-                    Button(
-                        onClick = { selected?.let { onLink(it) } },
-                        modifier = Modifier.weight(1f),
-                        enabled = selected != null,
-                        colors = ButtonDefaults.buttonColors(containerColor = Primary),
-                        shape = RoundedCornerShape(10.dp),
-                    ) {
-                        Text("Bagla", fontWeight = FontWeight.Bold)
-                    }
                 }
             }
         }

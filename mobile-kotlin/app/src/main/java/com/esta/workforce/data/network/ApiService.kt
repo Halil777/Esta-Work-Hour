@@ -31,6 +31,13 @@ interface ApiService {
     @GET("mobile/foreman/site-chiefs")
     suspend fun getSiteChiefs(): List<SiteChiefOption>
 
+    // Resolves a worker by the same NFC card registry the attendance
+    // scanners use, auto-attaching them to the calling foreman if
+    // unassigned. Never touches attendance_events -- only for adding
+    // workers to an extra-hours request.
+    @GET("mobile/foreman/workers/by-card")
+    suspend fun getWorkerByCard(@Query("cardUid") cardUid: String): CardWorker
+
     @GET("mobile/foreman/extra-requests")
     suspend fun getForemanRequests(): List<ExtraHoursRequest>
 

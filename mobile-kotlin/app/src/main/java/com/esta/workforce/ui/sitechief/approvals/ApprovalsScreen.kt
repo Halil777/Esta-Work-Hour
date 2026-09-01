@@ -27,6 +27,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.esta.workforce.AppContainer
 import com.esta.workforce.data.model.ExtraHoursRequest
 import com.esta.workforce.data.network.ApiService
+import com.esta.workforce.ui.AppViewModel
 import com.esta.workforce.ui.components.StatusPill
 import com.esta.workforce.ui.theme.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -105,8 +106,9 @@ private class ApprovalsViewModel(private val api: ApiService) : ViewModel() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ApprovalsScreen(container: AppContainer) {
+fun ApprovalsScreen(container: AppContainer, appVm: AppViewModel) {
     val vm: ApprovalsViewModel = viewModel(factory = ApprovalsViewModel.factory(container.api))
+    val myId = appVm.user.value?.id
     val requests by vm.requests.collectAsState()
     val loading by vm.loading.collectAsState()
     val refreshing by vm.refreshing.collectAsState()
@@ -175,9 +177,11 @@ fun ApprovalsScreen(container: AppContainer) {
                         items(filtered) { req ->
                             val meta = statusMeta(req.status, strings)
                             val totalHrs = req.items.sumOf { it.extraHours }
+                            val myRec = req.recipients.find { it.siteChiefWorkerEntityId == myId }
+                            val notYetSeenByMe = myRec != null && myRec.seenAt == null
                             Card(
                                 onClick = {
-                                    if (req.status == "pending") {
+                                    if (notYetSeenByMe) {
                                         vm.markSeen(req.id) { updated -> selected = updated }
                                     } else {
                                         selected = req
@@ -185,7 +189,7 @@ fun ApprovalsScreen(container: AppContainer) {
                                 },
                                 shape = RoundedCornerShape(16.dp),
                                 colors = CardDefaults.cardColors(containerColor = colors.card),
-                                border = BorderStroke(1.dp, if (req.status == "pending") Warning.copy(0.5f) else colors.border),
+                                border = BorderStroke(1.dp, if (notYetSeenByMe) Warning.copy(0.5f) else colors.border),
                             ) {
                                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
@@ -253,6 +257,32 @@ fun ApprovalsScreen(container: AppContainer) {
                             StatusPill(m.label, m.color, m.bg)
                         }
 
+                        // Per-recipient status -- who it was sent to, and each one's
+                        // own seen/approved/rejected (multiple site chiefs can be
+                        // sent the same request; any one approval settles it).
+                        if (req.recipients.isNotEmpty()) {
+                            HorizontalDivider(color = colors.border, thickness = 0.5.dp)
+                            Column(modifier = Modifier.padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Ýolbaşçylar (${req.recipients.size})", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = colors.textMuted)
+                                req.recipients.forEach { rec ->
+                                    val rm = statusMeta(rec.action, strings)
+                                    Row(
+                                        Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                            Text(rec.siteChiefName, fontSize = 13.sp, color = colors.text)
+                                            if (rec.siteChiefWorkerEntityId == myId) {
+                                                Text("(Siz)", fontSize = 11.sp, color = colors.textMuted)
+                                            }
+                                        }
+                                        StatusPill(rm.label, rm.color, rm.bg)
+                                    }
+                                }
+                            }
+                        }
+
                         Spacer(Modifier.height(4.dp))
                         Text("İşçiler (${req.items.size})", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = colors.textSecondary)
                         req.items.forEach { item ->
@@ -280,8 +310,14 @@ fun ApprovalsScreen(container: AppContainer) {
                             }
                         }
 
-                        // Action buttons (pending or seen)
-                        if (req.status == "pending" || req.status == "seen") {
+                        // Action buttons -- only while the request overall is still
+                        // pending AND this site chief hasn't already responded
+                        // (another recipient's approval settles it for everyone;
+                        // once this site chief has approved/rejected, their own
+                        // choice stands and the buttons hide).
+                        val myRecipient = req.recipients.find { it.siteChiefWorkerEntityId == myId }
+                        val canAct = req.status == "pending" && (myRecipient == null || myRecipient.action == "pending")
+                        if (canAct) {
                             Spacer(Modifier.height(4.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 OutlinedButton(

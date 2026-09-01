@@ -47,6 +47,17 @@ data class SiteChiefOption(
     val profession: String?,
 )
 
+// Worker resolved by NFC card scan (mobile/foreman/workers/by-card) — used
+// only to build an extra-hours request, never an attendance check-in/out.
+data class CardWorker(
+    val id: String,
+    val workerId: String,
+    val name: String,
+    val profession: String?,
+    val brigadeName: String?,
+    val foremanId: String?,
+)
+
 // ─── Request bodies ───────────────────────────────────────────────────────────
 
 data class ClaimBulkRequest(val workerIds: List<String>, val shift: String?)
@@ -66,19 +77,34 @@ data class ExtraHoursRequestItem(
     val description: String?,
 )
 
+// One row per site chief the request was sent to — each tracks their own
+// seen/action independently. See ExtraHoursRequest.status doc below for how
+// these roll up into the overall status.
+data class ExtraHoursRequestRecipient(
+    val id: String,
+    val siteChiefWorkerEntityId: String,
+    val siteChiefName: String,
+    val seenAt: String?,
+    val action: String, // "pending" | "approved" | "rejected"
+    val actionAt: String?,
+)
+
 data class ExtraHoursRequest(
     val id: String,
     val foremanWorkerEntityId: String,
     val foremanName: String,
-    val siteChiefWorkerEntityId: String,
-    val siteChiefName: String,
     val workDate: String,
     val note: String?,
+    // Overall/aggregate status: any one recipient's approval settles this as
+    // "approved" for everyone; "rejected" only once every recipient has
+    // rejected it — until then it stays "pending". See each recipient's own
+    // `action` in `recipients` for who has/hasn't responded yet.
     val status: String, // "pending" | "seen" | "approved" | "rejected"
     val sentAt: String,
     val seenAt: String?,
     val actionAt: String?,
     val items: List<ExtraHoursRequestItem>,
+    val recipients: List<ExtraHoursRequestRecipient>,
 )
 
 data class CreateExtraRequestItem(
@@ -88,7 +114,8 @@ data class CreateExtraRequestItem(
 )
 
 data class CreateExtraRequest(
-    val siteChiefWorkerEntityId: String,
+    // Sent to one, several, or every site chief at once.
+    val siteChiefWorkerEntityIds: List<String>,
     val workDate: String,
     val note: String?,
     val items: List<CreateExtraRequestItem>,
