@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useMemo } from 'react'
+import { useRef, useState, useCallback, useMemo, useEffect } from 'react'
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, Cell, LabelList,
@@ -25,6 +25,34 @@ function isoDaysAgo(n: number) {
   const d = new Date()
   d.setDate(d.getDate() - n)
   return d.toISOString().split('T')[0]
+}
+
+// ─── Count-up number animation ──────────────────────────────────────────────
+// Eases a displayed number from its previous value to a new one whenever it
+// changes (filter/date-range change, or the query refetching) — used on the
+// small stat chips under the charts so a changed number visibly animates in
+// rather than just snapping, without pulling in an animation library.
+
+function useCountUp(target: number, durationMs = 600): number {
+  const [value, setValue] = useState(target)
+  const fromRef = useRef(target)
+  useEffect(() => {
+    const from = fromRef.current
+    if (from === target || Number.isNaN(target)) { setValue(target); fromRef.current = target; return }
+    const start = performance.now()
+    let raf = 0
+    const tick = (now: number) => {
+      const p = Math.min(1, (now - start) / durationMs)
+      const eased = 1 - Math.pow(1 - p, 3) // ease-out cubic
+      setValue(from + (target - from) * eased)
+      if (p < 1) raf = requestAnimationFrame(tick)
+      else fromRef.current = target
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target])
+  return value
 }
 
 // ─── Daily PDF download (existing) ──────────────────────────────────────────
@@ -211,7 +239,20 @@ function AttendanceBarChart({ data, presentLabel, absentLabel }: {
 }) {
   return (
     <ResponsiveContainer width="100%" height={220}>
-      <BarChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }} barGap={2}>
+      <BarChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }} barGap={3} barCategoryGap="28%">
+        <defs>
+          {/* Vertical shine: brighter at the bar's top, settling to the flat
+              status color — a status color (never a raw data hue) still
+              carries the identity, the gradient is a polish layer only. */}
+          <linearGradient id="presentFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--success)" stopOpacity={1} />
+            <stop offset="100%" stopColor="var(--success)" stopOpacity={0.72} />
+          </linearGradient>
+          <linearGradient id="absentFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--danger)" stopOpacity={1} />
+            <stop offset="100%" stopColor="var(--danger)" stopOpacity={0.72} />
+          </linearGradient>
+        </defs>
         <CartesianGrid stroke="var(--border)" vertical={false} />
         <XAxis
           dataKey="date" tickFormatter={(d: string) => d.slice(5)}
@@ -221,10 +262,35 @@ function AttendanceBarChart({ data, presentLabel, absentLabel }: {
         <YAxis tick={{ fontSize: 10.5, fill: 'var(--text-muted)' }} tickLine={false} axisLine={false} width={30} />
         <Tooltip content={<BarTooltip />} cursor={{ fill: 'var(--bg-hover)' }} />
         <Legend wrapperStyle={{ fontSize: 12 }} iconType="circle" iconSize={8} />
-        <Bar dataKey="present" name={presentLabel} fill="var(--success)" radius={[4, 4, 0, 0]} maxBarSize={22} />
-        <Bar dataKey="absent" name={absentLabel} fill="var(--danger)" radius={[4, 4, 0, 0]} maxBarSize={22} />
+        <Bar
+          dataKey="present" name={presentLabel} fill="url(#presentFill)" radius={[5, 5, 0, 0]} maxBarSize={22}
+          isAnimationActive animationDuration={700} animationEasing="ease-out"
+          activeBar={{ fill: 'var(--success)', stroke: 'var(--bg-surface)', strokeWidth: 1 }}
+        />
+        <Bar
+          dataKey="absent" name={absentLabel} fill="url(#absentFill)" radius={[5, 5, 0, 0]} maxBarSize={22}
+          isAnimationActive animationDuration={700} animationEasing="ease-out" animationBegin={90}
+          activeBar={{ fill: 'var(--danger)', stroke: 'var(--bg-surface)', strokeWidth: 1 }}
+        />
       </BarChart>
     </ResponsiveContainer>
+  )
+}
+
+// Rank badge drawn to the left of each row's category label — a small
+// circle with the #1/#2/... number, filled with that row's sequential-ramp
+// color so rank and bar color read as the same encoding at a glance.
+function RankedNameTick({ x, y, payload, data }: any) {
+  const idx = data.findIndex((d: TopWorkerItem) => d.name === payload.value)
+  const rank = idx + 1
+  const color = idx >= 0 ? seqColor(idx, data.length) : 'var(--text-muted)'
+  const label = payload.value.length > 13 ? payload.value.slice(0, 12) + '…' : payload.value
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <circle cx={-108} cy={0} r={8} fill={color} fillOpacity={0.18} stroke={color} strokeWidth={1.2} />
+      <text x={-108} y={0} dy={3} textAnchor="middle" fontSize={9} fontWeight={700} fill={color}>{rank}</text>
+      <text x={-96} y={0} dy={3.5} textAnchor="start" fontSize={11} fill="var(--text-muted)">{label}</text>
+    </g>
   )
 }
 
@@ -236,17 +302,28 @@ function TopWorkersChart({ data, hoursLabel, noDataLabel }: {
   }
   return (
     <ResponsiveContainer width="100%" height={220}>
-      <BarChart layout="vertical" data={data} margin={{ top: 4, right: 40, left: 0, bottom: 0 }}>
+      <BarChart layout="vertical" data={data} margin={{ top: 4, right: 40, left: 14, bottom: 0 }}>
+        <defs>
+          {data.map((_, idx) => (
+            <linearGradient key={idx} id={`topGrad-${idx}`} x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor={seqColor(idx, data.length)} stopOpacity={0.75} />
+              <stop offset="100%" stopColor={seqColor(idx, data.length)} stopOpacity={1} />
+            </linearGradient>
+          ))}
+        </defs>
         <CartesianGrid stroke="var(--border)" horizontal={false} />
         <XAxis type="number" tick={{ fontSize: 10.5, fill: 'var(--text-muted)' }} tickLine={false} axisLine={{ stroke: 'var(--border)' }} />
         <YAxis
           type="category" dataKey="name" width={126}
-          tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickLine={false} axisLine={false}
-          tickFormatter={(v: string) => v.length > 13 ? v.slice(0, 12) + '…' : v}
+          tick={<RankedNameTick data={data} />} tickLine={false} axisLine={false}
         />
         <Tooltip content={<TopWorkersTooltip hoursLabel={hoursLabel} />} cursor={{ fill: 'var(--bg-hover)' }} />
-        <Bar dataKey="totalHours" name={hoursLabel} radius={[0, 4, 4, 0]} maxBarSize={18}>
-          {data.map((_, idx) => <Cell key={idx} fill={seqColor(idx, data.length)} />)}
+        <Bar
+          dataKey="totalHours" name={hoursLabel} radius={[0, 6, 6, 0]} maxBarSize={16}
+          background={{ fill: 'var(--bg-hover)', radius: [0, 6, 6, 0] } as any}
+          isAnimationActive animationDuration={800} animationEasing="ease-out"
+        >
+          {data.map((_, idx) => <Cell key={idx} fill={`url(#topGrad-${idx})`} />)}
           <LabelList dataKey="totalHours" position="right" formatter={(v: any) => `${v}h`} style={{ fontSize: 11, fontWeight: 700, fill: 'var(--text)' }} />
         </Bar>
       </BarChart>
@@ -463,6 +540,15 @@ function AnalyticsSection({ tenantName }: { tenantName: string }) {
     [chartData],
   )
 
+  // Animated stat-chip values — computed unconditionally (hooks can't be
+  // called from inside the loading/empty-state branches below).
+  const presentAvgRaw = chartData.length > 0 ? chartData.reduce((s, d) => s + d.present, 0) / chartData.length : 0
+  const absentAvgRaw  = chartData.length > 0 ? chartData.reduce((s, d) => s + d.absent, 0) / chartData.length : 0
+  const topHoursRaw   = topWorkers[0]?.totalHours ?? 0
+  const presentAvg = useCountUp(presentAvgRaw)
+  const absentAvg  = useCountUp(absentAvgRaw)
+  const topHours   = useCountUp(topHoursRaw)
+
   const handleApply = useCallback(() => {
     setStartDate(startInput)
     setEndDate(endInput)
@@ -542,7 +628,7 @@ function AnalyticsSection({ tenantName }: { tenantName: string }) {
                 <span className="chart-card__title">{t.analytics.attendanceChart}</span>
               </div>
               <div className="chart-card__body">
-                <AttendanceBarChart data={chartData} presentLabel={t.analytics.present} absentLabel={t.analytics.absent} />
+                <AttendanceBarChart key={`${startDate}_${endDate}`} data={chartData} presentLabel={t.analytics.present} absentLabel={t.analytics.absent} />
               </div>
             </div>
             <div className="chart-card">
@@ -553,16 +639,16 @@ function AnalyticsSection({ tenantName }: { tenantName: string }) {
                 </span>
               </div>
               <div className="chart-card__body">
-                <TopWorkersChart data={topWorkers} hoursLabel={t.analytics.totalHours} noDataLabel={t.analytics.noData} />
+                <TopWorkersChart key={`${startDate}_${endDate}`} data={topWorkers} hoursLabel={t.analytics.totalHours} noDataLabel={t.analytics.noData} />
               </div>
             </div>
           </div>
 
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             {[
-              { label: t.analytics.present, value: Math.round(chartData.reduce((s, d) => s + d.present, 0) / chartData.length), color: 'var(--success)' },
-              { label: t.analytics.absent, value: Math.round(chartData.reduce((s, d) => s + d.absent, 0) / chartData.length), color: 'var(--danger)' },
-              { label: topWorkers[0] ? `#1 ${topWorkers[0].name}` : '', value: topWorkers[0] ? `${topWorkers[0].totalHours}h` : '', color: 'var(--primary)' },
+              { label: t.analytics.present, value: Math.round(presentAvg), color: 'var(--success)' },
+              { label: t.analytics.absent, value: Math.round(absentAvg), color: 'var(--danger)' },
+              { label: topWorkers[0] ? `#1 ${topWorkers[0].name}` : '', value: topWorkers[0] ? `${topHours.toFixed(1)}h` : '', color: 'var(--primary)' },
             ].filter(x => x.label).map(({ label, value, color }) => (
               <div key={label} style={{ background: 'var(--bg-surface-2)', borderRadius: 8, padding: '8px 16px', fontSize: 13 }}>
                 <span style={{ color: 'var(--text-muted)' }}>{label}: </span>

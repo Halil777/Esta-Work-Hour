@@ -86,6 +86,18 @@ export class AnalyticsService {
 
   // ─── Top workers by total hours ───────────────────────────────────────────────
 
+  // Same threshold missing-checkouts.service uses to flag a check-in as
+  // "stuck" (no checkout in 14h). Applied here as a cap on any single
+  // CHECK_IN→CHECK_OUT pair: without it, a genuinely missed checkout lets
+  // the pairing below latch onto the NEXT day's (or week's) checkout event
+  // and silently count the entire gap as worked time — a single missed
+  // scan can otherwise inflate a worker's monthly total by hundreds of
+  // hours (this is exactly what produced e.g. "602.8h over 31 days" on the
+  // dashboard). A session longer than this is a data anomaly, not real
+  // worked time, so it's excluded from the total rather than counted or
+  // silently truncated.
+  private static readonly MAX_SESSION_MS = 14 * 60 * 60 * 1000;
+
   async getTopWorkers(startDate: string, endDate: string, limit: number, tenantId?: string): Promise<TopWorkerItem[]> {
     const startMs = new Date(`${startDate}T00:00:00`).getTime();
     const endMs   = new Date(`${endDate}T23:59:59.999`).getTime();
@@ -111,22 +123,33 @@ export class AnalyticsService {
       grouped.get(ev.employeeNumber)!.push(ev);
     }
 
-    // Pair CHECK_IN → CHECK_OUT, sum hours
+    // Pair CHECK_IN → CHECK_OUT, sum hours. One open check-in at a time
+    // (a proper state machine, not "scan forward for the next CHECK_OUT"):
+    // if a new CHECK_IN arrives while one is already open, the previous one
+    // was never checked out — it's abandoned (contributes 0 hours, its date
+    // still counts as present) and the new one becomes the open session.
+    // This is what keeps a single missed checkout from "stretching" into
+    // the NEXT check-in's checkout — an earlier version searched forward
+    // for the next CHECK_OUT and jumped straight to it, which not only let
+    // the gap get counted as worked time but also silently swallowed the
+    // next day's own check-in/check-out pair entirely (it got skipped over
+    // by the jump). MAX_SESSION_MS is still a backstop against a paired
+    // session that's implausibly long for some other reason.
     const workerStats = new Map<string, { totalMs: number; daysPresent: Set<string> }>();
     for (const [empNo, evts] of grouped) {
       let totalMs = 0;
       const daysPresent = new Set<string>();
-      for (let i = 0; i < evts.length; i++) {
-        if (evts[i].eventType === EventType.CHECK_IN) {
-          const checkInMs = Number(evts[i].eventTime);
-          daysPresent.add(new Date(checkInMs).toLocaleDateString('en-CA', { timeZone: APP_TZ }));
-          for (let j = i + 1; j < evts.length; j++) {
-            if (evts[j].eventType === EventType.CHECK_OUT) {
-              totalMs += Number(evts[j].eventTime) - checkInMs;
-              i = j;
-              break;
-            }
+      let openCheckInMs: number | null = null;
+      for (const ev of evts) {
+        if (ev.eventType === EventType.CHECK_IN) {
+          openCheckInMs = Number(ev.eventTime);
+          daysPresent.add(new Date(openCheckInMs).toLocaleDateString('en-CA', { timeZone: APP_TZ }));
+        } else if (openCheckInMs !== null) {
+          const sessionMs = Number(ev.eventTime) - openCheckInMs;
+          if (sessionMs > 0 && sessionMs <= AnalyticsService.MAX_SESSION_MS) {
+            totalMs += sessionMs;
           }
+          openCheckInMs = null;
         }
       }
       workerStats.set(empNo, { totalMs, daysPresent });
