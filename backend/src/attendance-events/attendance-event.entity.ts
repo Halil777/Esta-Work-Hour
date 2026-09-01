@@ -62,6 +62,15 @@ export class AttendanceEvent {
   @Column({ type: 'double precision', nullable: true, default: null })
   longitude: number | null;
 
+  // Whether this scan fell inside at least one of the effective geofence
+  // zones for its device at sync time. null = no zones were configured for
+  // that device/tenant at the time (unrestricted, not evaluated) or the
+  // scan carries no location; true/false = an actual in/out-of-bounds
+  // result, kept so the admin can review flagged scans later, not just get
+  // a live warning on the scanning device.
+  @Column({ type: 'boolean', nullable: true, default: null })
+  outOfGeofence: boolean | null;
+
   @CreateDateColumn()
   createdAt: Date;
 }

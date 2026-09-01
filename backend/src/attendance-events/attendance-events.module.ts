@@ -8,9 +8,10 @@ import { LateArrivalsService } from './late-arrivals.service';
 import { MissingCheckoutsService } from './missing-checkouts.service';
 import { AttendanceOverridesModule } from '../attendance-overrides/attendance-overrides.module';
 import { WorkAdjustment } from '../work-adjustments/work-adjustment.entity';
+import { GeofenceModule } from '../geofence/geofence.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AttendanceEvent, Worker, WorkAdjustment]), AttendanceOverridesModule],
+  imports: [TypeOrmModule.forFeature([AttendanceEvent, Worker, WorkAdjustment]), AttendanceOverridesModule, GeofenceModule],
   controllers: [AttendanceEventsController, MobileForemanAttendanceController],
   providers: [AttendanceEventsService, LateArrivalsService, MissingCheckoutsService],
   exports: [AttendanceEventsService],

@@ -12,6 +12,8 @@ import { AttendanceOverridesService } from '../attendance-overrides/attendance-o
 import { buildDailyAttendance } from '../common/attendance-pairing.util';
 import { computeCredited, groupAdjustmentsByWorkerDate } from '../common/credited-hours.util';
 import { WorkAdjustment, AdjustmentStatus } from '../work-adjustments/work-adjustment.entity';
+import { GeofenceService } from '../geofence/geofence.service';
+import { haversineMeters } from '../common/geo.util';
 
 @Injectable()
 export class AttendanceEventsService {
@@ -25,6 +27,7 @@ export class AttendanceEventsService {
     private readonly attendanceOverridesService: AttendanceOverridesService,
     @InjectRepository(WorkAdjustment)
     private readonly adjRepo: Repository<WorkAdjustment>,
+    private readonly geofenceService: GeofenceService,
   ) {}
 
   getLateArrivals(foremanWorkerEntityId?: string, staffFilter?: 'staff' | 'workers', tenantId?: string) {
@@ -45,6 +48,12 @@ export class AttendanceEventsService {
     let synced = 0;
     let failed = 0;
 
+    // Resolved once per sync batch — constant for the whole call since it
+    // only depends on tenantId/deviceId, not on individual events. An empty
+    // array means no zones are configured (globally or for this device) and
+    // every scan in this batch is unrestricted.
+    const effectiveZones = await this.geofenceService.getEffectiveZones(tenantId ?? '', deviceId ?? null);
+
     for (const item of dto.events) {
       try {
         const eventType = item.eventType === 'CHECK_IN' ? EventType.CHECK_IN : EventType.CHECK_OUT;
@@ -62,6 +71,17 @@ export class AttendanceEventsService {
           if (w) workerName = w.name;
         }
 
+        // Geofence evaluation: null when no zones apply to this device/tenant
+        // (unrestricted, nothing to evaluate) or when the scan carries no
+        // location — never treated as "out of bounds" in either case, so a
+        // missing GPS fix never blocks or falsely flags a scan.
+        let outOfGeofence: boolean | null = null;
+        if (effectiveZones.length > 0 && item.latitude != null && item.longitude != null) {
+          outOfGeofence = !effectiveZones.some(
+            (zone) => haversineMeters(item.latitude as number, item.longitude as number, zone.latitude, zone.longitude) <= zone.radiusMeters,
+          );
+        }
+
         const event = this.repo.create({
           workerServerId: item.workerServerId ?? undefined,
           employeeNumber,
@@ -74,6 +94,7 @@ export class AttendanceEventsService {
           deviceId: deviceId ?? null,
           latitude: item.latitude ?? null,
           longitude: item.longitude ?? null,
+          outOfGeofence,
         });
         const saved = await this.repo.save(event) as AttendanceEvent;
         results.push({ localId: item.localId, serverId: saved.id, status: 'SYNCED' });
@@ -134,6 +155,19 @@ export class AttendanceEventsService {
               lastEventTime: Number(recentEvents[recentEvents.length - 1].eventTime),
             });
           }
+        }
+
+        // Geofence warning: informational only, same as the duplicate-scan
+        // warnings above — the scan above is already saved in full either
+        // way, this just tells the operator they're outside every allowed
+        // zone for this device/operator right now.
+        if (outOfGeofence && employeeNumber) {
+          warnings.push({
+            employeeNumber,
+            workerName: workerName || employeeNumber,
+            type: 'OUTSIDE_GEOFENCE',
+            lastEventTime: item.eventTime,
+          });
         }
       } catch {
         results.push({ localId: item.localId, serverId: null, status: 'FAILED' });

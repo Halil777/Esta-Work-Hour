@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
 import { Worker } from './workers/worker.entity';
 import { AttendanceEvent } from './attendance-events/attendance-event.entity';
+import { GeofenceZone } from './geofence/geofence-zone.entity';
 import { AuditLog } from './audit-log/audit-log.entity';
 import { Foreman } from './foremans/foreman.entity';
 import { MobileCredential } from './mobile-auth/mobile-credential.entity';
@@ -50,6 +51,7 @@ import { MobileWorkerModule } from './mobile-worker/mobile-worker.module';
 import { AdjustmentReasonsModule } from './adjustment-reasons/adjustment-reasons.module';
 import { WorkAdjustmentsModule } from './work-adjustments/work-adjustments.module';
 import { WorkTimeModule } from './work-time/work-time.module';
+import { GeofenceModule } from './geofence/geofence.module';
 
 @Module({
   imports: [
@@ -70,6 +72,7 @@ import { WorkTimeModule } from './work-time/work-time.module';
           ShiftSetting, AbsenceNote, AttendanceOverride, ReportConfig,
           WorkerLifecycleEvent, WorkerLifecycleReport, Tenant, ScannerDevice, CardReport,
           AdjustmentReason, WorkAdjustment, WorkAdjustmentLog, CardAssignmentHistory,
+          GeofenceZone,
         ],
         synchronize: cfg.get('NODE_ENV', 'development') !== 'production',
       }),
@@ -102,6 +105,7 @@ import { WorkTimeModule } from './work-time/work-time.module';
     AdjustmentReasonsModule,
     WorkAdjustmentsModule,
     WorkTimeModule,
+    GeofenceModule,
   ],
 })
 export class AppModule {}
