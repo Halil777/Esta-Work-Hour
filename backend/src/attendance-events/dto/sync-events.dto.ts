@@ -23,6 +23,14 @@ export class SyncEventItemDto {
 
   @IsString()
   source: string;
+
+  @IsOptional()
+  @IsNumber()
+  latitude?: number;
+
+  @IsOptional()
+  @IsNumber()
+  longitude?: number;
 }
 
 export class SyncEventsDto {

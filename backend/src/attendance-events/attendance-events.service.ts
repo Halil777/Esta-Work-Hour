@@ -72,6 +72,8 @@ export class AttendanceEventsService {
           mobileLocalId: item.localId,
           tenantId: tenantId ?? null,
           deviceId: deviceId ?? null,
+          latitude: item.latitude ?? null,
+          longitude: item.longitude ?? null,
         });
         const saved = await this.repo.save(event) as AttendanceEvent;
         results.push({ localId: item.localId, serverId: saved.id, status: 'SYNCED' });
@@ -102,6 +104,34 @@ export class AttendanceEventsService {
               workerName: workerName || employeeNumber,
               type: 'ALREADY_CHECKED_IN',
               lastEventTime: openCheckIn,
+            });
+          }
+        }
+
+        // Extra-scan detection: a CHECK_OUT with no open check-in — i.e. the
+        // worker was already checked out earlier today with no new CHECK_IN
+        // in between (typically overtime/mesai: scanned out at shift-end,
+        // stayed on, now scanned out again for real). Informational only —
+        // buildDailyAttendance() already folds this extra time into the
+        // day's total; this just lets the operator know at scan time.
+        if (eventType === EventType.CHECK_OUT && employeeNumber) {
+          const todayStart = new Date(item.eventTime);
+          todayStart.setHours(0, 0, 0, 0);
+          const recentEvents: { eventType: string; eventTime: string }[] = await this.repo.query(
+            `SELECT "eventType", "eventTime" FROM attendance_events
+             WHERE "employeeNumber" = $1
+               AND "id" != $2
+               AND "eventTime" >= $3
+               AND "eventTime" <= $4
+             ORDER BY "eventTime" ASC`,
+            [employeeNumber, saved.id, todayStart.getTime(), item.eventTime],
+          );
+          if (recentEvents.length > 0 && recentEvents[recentEvents.length - 1].eventType === 'CHECK_OUT') {
+            warnings.push({
+              employeeNumber,
+              workerName: workerName || employeeNumber,
+              type: 'ALREADY_CHECKED_OUT',
+              lastEventTime: Number(recentEvents[recentEvents.length - 1].eventTime),
             });
           }
         }
@@ -532,6 +562,75 @@ export class AttendanceEventsService {
       scanCount: Number(r.scan_count),
       firstScan: Number(r.first_scan),
       lastScan: Number(r.last_scan),
+    }));
+  }
+
+  /**
+   * Raw per-scan GPS points (only scans that have a location captured), for
+   * the tenant-admin operator scan-locations map. Each row is one scan, not
+   * pre-aggregated — the frontend clusters nearby points and, on a pin
+   * click, lists exactly which workers were scanned there.
+   */
+  async getScanLocations(
+    tenantId: string,
+    startDate?: string,
+    endDate?: string,
+  ): Promise<{
+    deviceId: string;
+    employeeNumber: string;
+    workerName: string;
+    eventType: string;
+    eventTime: number;
+    latitude: number;
+    longitude: number;
+  }[]> {
+    const params: string[] = [tenantId];
+    let dateFilter = '';
+    if (startDate) {
+      params.push(startDate);
+      dateFilter += ` AND DATE(to_timestamp(ae."eventTime" / 1000.0) AT TIME ZONE '${APP_TZ}') >= $${params.length}`;
+    }
+    if (endDate) {
+      params.push(endDate);
+      dateFilter += ` AND DATE(to_timestamp(ae."eventTime" / 1000.0) AT TIME ZONE '${APP_TZ}') <= $${params.length}`;
+    }
+
+    const rows: {
+      deviceId: string;
+      employeeNumber: string;
+      eventType: string;
+      eventTime: string;
+      latitude: string;
+      longitude: string;
+    }[] = await this.repo.query(
+      `SELECT ae."deviceId" as "deviceId", ae."employeeNumber" as "employeeNumber",
+              ae."eventType" as "eventType", ae."eventTime" as "eventTime",
+              ae."latitude" as "latitude", ae."longitude" as "longitude"
+       FROM attendance_events ae
+       WHERE ae."tenantId" = $1
+         AND ae."deviceId" IS NOT NULL
+         AND ae."latitude" IS NOT NULL
+         AND ae."longitude" IS NOT NULL
+         ${dateFilter}
+       ORDER BY ae."eventTime" DESC
+       LIMIT 5000`,
+      params,
+    );
+
+    const employeeNumbers = [...new Set(rows.map(r => r.employeeNumber).filter(Boolean))];
+    const workers = employeeNumbers.length > 0
+      ? await this.workerRepo.find({ where: employeeNumbers.map(workerId => ({ workerId, tenantId })) })
+      : [];
+    const workerMap = new Map(workers.map(w => [w.workerId, w.name]));
+
+    return rows.map(r => ({
+      deviceId: r.deviceId,
+      employeeNumber: r.employeeNumber,
+      workerName: workerMap.get(r.employeeNumber) || r.employeeNumber || 'Unknown',
+      eventType: r.eventType,
+      eventTime: Number(r.eventTime),
+      latitude: Number(r.latitude),
+      longitude: Number(r.longitude),
     }));
   }
 

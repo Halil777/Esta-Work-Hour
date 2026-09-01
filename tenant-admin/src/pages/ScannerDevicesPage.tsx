@@ -1,12 +1,13 @@
-import { useState, useMemo, type ReactNode } from 'react'
+import { useState, useMemo, useEffect, useRef, type ReactNode } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Smartphone, Plus, Trash2, RefreshCw, Eye, Copy, Pencil, Wifi, WifiOff, X, Users, ScanLine,
-  History, ChevronDown, ChevronUp, Calendar,
+  History, ChevronDown, ChevronUp, Calendar, MapPin,
 } from 'lucide-react'
-import { scannerDevicesApi, type ScannerDevice, type OperatorScanLogRow } from '../api/scannerDevices'
+import { scannerDevicesApi, type ScannerDevice, type OperatorScanLogRow, type ScanLocationRow } from '../api/scannerDevices'
 import { apiFetch } from '../api/http'
 import type { WorkerApi } from '../api/workers'
+import { mapSettingsApi } from '../api/mapSettings'
 
 function formatLastSeen(ts: string | null) {
   if (!ts) return 'Hiç görülmedi'
@@ -422,11 +423,222 @@ function OperatorLogTab({ workers }: { workers: WorkerApi[] }) {
   )
 }
 
+function loadYandexMaps(apiKey: string): Promise<any> {
+  const w = window as any
+  return new Promise((resolve, reject) => {
+    if (w.ymaps && w.__ymapsReady) { resolve(w.ymaps); return }
+    const existing = document.getElementById('yandex-maps-script') as HTMLScriptElement | null
+    if (existing) {
+      existing.addEventListener('load', () => w.ymaps.ready(() => { w.__ymapsReady = true; resolve(w.ymaps) }))
+      existing.addEventListener('error', () => reject(new Error('Ýandex Karta ýüklenip bilmedi')))
+      return
+    }
+    const script = document.createElement('script')
+    script.id = 'yandex-maps-script'
+    script.src = `https://api-maps.yandex.ru/2.1/?apikey=${encodeURIComponent(apiKey)}&lang=ru_RU`
+    script.onload = () => w.ymaps.ready(() => { w.__ymapsReady = true; resolve(w.ymaps) })
+    script.onerror = () => reject(new Error('Ýandex Karta ýüklenip bilmedi'))
+    document.head.appendChild(script)
+  })
+}
+
+// Groups raw per-scan points into "spots" — points within ~15m of each
+// other (rounded to 4 decimal places, ≈11m at this latitude) are treated as
+// the same physical location so the fallback list (no API key) and the
+// map's balloons both read as "who was scanned here", not one row per scan.
+function groupIntoSpots(points: ScanLocationRow[]) {
+  const spots = new Map<string, { lat: number; lng: number; points: ScanLocationRow[] }>()
+  for (const p of points) {
+    const key = `${p.latitude.toFixed(4)},${p.longitude.toFixed(4)}`
+    const spot = spots.get(key) ?? { lat: p.latitude, lng: p.longitude, points: [] }
+    spot.points.push(p)
+    spots.set(key, spot)
+  }
+  return [...spots.values()]
+}
+
+function LocationsTab() {
+  const [startDate, setStartDate] = useState(daysAgoStr(6))
+  const [endDate, setEndDate] = useState(todayStr())
+  const [selectedSpot, setSelectedSpot] = useState<{ lat: number; lng: number; points: ScanLocationRow[] } | null>(null)
+  const mapDivRef = useRef<HTMLDivElement>(null)
+  const mapInstanceRef = useRef<any>(null)
+
+  const { data: mapSettings } = useQuery({
+    queryKey: ['map-settings'],
+    queryFn: mapSettingsApi.get,
+  })
+
+  const { data: points = [], isLoading } = useQuery({
+    queryKey: ['scanner-devices-scan-locations', startDate, endDate],
+    queryFn: () => scannerDevicesApi.getScanLocations(startDate, endDate),
+  })
+
+  const spots = useMemo(() => groupIntoSpots(points), [points])
+  const apiKey = mapSettings?.yandexMapsApiKey
+
+  useEffect(() => {
+    if (!apiKey || !mapDivRef.current || spots.length === 0) return
+    let cancelled = false
+    loadYandexMaps(apiKey).then((ymaps) => {
+      if (cancelled || !mapDivRef.current) return
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.destroy()
+        mapInstanceRef.current = null
+      }
+      const center = [spots[0].lat, spots[0].lng]
+      const map = new ymaps.Map(mapDivRef.current, { center, zoom: 12, controls: ['zoomControl', 'fullscreenControl'] })
+      mapInstanceRef.current = map
+      const clusterer = new ymaps.Clusterer({ preset: 'islands#blueClusterIcons' })
+      const placemarks = spots.map(spot => {
+        const pm = new ymaps.Placemark(
+          [spot.lat, spot.lng],
+          { hintContent: `${spot.points.length} scan` },
+          { preset: 'islands#blueCircleDotIcon' },
+        )
+        pm.events.add('click', () => setSelectedSpot(spot))
+        return pm
+      })
+      clusterer.add(placemarks)
+      map.geoObjects.add(clusterer)
+      if (placemarks.length > 1) map.setBounds(clusterer.getBounds(), { checkZoomRange: true, zoomMargin: 40 })
+    }).catch(() => { /* script failed to load — fallback list below still works */ })
+    return () => { cancelled = true }
+  }, [apiKey, spots])
+
+  useEffect(() => () => { mapInstanceRef.current?.destroy?.() }, [])
+
+  return (
+    <div>
+      {/* Filters */}
+      <div style={{
+        display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 20,
+        background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 16,
+      }}>
+        <div>
+          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontWeight: 600 }}>Başlangyç sene</label>
+          <input type="date" value={startDate} max={endDate} onChange={e => setStartDate(e.target.value)}
+            style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontSize: 13 }} />
+        </div>
+        <div>
+          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontWeight: 600 }}>Soňky sene</label>
+          <input type="date" value={endDate} min={startDate} max={todayStr()} onChange={e => setEndDate(e.target.value)}
+            style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontSize: 13 }} />
+        </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {[
+            { label: 'Şu gün', s: todayStr(), e: todayStr() },
+            { label: 'Soňky 7 gün', s: daysAgoStr(6), e: todayStr() },
+            { label: 'Soňky 30 gün', s: daysAgoStr(29), e: todayStr() },
+          ].map(p => (
+            <button key={p.label} onClick={() => { setStartDate(p.s); setEndDate(p.e) }}
+              className="btn btn-ghost" style={{ fontSize: 12 }}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {!apiKey && (
+        <div className="card" style={{ marginBottom: 16, borderColor: 'var(--warning, #F59E0B)' }}>
+          <div className="card-body" style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
+            <MapPin size={16} color="var(--warning, #F59E0B)" />
+            Karta görkezmek üçin Sazlamalar sahypasyndan Ýandex Karta API açaryny goşuň. Aşakda sanaw görnüşinde görkezilýär.
+          </div>
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="card"><div className="card-body">Ýüklenýär...</div></div>
+      ) : spots.length === 0 ? (
+        <div className="card">
+          <div className="card-body" style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+            <MapPin size={32} style={{ opacity: 0.3, marginBottom: 12 }} />
+            <p style={{ margin: 0 }}>Bu aralykda lokasiýaly scan tapylmady.</p>
+          </div>
+        </div>
+      ) : (
+        <>
+          {apiKey && (
+            <div ref={mapDivRef} style={{ width: '100%', height: 420, borderRadius: 12, overflow: 'hidden', marginBottom: 16, border: '1px solid var(--border)' }} />
+          )}
+
+          {selectedSpot && (
+            <div className="card" style={{ marginBottom: 16 }}>
+              <div className="card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <MapPin size={14} color="var(--accent)" /> {selectedSpot.lat.toFixed(5)}, {selectedSpot.lng.toFixed(5)}
+                </span>
+                <button className="btn btn-ghost btn--sm" onClick={() => setSelectedSpot(null)}><X size={14} /></button>
+              </div>
+              <div className="card-body" style={{ padding: 0 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ padding: '7px 16px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600, fontSize: 11 }}>Işçi</th>
+                      <th style={{ padding: '7px 8px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600, fontSize: 11 }}>Operator</th>
+                      <th style={{ padding: '7px 8px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600, fontSize: 11 }}>Görnüşi</th>
+                      <th style={{ padding: '7px 16px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600, fontSize: 11 }}>Wagt</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedSpot.points
+                      .slice()
+                      .sort((a, b) => b.eventTime - a.eventTime)
+                      .map((p, i) => (
+                        <tr key={i} style={{ borderTop: '1px solid var(--border)' }}>
+                          <td style={{ padding: '7px 16px', fontWeight: 600 }}>{p.workerName}</td>
+                          <td style={{ padding: '7px 8px', color: 'var(--text-secondary)' }}>{p.operatorName ?? p.deviceLabel}</td>
+                          <td style={{ padding: '7px 8px', textAlign: 'center' }}>
+                            <span style={{ color: p.eventType === 'CHECK_IN' ? 'var(--success)' : 'var(--warning, #F59E0B)', fontWeight: 600 }}>
+                              {p.eventType === 'CHECK_IN' ? 'Giriş' : 'Çykyş'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '7px 16px', textAlign: 'center', color: 'var(--text-secondary)' }}>{fmtLogTime(p.eventTime)}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Fallback / always-available list of spots — works with or without a map key */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {spots
+              .slice()
+              .sort((a, b) => b.points.length - a.points.length)
+              .map((spot, i) => (
+                <div
+                  key={i}
+                  onClick={() => setSelectedSpot(spot)}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer',
+                    background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 16px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <MapPin size={14} color="var(--primary)" />
+                    <span style={{ fontWeight: 600, fontSize: 13 }}>{spot.lat.toFixed(5)}, {spot.lng.toFixed(5)}</span>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                      {new Set(spot.points.map(p => p.employeeNumber)).size} işçi · {spot.points.length} scan
+                    </span>
+                  </div>
+                  <ChevronDown size={15} />
+                </div>
+              ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function ScannerDevicesPage() {
   const qc = useQueryClient()
-  const [activeTab, setActiveTab] = useState<'devices' | 'log'>('devices')
+  const [activeTab, setActiveTab] = useState<'devices' | 'log' | 'locations'>('devices')
   const [showCreate, setShowCreate] = useState(false)
   const [editDevice, setEditDevice] = useState<ScannerDevice | null>(null)
   const [tokenModal, setTokenModal] = useState<ScannerDevice | null>(null)
@@ -509,6 +721,7 @@ export function ScannerDevicesPage() {
         {([
           { key: 'devices' as const, icon: Smartphone, label: 'Enjamlar' },
           { key: 'log' as const, icon: History, label: 'Operator Žurnaly' },
+          { key: 'locations' as const, icon: MapPin, label: 'Lokasiýalar' },
         ]).map(tab => (
           <button
             key={tab.key}
@@ -529,6 +742,8 @@ export function ScannerDevicesPage() {
       </div>
 
       {activeTab === 'log' && <OperatorLogTab workers={workers as WorkerApi[]} />}
+
+      {activeTab === 'locations' && <LocationsTab />}
 
       {activeTab === 'devices' && (
       <>

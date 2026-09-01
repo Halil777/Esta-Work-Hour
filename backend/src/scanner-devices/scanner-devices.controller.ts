@@ -30,6 +30,16 @@ export class ScannerDevicesController {
     return this.service.getOperatorScanLog(req.adminUser.tenantId, startDate, endDate);
   }
 
+  /** Per-scan GPS points for the operator scan-locations map */
+  @Get('scan-locations')
+  getScanLocations(
+    @Req() req: any,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.service.getScanLocations(req.adminUser.tenantId, startDate, endDate);
+  }
+
   /** Returns the full token (for copying after creation or on demand) */
   @Get(':id/token')
   getToken(@Req() req: any, @Param('id') id: string) {

@@ -84,6 +84,33 @@ export class ScannerDevicesService {
     });
   }
 
+  /**
+   * Per-scan GPS points with device label + operator name joined in, for
+   * the tenant-admin operator scan-locations map.
+   */
+  async getScanLocations(tenantId: string, startDate?: string, endDate?: string) {
+    const [points, devices] = await Promise.all([
+      this.attendanceEventsService.getScanLocations(tenantId, startDate, endDate),
+      this.repo.find({ where: { tenantId } }),
+    ]);
+
+    const deviceMap = new Map(devices.map(d => [d.id, d]));
+    const operatorIds = [...new Set(devices.map(d => d.workerEntityId).filter((id): id is string => !!id))];
+    const operators = operatorIds.length > 0
+      ? await this.workerRepo.find({ where: { id: In(operatorIds) }, select: ['id', 'name'] })
+      : [];
+    const operatorNameById = new Map(operators.map(o => [o.id, o.name]));
+
+    return points.map(p => {
+      const device = deviceMap.get(p.deviceId);
+      return {
+        ...p,
+        deviceLabel: device?.label ?? 'Näbelli enjam',
+        operatorName: device?.workerEntityId ? (operatorNameById.get(device.workerEntityId) ?? null) : null,
+      };
+    });
+  }
+
   async getToken(tenantId: string, id: string) {
     const device = await this.repo.findOneBy({ id, tenantId });
     if (!device) throw new NotFoundException('Enjam tapylmady');

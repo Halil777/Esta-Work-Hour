@@ -52,6 +52,16 @@ export class AttendanceEvent {
   @Column({ type: 'uuid', nullable: true, default: null })
   deviceId: string | null;
 
+  // GPS location captured by the scanner app at the moment of the scan —
+  // null for scans made before location capture was added, or when the
+  // operator declined/lost location permission. Used to plot operator scan
+  // locations on the tenant-admin map.
+  @Column({ type: 'double precision', nullable: true, default: null })
+  latitude: number | null;
+
+  @Column({ type: 'double precision', nullable: true, default: null })
+  longitude: number | null;
+
   @CreateDateColumn()
   createdAt: Date;
 }
