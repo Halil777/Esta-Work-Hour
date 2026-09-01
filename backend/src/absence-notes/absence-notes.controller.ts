@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Param, Query, Body, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Param, Query, Body, Req, UseGuards, NotFoundException } from '@nestjs/common';
 import { AbsenceNotesService } from './absence-notes.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -17,8 +17,8 @@ export class AbsenceNotesController {
   ) {}
 
   @Get()
-  getForDate(@Query('date') date: string) {
-    return this.service.getForDate(date);
+  getForDate(@Req() req: any, @Query('date') date: string) {
+    return this.service.getForDate(date, req.adminUser.tenantId);
   }
 
   @Get('worker/:workerEntityId')
@@ -28,6 +28,7 @@ export class AbsenceNotesController {
 
   @Post()
   async upsert(
+    @Req() req: any,
     @Body('workerEntityId') workerEntityId: string,
     @Body('date') date: string,
     @Body('note') note: string,
@@ -42,6 +43,7 @@ export class AbsenceNotesController {
       note,
       'admin',
       createdByName ?? 'Admin',
+      req.adminUser.tenantId,
     );
   }
 
@@ -70,6 +72,9 @@ export class MobileForemanAbsenceNotesController {
   ) {
     const foreman = await this.workerRepo.findOneBy({ id: req.user.workerEntityId });
     const worker = await this.workerRepo.findOneBy({ id: workerEntityId });
+    if (!worker || worker.tenantId !== req.user.tenantId) {
+      throw new NotFoundException('Işçi tapylmady');
+    }
     return this.service.upsert(
       workerEntityId,
       worker?.name ?? '',
@@ -78,11 +83,12 @@ export class MobileForemanAbsenceNotesController {
       note,
       'foreman',
       foreman?.name ?? '',
+      req.user.tenantId,
     );
   }
 
   @Get()
-  getForDate(@Query('date') date: string) {
-    return this.service.getForDate(date);
+  getForDate(@Req() req: any, @Query('date') date: string) {
+    return this.service.getForDate(date, req.user.tenantId);
   }
 }

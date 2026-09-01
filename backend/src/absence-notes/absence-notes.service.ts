@@ -18,6 +18,7 @@ export class AbsenceNotesService {
     note: string,
     createdBy: string,
     createdByName: string,
+    tenantId: string | null = null,
   ): Promise<AbsenceNote> {
     let existing = await this.repo.findOneBy({ workerEntityId, date });
     if (existing) {
@@ -27,12 +28,12 @@ export class AbsenceNotesService {
       return this.repo.save(existing);
     }
     return this.repo.save(
-      this.repo.create({ workerEntityId, workerName, workerId, date, note, createdBy, createdByName }),
+      this.repo.create({ workerEntityId, workerName, workerId, date, note, createdBy, createdByName, tenantId }),
     );
   }
 
-  async getForDate(date: string): Promise<AbsenceNote[]> {
-    return this.repo.findBy({ date });
+  async getForDate(date: string, tenantId?: string): Promise<AbsenceNote[]> {
+    return this.repo.findBy(tenantId ? { date, tenantId } : { date });
   }
 
   async getForWorker(workerEntityId: string): Promise<AbsenceNote[]> {

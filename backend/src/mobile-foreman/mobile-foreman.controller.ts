@@ -39,8 +39,9 @@ export class MobileForemanController {
          FROM attendance_events
          WHERE "employeeNumber" = ANY($1)
            AND DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE '${APP_TZ}') = $2
+           AND "tenantId" = $3
          ORDER BY "employeeNumber", "eventTime" ASC`,
-        [workerIds, workDate],
+        [workerIds, workDate, req.user.tenantId],
       );
 
     const statsMap = new Map<string, { firstIn: number | null; lastOut: number | null; totalMs: number }>();
@@ -83,9 +84,9 @@ export class MobileForemanController {
 
   // ─── Unassigned workers (mobileRole=worker only) ─────────────────────────────
   @Get('unassigned-workers')
-  async unassignedWorkers() {
+  async unassignedWorkers(@Req() req: any) {
     return this.workerRepo.find({
-      where: { foremanId: IsNull(), mobileRole: MobileRole.Worker },
+      where: { foremanId: IsNull(), mobileRole: MobileRole.Worker, tenantId: req.user.tenantId },
       order: { name: 'ASC' },
       select: ['id', 'workerId', 'name', 'profession', 'brigadeName', 'status', 'mesaiSistemi'],
     });
@@ -103,7 +104,7 @@ export class MobileForemanController {
     }
     const foremanEntityId = req.user.workerEntityId;
     const workers = await this.workerRepo.find({
-      where: { id: In(workerIds), foremanId: IsNull(), mobileRole: MobileRole.Worker },
+      where: { id: In(workerIds), foremanId: IsNull(), mobileRole: MobileRole.Worker, tenantId: req.user.tenantId },
     });
     for (const w of workers) {
       w.foremanId = foremanEntityId;
@@ -117,6 +118,7 @@ export class MobileForemanController {
   async claimWorker(@Param('workerId') workerId: string, @Req() req: any) {
     const worker = await this.workerRepo.findOneBy({ id: workerId });
     if (!worker) throw new NotFoundException('Işçi tapylmady');
+    if (worker.tenantId !== req.user.tenantId) throw new NotFoundException('Işçi tapylmady');
     if (worker.foremanId !== null) throw new ForbiddenException('Bu işçi başga formene birikdirilen');
     if (worker.mobileRole !== MobileRole.Worker) throw new ForbiddenException('Diňe işçileri öz üstüňe alyp bolýar');
     worker.foremanId = req.user.workerEntityId;
@@ -146,9 +148,9 @@ export class MobileForemanController {
 
   // ─── Site chiefs list ─────────────────────────────────────────────────────────
   @Get('site-chiefs')
-  async siteChiefs() {
+  async siteChiefs(@Req() req: any) {
     return this.workerRepo.find({
-      where: { mobileRole: MobileRole.SiteChief },
+      where: { mobileRole: MobileRole.SiteChief, tenantId: req.user.tenantId },
       order: { name: 'ASC' },
       select: ['id', 'workerId', 'name', 'profession'],
     });

@@ -32,6 +32,10 @@ export class MobileAuthService {
       workerId: worker.workerId,
       name: worker.name,
       role: cred.role,
+      // Every mobile/foreman/site-chief endpoint trusts this claim to scope
+      // its queries — without it those endpoints fell back to matching
+      // across every tenant (see mobile-foreman.controller.ts).
+      tenantId: worker.tenantId,
     };
 
     return {
