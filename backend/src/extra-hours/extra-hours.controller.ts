@@ -4,7 +4,7 @@ import {
 import { ExtraHoursService } from './extra-hours.service';
 import { JwtGuard } from '../mobile-auth/jwt.guard';
 import { AdminJwtGuard } from '../admin-auth/admin-auth.guard';
-import { IsString, IsArray, IsNumber, IsOptional, Min } from 'class-validator';
+import { IsString, IsArray, IsNumber, IsOptional, Min, ArrayMinSize } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class RequestItemDto {
@@ -22,8 +22,12 @@ class RequestItemDto {
 }
 
 class CreateRequestDto {
-  @IsString()
-  siteChiefWorkerEntityId: string;
+  // One request can go to several site chiefs, or all of them -- every
+  // recipient gets their own independently-tracked status row.
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsString({ each: true })
+  siteChiefWorkerEntityIds: string[];
 
   @IsString()
   workDate: string;
@@ -46,7 +50,7 @@ export class FormanExtraRequestsController {
   create(@Req() req: any, @Body() dto: CreateRequestDto) {
     return this.service.createRequest(
       req.user.workerEntityId,
-      dto.siteChiefWorkerEntityId,
+      dto.siteChiefWorkerEntityIds,
       dto.workDate,
       dto.note ?? null,
       dto.items.map(i => ({ ...i, description: i.description })),

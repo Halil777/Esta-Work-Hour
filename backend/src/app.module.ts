@@ -10,6 +10,7 @@ import { Foreman } from './foremans/foreman.entity';
 import { MobileCredential } from './mobile-auth/mobile-credential.entity';
 import { ExtraHoursRequest } from './extra-hours/extra-hours-request.entity';
 import { ExtraHoursRequestItem } from './extra-hours/extra-hours-request-item.entity';
+import { ExtraHoursRequestRecipient } from './extra-hours/extra-hours-request-recipient.entity';
 import { ShiftSetting } from './shift-settings/shift-setting.entity';
 import { AbsenceNote } from './absence-notes/absence-note.entity';
 import { AttendanceOverride } from './attendance-overrides/attendance-override.entity';
@@ -68,7 +69,7 @@ import { GeofenceModule } from './geofence/geofence.module';
         database: cfg.get('DB_NAME', 'workhour'),
         entities: [
           Worker, AttendanceEvent, AuditLog, Foreman,
-          MobileCredential, ExtraHoursRequest, ExtraHoursRequestItem,
+          MobileCredential, ExtraHoursRequest, ExtraHoursRequestItem, ExtraHoursRequestRecipient,
           ShiftSetting, AbsenceNote, AttendanceOverride, ReportConfig,
           WorkerLifecycleEvent, WorkerLifecycleReport, Tenant, ScannerDevice, CardReport,
           AdjustmentReason, WorkAdjustment, WorkAdjustmentLog, CardAssignmentHistory,

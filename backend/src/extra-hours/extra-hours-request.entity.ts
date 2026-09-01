@@ -3,7 +3,12 @@ import {
   CreateDateColumn, OneToMany,
 } from 'typeorm';
 import { ExtraHoursRequestItem } from './extra-hours-request-item.entity';
+import { ExtraHoursRequestRecipient } from './extra-hours-request-recipient.entity';
 
+// 'seen' is kept for backward compatibility with any already-stored rows —
+// the overall status no longer transitions through it going forward (each
+// recipient's own seen/action is tracked on ExtraHoursRequestRecipient
+// instead); only 'pending' | 'approved' | 'rejected' are set now.
 export enum ExtraRequestStatus {
   Pending = 'pending',
   Seen = 'seen',
@@ -22,18 +27,14 @@ export class ExtraHoursRequest {
   @Column({ type: 'varchar' })
   foremanName: string;
 
-  @Column({ type: 'varchar' })
-  siteChiefWorkerEntityId: string; // Worker.id of site chief
-
-  @Column({ type: 'varchar' })
-  siteChiefName: string;
-
   @Column({ type: 'date' })
   workDate: string;
 
   @Column({ type: 'text', nullable: true })
   note: string | null;
 
+  // Overall/aggregate status across every recipient — see
+  // ExtraHoursService.takeAction for the roll-up rule.
   @Column({
     type: 'enum',
     enum: ExtraRequestStatus,
@@ -44,9 +45,12 @@ export class ExtraHoursRequest {
   @CreateDateColumn()
   sentAt: Date;
 
+  // Earliest seenAt across all recipients.
   @Column({ type: 'timestamp', nullable: true })
   seenAt: Date | null;
 
+  // When the aggregate status was finalized (first approval, or the last
+  // rejection that made every recipient's action 'rejected').
   @Column({ type: 'timestamp', nullable: true })
   actionAt: Date | null;
 
@@ -58,4 +62,9 @@ export class ExtraHoursRequest {
     eager: true,
   })
   items: ExtraHoursRequestItem[];
+
+  @OneToMany(() => ExtraHoursRequestRecipient, r => r.request, {
+    cascade: true,
+  })
+  recipients: ExtraHoursRequestRecipient[];
 }

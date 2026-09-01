@@ -1,6 +1,6 @@
 import {
   Controller, Get, Post, Delete, Patch,
-  Param, Body, Req, UseGuards,
+  Param, Query, Body, Req, UseGuards,
   ForbiddenException, NotFoundException, BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -154,5 +154,37 @@ export class MobileForemanController {
       order: { name: 'ASC' },
       select: ['id', 'workerId', 'name', 'profession'],
     });
+  }
+
+  // ─── Resolve worker by NFC card (for extra-hours requests) ──────────────────
+  // Same card registry the attendance scanners resolve against
+  // (Worker.nfcCardUid) — but this NEVER touches attendance_events, it only
+  // looks up/attaches the worker so a foreman can add them to an extra-hours
+  // request. If the worker isn't yet assigned to any foreman ("berkidilmedik"),
+  // scanning here auto-attaches them to the calling foreman ("berkidip
+  // biler"); if already assigned to someone else, it's refused.
+  @Get('workers/by-card')
+  async getWorkerByCard(@Query('cardUid') cardUid: string, @Req() req: any) {
+    if (!cardUid) throw new BadRequestException('cardUid gerek');
+    const worker = await this.workerRepo.findOne({
+      where: { nfcCardUid: cardUid, tenantId: req.user.tenantId, mobileRole: MobileRole.Worker },
+    });
+    if (!worker) throw new NotFoundException('Bu karta degişli işçi tapylmady');
+
+    if (worker.foremanId === null) {
+      worker.foremanId = req.user.workerEntityId;
+      await this.workerRepo.save(worker);
+    } else if (worker.foremanId !== req.user.workerEntityId) {
+      throw new ForbiddenException('Bu işçi başga formene birikdirilen');
+    }
+
+    return {
+      id: worker.id,
+      workerId: worker.workerId,
+      name: worker.name,
+      profession: worker.profession,
+      brigadeName: worker.brigadeName,
+      foremanId: worker.foremanId,
+    };
   }
 }
