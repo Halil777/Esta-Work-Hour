@@ -3,7 +3,7 @@ import { GeofenceService } from './geofence.service';
 import { AdminJwtGuard } from '../admin-auth/admin-auth.guard';
 
 @UseGuards(AdminJwtGuard)
-@Controller('geofence-zones')
+@Controller('admin/geofence-zones')
 export class GeofenceController {
   constructor(private readonly service: GeofenceService) {}
 

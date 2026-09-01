@@ -617,6 +617,7 @@ export class AttendanceEventsService {
     eventTime: number;
     latitude: number;
     longitude: number;
+    outOfGeofence: boolean | null;
   }[]> {
     const params: string[] = [tenantId];
     let dateFilter = '';
@@ -636,10 +637,12 @@ export class AttendanceEventsService {
       eventTime: string;
       latitude: string;
       longitude: string;
+      outOfGeofence: boolean | null;
     }[] = await this.repo.query(
       `SELECT ae."deviceId" as "deviceId", ae."employeeNumber" as "employeeNumber",
               ae."eventType" as "eventType", ae."eventTime" as "eventTime",
-              ae."latitude" as "latitude", ae."longitude" as "longitude"
+              ae."latitude" as "latitude", ae."longitude" as "longitude",
+              ae."outOfGeofence" as "outOfGeofence"
        FROM attendance_events ae
        WHERE ae."tenantId" = $1
          AND ae."deviceId" IS NOT NULL
@@ -665,6 +668,7 @@ export class AttendanceEventsService {
       eventTime: Number(r.eventTime),
       latitude: Number(r.latitude),
       longitude: Number(r.longitude),
+      outOfGeofence: r.outOfGeofence,
     }));
   }
 

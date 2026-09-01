@@ -50,6 +50,9 @@ export type ScanLocationRow = {
   eventTime: number;
   latitude: number;
   longitude: number;
+  // null = no geofence zones applied to this device/tenant at scan time
+  // (unrestricted); true = fell outside every configured zone.
+  outOfGeofence: boolean | null;
 };
 
 export type CreateScannerDevicePayload = {
