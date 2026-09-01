@@ -6,6 +6,9 @@ export type DaySummary = {
   checkIn: number | null;
   checkOut: number | null;
   sessions: { checkIn: number; checkOut: number | null }[];
+  /** Informational only: a later overtime/mesai check-out scan (no new
+   *  check-in in between) was folded into this day's total. */
+  extraScan?: boolean;
 };
 
 export type WorkerSummaryResponse = {

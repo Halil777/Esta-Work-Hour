@@ -549,10 +549,18 @@ export function WorkerDetailPage() {
                               {displayOut
                                 ? <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: "#F59E0B", fontSize: 12 }}>
                                     <LogOut size={10} />{fmtTime(displayOut)}
+                                    {day.extraScan && (
+                                      <span title={t.workerDetail.extraScanNote} style={{ display: "inline-flex", color: "var(--primary)" }}>
+                                        <AlertCircle size={11} />
+                                      </span>
+                                    )}
                                   </span>
                                 : <span className="td-muted">—</span>}
                               {isOverridden && day.checkOut && ov.checkOutMs != null && Number(ov.checkOutMs) !== day.checkOut && (
                                 <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{t.workerDetail.actualLabel}: {fmtTime(day.checkOut)}</div>
+                              )}
+                              {day.extraScan && (
+                                <div style={{ fontSize: 10, color: "var(--primary)" }}>{t.workerDetail.extraScanNote}</div>
                               )}
                             </td>
                             <td>

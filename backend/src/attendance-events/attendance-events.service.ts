@@ -262,6 +262,7 @@ export class AttendanceEventsService {
       checkIn: number | null;
       checkOut: number | null;
       sessions: { checkIn: number; checkOut: number | null }[];
+      extraScan: boolean;
     }[] = [];
 
     for (const [date, day] of dailyMap) {
@@ -269,6 +270,7 @@ export class AttendanceEventsService {
       days.push({
         date, totalMs: day.ms, checkIn: day.checkIn, checkOut: day.checkOut,
         sessions: day.checkIn !== null ? [{ checkIn: day.checkIn, checkOut: day.checkOut }] : [],
+        extraScan: day.extraScan ?? false,
       });
     }
 
@@ -293,6 +295,7 @@ export class AttendanceEventsService {
         checkIn: ov.checkInMs ?? null,
         checkOut: ov.checkOutMs ?? null,
         sessions: day.sessions,
+        extraScan: day.extraScan,
         overrideApplied: true,
         overrideNote: ov.note,
       };
@@ -309,6 +312,7 @@ export class AttendanceEventsService {
           checkIn: ov.checkInMs ?? null,
           checkOut: ov.checkOutMs ?? null,
           sessions: [],
+          extraScan: false,
           overrideApplied: true,
           overrideNote: ov.note,
         });
