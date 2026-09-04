@@ -22,14 +22,17 @@ const fmtTimeShort = (ts: number) =>
     hour: "2-digit", minute: "2-digit",
   });
 
-const fmtDuration = (ms: number) => {
+// Hour/minute unit suffixes are passed in by the caller (sourced from the
+// active tr/en/ru translation set) so this stays language-neutral — never a
+// hardcoded Turkish/Turkmen string regardless of the selected UI language.
+const fmtDuration = (ms: number, units: { h: string; min: string } = { h: "h", min: "min" }) => {
   if (!ms || ms <= 0) return "—";
   const totalMin = Math.round(ms / 60000);
   const h = Math.floor(totalMin / 60);
   const m = totalMin % 60;
-  if (h === 0) return `${m} min`;
-  if (m === 0) return `${h} sag`;
-  return `${h} sag ${m} min`;
+  if (h === 0) return `${m} ${units.min}`;
+  if (m === 0) return `${h} ${units.h}`;
+  return `${h} ${units.h} ${m} ${units.min}`;
 };
 
 const today = () => new Date().toISOString().split("T")[0];
@@ -253,6 +256,7 @@ function EventsTab({ date }: { date: string }) {
 
 function SummaryTab({ date }: { date: string }) {
   const { t } = useTranslation();
+  const hourUnits = { h: t.workers.hourUnit, min: t.workers.minUnit };
   const { data: summary = [], isLoading, error, refetch } = useQuery({
     queryKey: ["nfc-daily-summary", date],
     queryFn: () => attendanceEventsApi.dailySummary(date || undefined),
@@ -310,7 +314,7 @@ function SummaryTab({ date }: { date: string }) {
                                 <span style={{ color: "#F59E0B", display: "inline-flex", alignItems: "center", gap: 2 }}>
                                   <LogOut size={11} /> {fmtTimeShort(s.checkOut)}
                                   <span style={{ color: "var(--text-muted)", marginLeft: 2 }}>
-                                    ({fmtDuration(s.checkOut - s.checkIn)})
+                                    ({fmtDuration(s.checkOut - s.checkIn, hourUnits)})
                                   </span>
                                 </span>
                               ) : (
@@ -323,7 +327,7 @@ function SummaryTab({ date }: { date: string }) {
                       <td>
                         <span style={{ fontWeight: 700, color: "#6366F1", fontSize: 14 }}>
                           <Clock size={13} style={{ marginRight: 4 }} />
-                          {fmtDuration(row.totalMs)}
+                          {fmtDuration(row.totalMs, hourUnits)}
                         </span>
                       </td>
                     </tr>

@@ -7,15 +7,17 @@ import {
 } from 'lucide-react'
 import { workTimeApi, adjustmentsApi, reasonsApi, type AdjustmentType, type WorkAdjustment } from '../api/workTime'
 import { useUiPreferences } from '../app/providers/useUiPreferences'
+import { useTranslation } from '../i18n/useTranslation'
+import type { Language } from '../types/tenant'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-function fmtMins(minutes: number): string {
+function fmtMins(minutes: number, units: { h: string; min: string } = { h: 'h', min: 'min' }): string {
   if (!minutes || minutes === 0) return '—'
   const h = Math.floor(Math.abs(minutes) / 60)
   const m = Math.abs(minutes) % 60
   const sign = minutes < 0 ? '-' : ''
-  return m > 0 ? `${sign}${h}h ${m}m` : `${sign}${h}h`
+  return m > 0 ? `${sign}${h}${units.h} ${m}${units.min}` : `${sign}${h}${units.h}`
 }
 
 function currentMonth(): string {
@@ -23,9 +25,11 @@ function currentMonth(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
-function monthLabel(month: string): string {
+const DATE_LABEL_LOCALES: Record<Language, string> = { en: 'en-US', ru: 'ru-RU', tr: 'tr-TR' }
+
+function monthLabel(month: string, locale: string): string {
   const [y, m] = month.split('-').map(Number)
-  return new Date(y, m - 1, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' })
+  return new Date(y, m - 1, 1).toLocaleString(locale, { month: 'long', year: 'numeric' })
 }
 
 function prevMonth(month: string): string {
@@ -40,12 +44,14 @@ function nextMonth(month: string): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
-const ADJ_TYPE_INFO: Record<AdjustmentType, { label: string; icon: string; hint: string }> = {
-  SET:      { label: 'Takyk belle',   icon: '=', hint: 'Hasaba alynjak sagady takyk san bilen belle' },
-  ADD:      { label: 'Sagat goş',     icon: '+', hint: 'Hakyky sagadyň üstüne goş' },
-  SUBTRACT: { label: 'Sagat aýyr',    icon: '−', hint: 'Hakyky sagatdan aýyr' },
-  MINIMUM:  { label: 'Iň az sagat',   icon: '↑', hint: 'Hakyky sagat şondan az bolsa, şu derejä çenli galdyr' },
-  BONUS:    { label: 'Baýrak sagat',  icon: '★', hint: 'Goşmaça baýrak sagat goş' },
+function getAdjTypeInfo(t: ReturnType<typeof useTranslation>['t']): Record<AdjustmentType, { label: string; icon: string; hint: string }> {
+  return {
+    SET:      { label: t.workTime.typeSetLabel,      icon: '=', hint: t.workTime.typeSetHint },
+    ADD:      { label: t.workTime.typeAddLabel,       icon: '+', hint: t.workTime.typeAddHint },
+    SUBTRACT: { label: t.workTime.typeSubtractLabel,  icon: '−', hint: t.workTime.typeSubtractHint },
+    MINIMUM:  { label: t.workTime.typeMinimumLabel,   icon: '↑', hint: t.workTime.typeMinimumHint },
+    BONUS:    { label: t.workTime.typeBonusLabel,     icon: '★', hint: t.workTime.typeBonusHint },
+  }
 }
 
 // ── Adjustment Modal ──────────────────────────────────────────────────────────
@@ -65,6 +71,10 @@ function fmtAdjTime(ms: number | null | undefined): string {
 }
 
 export function AdjustmentModal({ workers, workDate, onClose, onSaved }: AdjModalProps) {
+  const { t } = useTranslation()
+  const { language } = useUiPreferences()
+  const hourUnits = { h: t.workers.hourUnit, min: t.workers.minUnit }
+  const ADJ_TYPE_INFO = useMemo(() => getAdjTypeInfo(t), [t])
   const { data: reasons = [] } = useQuery({ queryKey: ['adjustment-reasons'], queryFn: reasonsApi.getAll })
   const activeReasons = reasons.filter(r => r.isActive)
 
@@ -111,7 +121,7 @@ export function AdjustmentModal({ workers, workDate, onClose, onSaved }: AdjModa
       onSaved()
       onClose()
     },
-    onError: (e: any) => setError(e.message ?? 'Ýalňyşlyk ýüze çykdy'),
+    onError: (e: any) => setError(e.message ?? t.workTime.genericErrorLabel),
   })
 
   // Live preview — only meaningful when correcting a single worker
@@ -155,9 +165,9 @@ export function AdjustmentModal({ workers, workDate, onClose, onSaved }: AdjModa
           padding: '22px 26px 18px', borderBottom: '1px solid var(--border)',
         }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Iş sagadyny düzet</h3>
+            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>{t.workTime.adjustTitle}</h3>
             <p style={{ margin: '4px 0 0', fontSize: 12.5, color: 'var(--text-muted)' }}>
-              {new Date(`${date}T00:00:00Z`).toLocaleDateString('tr-TR', { timeZone: 'UTC', day: 'numeric', month: 'long', year: 'numeric' })} üçin hasaba alynjak sagady belläň
+              {t.workTime.adjustSubtitle.replace('{{date}}', new Date(`${date}T00:00:00Z`).toLocaleDateString(DATE_LABEL_LOCALES[language], { timeZone: 'UTC', day: 'numeric', month: 'long', year: 'numeric' }))}
             </p>
           </div>
           <button onClick={onClose} style={{
@@ -175,7 +185,7 @@ export function AdjustmentModal({ workers, workDate, onClose, onSaved }: AdjModa
             padding: 14, marginBottom: 18,
           }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 10 }}>
-              {workers.length === 1 ? 'IŞÇI' : `${workers.length} IŞÇI SAÝLANDY`}
+              {workers.length === 1 ? t.workTime.workerSingleLabel : t.workTime.workersSelectedLabel.replace('{{n}}', String(workers.length))}
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {workers.slice(0, 8).map(w => (
@@ -195,7 +205,7 @@ export function AdjustmentModal({ workers, workDate, onClose, onSaved }: AdjModa
                 <div style={{
                   display: 'flex', alignItems: 'center', fontSize: 12, color: 'var(--text-muted)',
                   padding: '4px 10px',
-                }}>+ ýene {workers.length - 8}</div>
+                }}>{t.workTime.moreLabel.replace('{{n}}', String(workers.length - 8))}</div>
               )}
             </div>
           </div>
@@ -207,22 +217,22 @@ export function AdjustmentModal({ workers, workDate, onClose, onSaved }: AdjModa
               background: 'var(--bg-surface)', border: '1px dashed var(--border)', borderRadius: 10,
               padding: '10px 14px', marginBottom: 18, fontSize: 12.5,
             }}>
-              <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>🕒 Hakyky scan:</span>
+              <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>🕒 {t.workTime.actualScanLabel}</span>
               <span style={{ color: 'var(--text-secondary)' }}>
                 {fmtAdjTime(single.checkIn)} → {fmtAdjTime(single.checkOut)}
               </span>
               {singleActual !== null && (
                 <span style={{ color: 'var(--text-secondary)' }}>
-                  ({fmtMins(singleActual)})
+                  ({fmtMins(singleActual, hourUnits)})
                 </span>
               )}
-              <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)' }}>üýtgemez</span>
+              <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)' }}>{t.workTime.unchangedLabel}</span>
             </div>
           )}
 
           {/* Date */}
           <div style={{ marginBottom: 18 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Sene</label>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>{t.workTime.dateLabel}</label>
             <input
               type="date"
               value={date}
@@ -233,7 +243,7 @@ export function AdjustmentModal({ workers, workDate, onClose, onSaved }: AdjModa
 
           {/* Adjustment type — segmented cards instead of a bare <select> */}
           <div style={{ marginBottom: 18 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 8 }}>Näme etmeli?</label>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 8 }}>{t.workTime.whatToDoLabel}</label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(96px, 1fr))', gap: 8 }}>
               {(Object.entries(ADJ_TYPE_INFO) as [AdjustmentType, typeof ADJ_TYPE_INFO[AdjustmentType]][]).map(([k, info]) => (
                 <button
@@ -259,7 +269,7 @@ export function AdjustmentModal({ workers, workDate, onClose, onSaved }: AdjModa
           {/* Hours / minutes duration picker */}
           <div style={{ marginBottom: 18 }}>
             <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 8 }}>
-              {adjType === 'SET' || adjType === 'MINIMUM' ? 'Näçe sagat bellemeli' : 'Näçe sagat'}
+              {adjType === 'SET' || adjType === 'MINIMUM' ? t.workTime.durationLabelSet : t.workTime.durationLabelAdjust}
             </label>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -269,7 +279,7 @@ export function AdjustmentModal({ workers, workDate, onClose, onSaved }: AdjModa
                   onChange={e => setHours(Math.max(0, Number(e.target.value)))}
                   style={{ width: 64, padding: '9px 10px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontSize: 15, fontWeight: 700, textAlign: 'center' }}
                 />
-                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>sagat</span>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t.workTime.hoursWord}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <input
@@ -278,7 +288,7 @@ export function AdjustmentModal({ workers, workDate, onClose, onSaved }: AdjModa
                   onChange={e => setMins(Math.min(59, Math.max(0, Number(e.target.value))))}
                   style={{ width: 64, padding: '9px 10px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontSize: 15, fontWeight: 700, textAlign: 'center' }}
                 />
-                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>minut</span>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t.workTime.minutesWord}</span>
               </div>
             </div>
             {/* Quick presets */}
@@ -294,7 +304,7 @@ export function AdjustmentModal({ workers, workDate, onClose, onSaved }: AdjModa
                     border: `1px solid ${minutes === m ? 'var(--accent)' : 'var(--border)'}`,
                   }}
                 >
-                  {Math.floor(m / 60)}{m % 60 ? `.${Math.round((m % 60) / 6)}` : ''}s
+                  {Math.floor(m / 60)}{m % 60 ? `.${Math.round((m % 60) / 6)}` : ''}{hourUnits.h}
                 </button>
               ))}
             </div>
@@ -302,13 +312,13 @@ export function AdjustmentModal({ workers, workDate, onClose, onSaved }: AdjModa
 
           {/* Reason */}
           <div style={{ marginBottom: 18 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Sebäbi</label>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>{t.workTime.reasonLabel}</label>
             <select
               value={reasonId}
               onChange={e => setReasonId(e.target.value)}
               style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontSize: 14 }}
             >
-              <option value="">— Sebäp saýla (islege görä) —</option>
+              <option value="">{t.workTime.selectReasonOptionalPlaceholder}</option>
               {activeReasons.map(r => (
                 <option key={r.id} value={r.id}>{r.name}</option>
               ))}
@@ -317,12 +327,12 @@ export function AdjustmentModal({ workers, workDate, onClose, onSaved }: AdjModa
 
           {/* Description */}
           <div style={{ marginBottom: 20 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Bellik (islege görä)</label>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>{t.workTime.noteLabel}</label>
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
               rows={2}
-              placeholder="Goşmaça maglumat..."
+              placeholder={t.workTime.notePlaceholder}
               style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontSize: 13, resize: 'vertical', boxSizing: 'border-box' }}
             />
           </div>
@@ -335,20 +345,20 @@ export function AdjustmentModal({ workers, workDate, onClose, onSaved }: AdjModa
               display: 'flex', gap: 0, justifyContent: 'space-between',
             }}>
               <div style={{ flex: 1, textAlign: 'center' }}>
-                <div style={{ fontSize: 10.5, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4 }}>HAKYKY</div>
-                <div style={{ fontWeight: 700, fontSize: 15 }}>{fmtMins(singleActual!)}</div>
+                <div style={{ fontSize: 10.5, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4 }}>{t.workTime.previewActualLabel}</div>
+                <div style={{ fontWeight: 700, fontSize: 15 }}>{fmtMins(singleActual!, hourUnits)}</div>
               </div>
               <div style={{ width: 1, background: 'var(--border)' }} />
               <div style={{ flex: 1, textAlign: 'center' }}>
-                <div style={{ fontSize: 10.5, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4 }}>ÜÝTGEŞME</div>
+                <div style={{ fontSize: 10.5, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4 }}>{t.workTime.previewChangeLabel}</div>
                 <div style={{ fontWeight: 700, fontSize: 15, color: previewCredited - singleActual! >= 0 ? 'var(--green)' : 'var(--red)' }}>
-                  {previewCredited - singleActual! >= 0 ? '+' : ''}{fmtMins(previewCredited - singleActual!)}
+                  {previewCredited - singleActual! >= 0 ? '+' : ''}{fmtMins(previewCredited - singleActual!, hourUnits)}
                 </div>
               </div>
               <div style={{ width: 1, background: 'var(--border)' }} />
               <div style={{ flex: 1, textAlign: 'center' }}>
-                <div style={{ fontSize: 10.5, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4 }}>HASABA ALYNAN</div>
-                <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--accent)' }}>{fmtMins(previewCredited)}</div>
+                <div style={{ fontSize: 10.5, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4 }}>{t.workTime.previewCreditedLabel}</div>
+                <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--accent)' }}>{fmtMins(previewCredited, hourUnits)}</div>
               </div>
             </div>
           )}
@@ -357,20 +367,20 @@ export function AdjustmentModal({ workers, workDate, onClose, onSaved }: AdjModa
               background: 'var(--bg-elevated)', borderRadius: 12, padding: '12px 16px',
               marginBottom: 20, border: '1px solid var(--border)', fontSize: 12.5, color: 'var(--text-secondary)',
             }}>
-              Bu üýtgetme saýlanan <b>{workers.length}</b> işçiniň hemmesine bir wagtda ulanylar.
+              {t.workTime.bulkNotePrefix} <b>{workers.length}</b> {t.workTime.bulkNoteSuffix}
             </div>
           )}
 
           {error && <div style={{ color: 'var(--red)', fontSize: 13, marginBottom: 14 }}>{error}</div>}
 
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-            <button onClick={onClose} className="btn btn-ghost">Ýatyr</button>
+            <button onClick={onClose} className="btn btn-ghost">{t.common.cancel}</button>
             <button
               onClick={() => createMut.mutate()}
               disabled={createMut.isPending || !date || minutes < 0}
               className="btn btn-primary"
             >
-              {createMut.isPending ? 'Ýazylýar...' : workers.length === 1 ? 'Işçä ulan' : `${workers.length} işçä ulan`}
+              {createMut.isPending ? t.common.saving : workers.length === 1 ? t.workTime.applySingleLabel : t.workTime.applyMultipleTemplate.replace('{{n}}', String(workers.length))}
             </button>
           </div>
         </div>
@@ -384,6 +394,7 @@ export function AdjustmentModal({ workers, workDate, onClose, onSaved }: AdjModa
 type ExportMode = 'times' | 'hours' | 'both'
 
 function ExportModal({ month, onClose }: { month: string; onClose: () => void }) {
+  const { t } = useTranslation()
   const { language } = useUiPreferences()
   const [mode, setMode] = useState<ExportMode>('both')
   const [loading, setLoading] = useState(false)
@@ -392,18 +403,18 @@ function ExportModal({ month, onClose }: { month: string; onClose: () => void })
   const OPTIONS: { value: ExportMode; label: string; desc: string }[] = [
     {
       value: 'times',
-      label: 'Diňe Giriş / Çykyş Wagtlary',
-      desc:  'Her günde işçiniň geleniň we gideniniň wagty görkezi\u0307ler',
+      label: t.workTime.exportOptTimesLabel,
+      desc:  t.workTime.exportOptTimesDesc,
     },
     {
       value: 'hours',
-      label: 'Diňe İşlenen Sagatlar',
-      desc:  'Her günde işçiniň işlän sagatlarynyň jemi görkezi\u0307ler',
+      label: t.workTime.exportOptHoursLabel,
+      desc:  t.workTime.exportOptHoursDesc,
     },
     {
       value: 'both',
-      label: 'Ikisi hem (Giriş / Çykyş + Sagat)',
-      desc:  'Her günde giriş, çykyş wagty we işlän sagatlarynyň jemi',
+      label: t.workTime.exportOptBothLabel,
+      desc:  t.workTime.exportOptBothDesc,
     },
   ]
 
@@ -414,7 +425,7 @@ function ExportModal({ month, onClose }: { month: string; onClose: () => void })
       await workTimeApi.exportXlsx(month, mode, language)
       onClose()
     } catch (e: any) {
-      setError(e.message ?? 'Export ýalňyşlygy')
+      setError(e.message ?? t.workTime.exportErrorLabel)
     } finally {
       setLoading(false)
     }
@@ -433,12 +444,12 @@ function ExportModal({ month, onClose }: { month: string; onClose: () => void })
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <Download size={18} color="var(--accent)" />
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Excel Export</h3>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{t.workTime.exportModalTitle}</h3>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: 'var(--text-muted)' }}>✕</button>
         </div>
         <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text-muted)' }}>
-          Haýsy maglumatlary export etmeli? (<strong>{month}</strong>)
+          {t.workTime.exportModalDesc.replace('{{month}}', month)}
         </p>
 
         {/* Options */}
@@ -476,7 +487,7 @@ function ExportModal({ month, onClose }: { month: string; onClose: () => void })
         {error && <div style={{ color: '#ef4444', fontSize: 13, marginBottom: 12 }}>{error}</div>}
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} className="btn btn-ghost" disabled={loading}>Ýatyr</button>
+          <button onClick={onClose} className="btn btn-ghost" disabled={loading}>{t.common.cancel}</button>
           <button
             onClick={handleExport}
             disabled={loading}
@@ -484,7 +495,7 @@ function ExportModal({ month, onClose }: { month: string; onClose: () => void })
             style={{ display: 'flex', alignItems: 'center', gap: 6 }}
           >
             <Download size={14} />
-            {loading ? 'Taýýarlanýar...' : 'Excel göçür'}
+            {loading ? t.workTime.preparingLabel : t.workTime.exportBtn}
           </button>
         </div>
       </div>
@@ -495,6 +506,9 @@ function ExportModal({ month, onClose }: { month: string; onClose: () => void })
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export function WorkTimePage() {
+  const { t } = useTranslation()
+  const { language } = useUiPreferences()
+  const hourUnits = { h: t.workers.hourUnit, min: t.workers.minUnit }
   const navigate = useNavigate()
   const [month, setMonth] = useState(currentMonth)
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -540,9 +554,9 @@ export function WorkTimePage() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Work Time</h1>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>{t.workTime.pageTitle}</h1>
           <p style={{ margin: '4px 0 0', color: 'var(--text-muted)', fontSize: 13 }}>
-            Actual · Adjustment · Credited — per worker per month
+            {t.workTime.pageDesc}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
@@ -550,10 +564,10 @@ export function WorkTimePage() {
             onClick={() => navigate('/work-time/day')}
             className="btn btn-ghost"
             style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-            title="Bir günki sagatlary aralyk boýunça görüp, toparlaýyn düzetmek"
+            title={t.workTime.dayViewTooltip}
           >
             <CalendarDays size={14} />
-            Gün Görnüşi
+            {t.workTimeDay.title}
           </button>
           <button
             onClick={() => navigate('/work-time/reasons')}
@@ -561,7 +575,7 @@ export function WorkTimePage() {
             style={{ display: 'flex', alignItems: 'center', gap: 6 }}
           >
             <Tag size={14} />
-            Reasons
+            {t.workTime.reasonsBtn}
           </button>
           <button
             onClick={() => setExportModal(true)}
@@ -569,7 +583,7 @@ export function WorkTimePage() {
             style={{ display: 'flex', alignItems: 'center', gap: 6 }}
           >
             <Download size={14} />
-            Excel Export
+            {t.workTime.exportModalTitle}
           </button>
           <button
             onClick={() => setAdjModal({ workDate: `${month}-01` })}
@@ -578,7 +592,7 @@ export function WorkTimePage() {
             style={{ display: 'flex', alignItems: 'center', gap: 6 }}
           >
             <Plus size={14} />
-            {selected.size > 0 ? `Add Adjustment (${selected.size})` : 'Select Workers First'}
+            {selected.size > 0 ? t.workTime.addAdjustmentBtn.replace('{{n}}', String(selected.size)) : t.workTime.selectWorkersFirstBtn}
           </button>
         </div>
       </div>
@@ -594,7 +608,7 @@ export function WorkTimePage() {
           <ChevronLeft size={18} />
         </button>
         <span style={{ fontWeight: 600, fontSize: 15, minWidth: 160, textAlign: 'center' }}>
-          {monthLabel(month)}
+          {monthLabel(month, DATE_LABEL_LOCALES[language])}
         </span>
         <button onClick={() => { setMonth(m => nextMonth(m)); setSelected(new Set()) }}
           disabled={isCurrentOrFuture}
@@ -610,18 +624,18 @@ export function WorkTimePage() {
       {data?.totals && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
           {[
-            { label: 'Total Actual', value: data.totals.actualMinutes, icon: Clock, color: '#64748b' },
-            { label: 'Total Adjustment', value: data.totals.adjustmentMinutes, icon: TrendingUp, color: data.totals.adjustmentMinutes >= 0 ? '#22c55e' : '#ef4444' },
-            { label: 'Total Credited', value: data.totals.creditedMinutes, icon: CheckSquare, color: 'var(--accent)' },
+            { key: 'actual' as const, label: t.workTime.totalActualLabel, value: data.totals.actualMinutes, icon: Clock, color: '#64748b' },
+            { key: 'adjustment' as const, label: t.workTime.totalAdjustmentLabel, value: data.totals.adjustmentMinutes, icon: TrendingUp, color: data.totals.adjustmentMinutes >= 0 ? '#22c55e' : '#ef4444' },
+            { key: 'credited' as const, label: t.workTime.totalCreditedLabel, value: data.totals.creditedMinutes, icon: CheckSquare, color: 'var(--accent)' },
           ].map(stat => (
-            <div key={stat.label} style={{
+            <div key={stat.key} style={{
               background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 20px',
               display: 'flex', alignItems: 'center', gap: 14,
             }}>
               <stat.icon size={20} color={stat.color} />
               <div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{stat.label}</div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: stat.color }}>{fmtMins(stat.value)}</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: stat.color }}>{fmtMins(stat.value, hourUnits)}</div>
               </div>
             </div>
           ))}
@@ -631,7 +645,7 @@ export function WorkTimePage() {
       {/* Search + Select All */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 12, alignItems: 'center' }}>
         <input
-          placeholder="Search by name or ID..."
+          placeholder={t.common.searchByNameOrId}
           value={search}
           onChange={e => setSearch(e.target.value)}
           style={{
@@ -642,14 +656,14 @@ export function WorkTimePage() {
         />
         {selected.size > 0 && (
           <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-            {selected.size} worker{selected.size > 1 ? 's' : ''} selected
+            {t.workTimeDay.selectedCount.replace('{{n}}', String(selected.size))}
           </span>
         )}
       </div>
 
       {/* Table */}
       {isLoading ? (
-        <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>Loading...</div>
+        <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>{t.common.loading}</div>
       ) : error ? (
         <div style={{ textAlign: 'center', padding: 60, color: 'var(--red)' }}>
           {(error as Error).message}
@@ -666,13 +680,13 @@ export function WorkTimePage() {
                       : <Square size={15} />}
                   </button>
                 </th>
-                <th style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600 }}>Worker</th>
-                <th style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600 }}>Shift</th>
-                <th style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600 }}>Brigade</th>
-                <th style={{ padding: '10px 14px', textAlign: 'right', color: 'var(--text-muted)', fontWeight: 600 }}>Actual</th>
-                <th style={{ padding: '10px 14px', textAlign: 'right', color: 'var(--text-muted)', fontWeight: 600 }}>Adjustment</th>
-                <th style={{ padding: '10px 14px', textAlign: 'right', color: 'var(--text-muted)', fontWeight: 600 }}>Credited</th>
-                <th style={{ padding: '10px 14px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600 }}>Detail</th>
+                <th style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600 }}>{t.workTimeDay.colWorker}</th>
+                <th style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600 }}>{t.workTimeDay.colShift}</th>
+                <th style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600 }}>{t.workTime.colBrigade}</th>
+                <th style={{ padding: '10px 14px', textAlign: 'right', color: 'var(--text-muted)', fontWeight: 600 }}>{t.workTimeDay.colActual}</th>
+                <th style={{ padding: '10px 14px', textAlign: 'right', color: 'var(--text-muted)', fontWeight: 600 }}>{t.workTimesheet.colAdjustment}</th>
+                <th style={{ padding: '10px 14px', textAlign: 'right', color: 'var(--text-muted)', fontWeight: 600 }}>{t.workTimeDay.colCredited}</th>
+                <th style={{ padding: '10px 14px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600 }}>{t.workTime.colDetail}</th>
               </tr>
             </thead>
             <tbody>
@@ -699,25 +713,25 @@ export function WorkTimePage() {
                       <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{w.workerId} · {w.profession || '—'}</div>
                     </td>
                     <td style={{ padding: '10px 14px', color: 'var(--text-secondary)' }}>
-                      {w.shift ? (w.shift === 'day' ? '☀️ Day' : '🌙 Night') : '—'}
+                      {w.shift ? (w.shift === 'day' ? `☀️ ${t.workers.dayShift}` : `🌙 ${t.workers.nightShift}`) : '—'}
                     </td>
                     <td style={{ padding: '10px 14px', color: 'var(--text-secondary)', fontSize: 12 }}>
                       {w.brigade || '—'}
                     </td>
                     <td style={{ padding: '10px 14px', textAlign: 'right', color: 'var(--text-secondary)' }}>
-                      {fmtMins(w.actualMinutes)}
+                      {fmtMins(w.actualMinutes, hourUnits)}
                     </td>
                     <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 500, color: adjColor }}>
-                      {w.adjustmentMinutes === 0 ? '—' : (w.adjustmentMinutes > 0 ? '+' : '') + fmtMins(w.adjustmentMinutes)}
+                      {w.adjustmentMinutes === 0 ? '—' : (w.adjustmentMinutes > 0 ? '+' : '') + fmtMins(w.adjustmentMinutes, hourUnits)}
                     </td>
                     <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, color: 'var(--text-primary)' }}>
-                      {fmtMins(w.creditedMinutes)}
+                      {fmtMins(w.creditedMinutes, hourUnits)}
                     </td>
                     <td style={{ padding: '10px 14px', textAlign: 'center' }}>
                       <button
                         onClick={() => navigate(`/work-time/${w.workerEntityId}?month=${month}`)}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', padding: 4 }}
-                        title="View Timesheet"
+                        title={t.workTime.viewTimesheetTooltip}
                       >
                         <ExternalLink size={14} />
                       </button>
@@ -728,7 +742,7 @@ export function WorkTimePage() {
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={8} style={{ padding: 48, textAlign: 'center', color: 'var(--text-muted)' }}>
-                    No workers found
+                    {t.workTimeDay.noWorkersFound}
                   </td>
                 </tr>
               )}

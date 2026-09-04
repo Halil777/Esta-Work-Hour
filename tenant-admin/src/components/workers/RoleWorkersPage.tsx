@@ -100,7 +100,7 @@ export function RoleWorkersPage({
             <thead>
               <tr>
                 {columns.map(column => <th key={column.header}>{column.header}</th>)}
-                <th>Credential</th>
+                <th>{t.credentials.colHeader}</th>
                 <th />
               </tr>
             </thead>

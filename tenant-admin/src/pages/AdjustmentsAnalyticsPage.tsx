@@ -6,15 +6,19 @@ import {
   Users, ListChecks, ExternalLink, RotateCcw,
 } from 'lucide-react'
 import { adjustmentsApi, type AdjustmentAnalyticsWorker } from '../api/workTime'
+import { useTranslation } from '../i18n/useTranslation'
 
-function fmtMins(ms: number): string {
+// Hour/minute unit suffixes are passed in by the caller (sourced from the
+// active tr/en/ru translation set) so this stays language-neutral — never a
+// hardcoded Turkish/Turkmen string regardless of the selected UI language.
+function fmtMins(ms: number, units: { h: string; min: string } = { h: 'h', min: 'min' }): string {
   const sign = ms < 0 ? '-' : ''
   const a = Math.abs(ms)
   const totalMin = Math.round(a / 60000)
   const h = Math.floor(totalMin / 60)
   const m = totalMin % 60
   if (h === 0 && m === 0) return '—'
-  return m > 0 ? `${sign}${h}s ${m}dk` : `${sign}${h}s`
+  return m > 0 ? `${sign}${h}${units.h} ${m}${units.min}` : `${sign}${h}${units.h}`
 }
 
 function todayStr(): string {
@@ -31,6 +35,8 @@ function monthsAgoStr(n: number): string {
 type RangeMode = 'all' | '30d' | '90d' | 'custom'
 
 export function AdjustmentsAnalyticsPage() {
+  const { t } = useTranslation()
+  const hourUnits = { h: t.workers.hourUnit, min: t.workers.minUnit }
   const navigate = useNavigate()
   const [mode, setMode] = useState<RangeMode>('all')
   const [customStart, setCustomStart] = useState(monthsAgoStr(1))
@@ -66,11 +72,11 @@ export function AdjustmentsAnalyticsPage() {
   const s = data?.summary
 
   const kpis = [
-    { label: 'JEMI ÜÝTGETME', value: String(s?.totalAdjustments ?? 0), icon: ListChecks, color: 'var(--accent)' },
-    { label: 'TÄSIR ESEN IŞÇI', value: String(s?.workersAffected ?? 0), icon: Users, color: 'var(--accent)' },
-    { label: 'GOŞULAN SAGAT', value: fmtMins(s?.totalIncreaseMs ?? 0), icon: TrendingUp, color: 'var(--green)' },
-    { label: 'AZALDYLAN SAGAT', value: fmtMins(-(s?.totalDecreaseMs ?? 0)), icon: TrendingDown, color: 'var(--red)' },
-    { label: 'ARASSA TAPAWUT', value: fmtMins(s?.netDiffMs ?? 0), icon: GitCompareArrows, color: (s?.netDiffMs ?? 0) >= 0 ? 'var(--green)' : 'var(--red)' },
+    { label: t.adjustmentsAnalytics.kpiTotal, value: String(s?.totalAdjustments ?? 0), icon: ListChecks, color: 'var(--accent)' },
+    { label: t.adjustmentsAnalytics.kpiWorkersAffected, value: String(s?.workersAffected ?? 0), icon: Users, color: 'var(--accent)' },
+    { label: t.adjustmentsAnalytics.kpiIncreased, value: fmtMins(s?.totalIncreaseMs ?? 0, hourUnits), icon: TrendingUp, color: 'var(--green)' },
+    { label: t.adjustmentsAnalytics.kpiDecreased, value: fmtMins(-(s?.totalDecreaseMs ?? 0), hourUnits), icon: TrendingDown, color: 'var(--red)' },
+    { label: t.adjustmentsAnalytics.kpiNetDiff, value: fmtMins(s?.netDiffMs ?? 0, hourUnits), icon: GitCompareArrows, color: (s?.netDiffMs ?? 0) >= 0 ? 'var(--green)' : 'var(--red)' },
   ]
 
   return (
@@ -78,15 +84,14 @@ export function AdjustmentsAnalyticsPage() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Sagat Üýtgetmeleri — Analitika</h1>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>{t.adjustmentsAnalytics.title}</h1>
           <p style={{ margin: '4px 0 0', color: 'var(--text-muted)', fontSize: 13, maxWidth: 640 }}>
-            Admin tarapyndan haýsy işçä, haýsy güne, näçe sagatdan näçe sagada üýtgedilendigi we hakyky scan wagtyndan
-            näçe tapawut edilendigi — artan (mesaý ýaly) ýa-da azaldylan tarapa.
+            {t.adjustmentsAnalytics.pageDesc}
           </p>
         </div>
         <button onClick={() => navigate('/work-time')} className="btn btn-ghost" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <ExternalLink size={14} />
-          Iş Wagtyna Gaýt
+          {t.adjustmentReasons.backToWorkTime}
         </button>
       </div>
 
@@ -96,10 +101,10 @@ export function AdjustmentsAnalyticsPage() {
         background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 14px',
       }}>
         {([
-          ['all', 'Şu wagta çenli'],
-          ['30d', 'Soňky 30 gün'],
-          ['90d', 'Soňky 90 gün'],
-          ['custom', 'Aralyk saýla'],
+          ['all', t.adjustmentsAnalytics.rangeAll],
+          ['30d', t.adjustmentsAnalytics.range30d],
+          ['90d', t.adjustmentsAnalytics.range90d],
+          ['custom', t.adjustmentsAnalytics.rangeCustom],
         ] as [RangeMode, string][]).map(([m, label]) => (
           <button
             key={m}
@@ -119,7 +124,7 @@ export function AdjustmentsAnalyticsPage() {
               style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontSize: 13 }} />
           </div>
         )}
-        <button onClick={() => refetch()} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, marginLeft: 'auto', color: 'var(--text-muted)' }} title="Täzele">
+        <button onClick={() => refetch()} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, marginLeft: 'auto', color: 'var(--text-muted)' }} title={t.common.refresh}>
           <RotateCcw size={14} />
         </button>
       </div>
@@ -145,7 +150,7 @@ export function AdjustmentsAnalyticsPage() {
       {/* Search */}
       <div style={{ marginBottom: 14 }}>
         <input
-          placeholder="At ýa-da sicil belgisi boýunça gözle..."
+          placeholder={t.adjustmentsAnalytics.searchPlaceholder}
           value={search}
           onChange={e => setSearch(e.target.value)}
           style={{
@@ -157,7 +162,7 @@ export function AdjustmentsAnalyticsPage() {
 
       {/* Worker table */}
       {isLoading ? (
-        <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>Ýüklenýär...</div>
+        <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>{t.common.loading}</div>
       ) : error ? (
         <div style={{ textAlign: 'center', padding: 60, color: 'var(--red)' }}>{(error as Error).message}</div>
       ) : filtered.length === 0 ? (
@@ -165,7 +170,7 @@ export function AdjustmentsAnalyticsPage() {
           textAlign: 'center', padding: 48, color: 'var(--text-muted)',
           background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14,
         }}>
-          Bu aralykda hiç hili üýtgetme tapylmady
+          {t.adjustmentsAnalytics.noData}
         </div>
       ) : (
         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
@@ -173,11 +178,11 @@ export function AdjustmentsAnalyticsPage() {
             <thead>
               <tr style={{ background: 'var(--bg-elevated)' }}>
                 <th style={{ width: 32 }} />
-                <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, color: 'var(--text-muted)', fontWeight: 700 }}>IŞÇI</th>
-                <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', fontWeight: 700 }}>ÜÝTGETME SANY</th>
-                <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', fontWeight: 700 }}>GOŞULAN</th>
-                <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', fontWeight: 700 }}>AZALDYLAN</th>
-                <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', fontWeight: 700 }}>ARASSA TAPAWUT</th>
+                <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, color: 'var(--text-muted)', fontWeight: 700 }}>{t.adjustmentsAnalytics.colWorker}</th>
+                <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', fontWeight: 700 }}>{t.adjustmentsAnalytics.colCount}</th>
+                <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', fontWeight: 700 }}>{t.adjustmentsAnalytics.colIncreased}</th>
+                <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', fontWeight: 700 }}>{t.adjustmentsAnalytics.colDecreased}</th>
+                <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', fontWeight: 700 }}>{t.adjustmentsAnalytics.colNetDiff}</th>
                 <th style={{ width: 40 }} />
               </tr>
             </thead>
@@ -199,22 +204,22 @@ export function AdjustmentsAnalyticsPage() {
                       </td>
                       <td style={{ padding: '12px 14px', textAlign: 'right', color: 'var(--text-secondary)' }}>{w.adjustmentCount}</td>
                       <td style={{ padding: '12px 14px', textAlign: 'right', color: 'var(--green)', fontWeight: 600 }}>
-                        {w.totalIncreaseMs > 0 ? `+${fmtMins(w.totalIncreaseMs)}` : '—'}
+                        {w.totalIncreaseMs > 0 ? `+${fmtMins(w.totalIncreaseMs, hourUnits)}` : '—'}
                       </td>
                       <td style={{ padding: '12px 14px', textAlign: 'right', color: 'var(--red)', fontWeight: 600 }}>
-                        {w.totalDecreaseMs > 0 ? `-${fmtMins(w.totalDecreaseMs)}` : '—'}
+                        {w.totalDecreaseMs > 0 ? `-${fmtMins(w.totalDecreaseMs, hourUnits)}` : '—'}
                       </td>
                       <td style={{
                         padding: '12px 14px', textAlign: 'right', fontWeight: 800,
                         color: w.netDiffMs > 0 ? 'var(--green)' : w.netDiffMs < 0 ? 'var(--red)' : 'var(--text-secondary)',
                       }}>
-                        {w.netDiffMs > 0 ? '+' : ''}{fmtMins(w.netDiffMs)}
+                        {w.netDiffMs > 0 ? '+' : ''}{fmtMins(w.netDiffMs, hourUnits)}
                       </td>
                       <td style={{ padding: '12px 16px 12px 8px', textAlign: 'center' }}>
                         <button
                           onClick={e => { e.stopPropagation(); navigate(`/work-time/${w.workerEntityId}`) }}
                           style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', padding: 4 }}
-                          title="Aýlyk tablisany gör"
+                          title={t.adjustmentsAnalytics.viewMonthlyTitle}
                         >
                           <ExternalLink size={14} />
                         </button>
@@ -226,24 +231,24 @@ export function AdjustmentsAnalyticsPage() {
                           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
                             <thead>
                               <tr>
-                                <th style={{ padding: '8px 16px 8px 52px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600, fontSize: 10.5 }}>SENE</th>
-                                <th style={{ padding: '8px 14px', textAlign: 'right', color: 'var(--text-muted)', fontWeight: 600, fontSize: 10.5 }}>HAKYKY (SCAN)</th>
-                                <th style={{ padding: '8px 14px', textAlign: 'right', color: 'var(--text-muted)', fontWeight: 600, fontSize: 10.5 }}>HASABA ALYNAN</th>
-                                <th style={{ padding: '8px 14px', textAlign: 'right', color: 'var(--text-muted)', fontWeight: 600, fontSize: 10.5 }}>TAPAWUT</th>
-                                <th style={{ padding: '8px 14px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600, fontSize: 10.5 }}>SEBÄBI</th>
+                                <th style={{ padding: '8px 16px 8px 52px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600, fontSize: 10.5 }}>{t.adjustmentsAnalytics.colDate}</th>
+                                <th style={{ padding: '8px 14px', textAlign: 'right', color: 'var(--text-muted)', fontWeight: 600, fontSize: 10.5 }}>{t.adjustmentsAnalytics.colActual}</th>
+                                <th style={{ padding: '8px 14px', textAlign: 'right', color: 'var(--text-muted)', fontWeight: 600, fontSize: 10.5 }}>{t.adjustmentsAnalytics.colCredited}</th>
+                                <th style={{ padding: '8px 14px', textAlign: 'right', color: 'var(--text-muted)', fontWeight: 600, fontSize: 10.5 }}>{t.adjustmentsAnalytics.colDiff}</th>
+                                <th style={{ padding: '8px 14px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600, fontSize: 10.5 }}>{t.adjustmentsAnalytics.colReason}</th>
                               </tr>
                             </thead>
                             <tbody>
                               {w.days.map(d => (
                                 <tr key={d.date} style={{ borderTop: '1px solid var(--border)' }}>
                                   <td style={{ padding: '8px 16px 8px 52px', fontFamily: 'monospace', fontSize: 12 }}>{d.date}</td>
-                                  <td style={{ padding: '8px 14px', textAlign: 'right', color: 'var(--text-secondary)' }}>{fmtMins(d.actualMs)}</td>
-                                  <td style={{ padding: '8px 14px', textAlign: 'right', fontWeight: 700 }}>{fmtMins(d.creditedMs)}</td>
+                                  <td style={{ padding: '8px 14px', textAlign: 'right', color: 'var(--text-secondary)' }}>{fmtMins(d.actualMs, hourUnits)}</td>
+                                  <td style={{ padding: '8px 14px', textAlign: 'right', fontWeight: 700 }}>{fmtMins(d.creditedMs, hourUnits)}</td>
                                   <td style={{
                                     padding: '8px 14px', textAlign: 'right', fontWeight: 700,
                                     color: d.diffMs > 0 ? 'var(--green)' : d.diffMs < 0 ? 'var(--red)' : 'var(--text-muted)',
                                   }}>
-                                    {d.diffMs > 0 ? '+' : ''}{fmtMins(d.diffMs)}
+                                    {d.diffMs > 0 ? '+' : ''}{fmtMins(d.diffMs, hourUnits)}
                                   </td>
                                   <td style={{ padding: '8px 14px', color: 'var(--text-secondary)' }}>
                                     {d.adjustments.map(a => a.reasonLabel || a.description || a.adjustmentType).join(', ')}

@@ -402,6 +402,7 @@ function ReportEmailsCard() {
 // ─── NFC Device Token Card ────────────────────────────────────────────────────
 
 function NfcDeviceCard() {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const [showToken, setShowToken] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -443,12 +444,12 @@ function NfcDeviceCard() {
     <div className="card" style={{ gridColumn: '1 / -1' }}>
       <div className="card-header">
         <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Smartphone size={16} /> NFC Enjam Sazlamalary
+          <Smartphone size={16} /> {t.settings.nfcCardTitle}
         </h3>
       </div>
       <div className="card-body">
         <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16, marginTop: 0 }}>
-          EstaAttendance Android programmasy üçin aşakdaky maglumatlary programmanyň ilkinji işledilişinde giriziň.
+          {t.settings.nfcCardDesc}
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
@@ -457,7 +458,7 @@ function NfcDeviceCard() {
             <label className="form-label">Server URL</label>
             <div style={{ display: 'flex', gap: 6 }}>
               <input readOnly value={serverUrl} style={{ flex: 1, fontSize: 12, fontFamily: 'monospace' }} />
-              <button className="btn btn--sm btn--secondary" onClick={copyServerUrl} title="Kopirle">
+              <button className="btn btn--sm btn--secondary" onClick={copyServerUrl} title={t.settings.copyBtn}>
                 <Copy size={13} />
               </button>
             </div>
@@ -465,9 +466,9 @@ function NfcDeviceCard() {
 
           {/* Device Token */}
           <div className="form-row">
-            <label className="form-label">Device Token</label>
+            <label className="form-label">{t.settings.deviceTokenLabel}</label>
             {isLoading ? (
-              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Ýüklenýär...</span>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t.settings.loadingToken}</span>
             ) : (
               <div style={{ display: 'flex', gap: 6 }}>
                 <input
@@ -475,10 +476,10 @@ function NfcDeviceCard() {
                   value={showToken ? token : token ? '••••••••-••••-••••-••••-••••••••••••' : '—'}
                   style={{ flex: 1, fontSize: 12, fontFamily: 'monospace', letterSpacing: showToken ? 0 : 2 }}
                 />
-                <button className="btn btn--sm btn--secondary" onClick={() => setShowToken(v => !v)} title={showToken ? 'Gizle' : 'Görkez'}>
+                <button className="btn btn--sm btn--secondary" onClick={() => setShowToken(v => !v)} title={showToken ? t.settings.hideToken : t.settings.showToken}>
                   {showToken ? <EyeOff size={13} /> : <Eye size={13} />}
                 </button>
-                <button className="btn btn--sm btn--secondary" onClick={copyToken} title="Kopirle">
+                <button className="btn btn--sm btn--secondary" onClick={copyToken} title={t.settings.copyBtn}>
                   {copied ? '✓' : <Copy size={13} />}
                 </button>
               </div>
@@ -492,23 +493,23 @@ function NfcDeviceCard() {
             className="btn btn--sm"
             style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--warning)', color: '#000' }}
             onClick={() => {
-              if (window.confirm('Token täzeden döredilensoň, enjamda täze token girizilmeli. Dowam etmelimi?')) {
+              if (window.confirm(t.settings.regenerateConfirm)) {
                 regenerateMutation.mutate()
               }
             }}
             disabled={regenerateMutation.isPending}
           >
             <RefreshCw size={13} />
-            {regenerateMutation.isPending ? 'Täzelenýär...' : 'Tokeni täzele'}
+            {regenerateMutation.isPending ? t.settings.regenerating : t.settings.regenerateBtn}
           </button>
           {regenerateMutation.isSuccess && (
-            <span style={{ fontSize: 12, color: 'var(--success)' }}>✓ Täze token döredildi</span>
+            <span style={{ fontSize: 12, color: 'var(--success)' }}>✓ {t.settings.regenerateSuccess}</span>
           )}
           {regenerateMutation.isError && (
-            <span style={{ fontSize: 12, color: 'var(--danger)' }}>Ýalňyşlyk boldy</span>
+            <span style={{ fontSize: 12, color: 'var(--danger)' }}>{t.settings.regenerateError}</span>
           )}
           <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto' }}>
-            Token gizlin saklaň — enjam bilen paýlaşyň
+            {t.settings.tokenSecretNote}
           </span>
         </div>
       </div>

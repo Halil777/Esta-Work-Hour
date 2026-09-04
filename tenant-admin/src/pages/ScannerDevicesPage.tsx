@@ -10,15 +10,20 @@ import { apiFetch } from '../api/http'
 import type { WorkerApi } from '../api/workers'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { useTranslation } from '../i18n/useTranslation'
+import { useUiPreferences } from '../app/providers/useUiPreferences'
+import type { Language } from '../types/tenant'
 
-function formatLastSeen(ts: string | null) {
-  if (!ts) return 'Hiç görülmedi'
+const DATE_LABEL_LOCALES: Record<Language, string> = { en: 'en-US', ru: 'ru-RU', tr: 'tr-TR' }
+
+function formatLastSeen(ts: string | null, t: ReturnType<typeof useTranslation>['t'], locale: string) {
+  if (!ts) return t.scannerDevices.neverSeen
   const d = new Date(ts)
   const diff = Date.now() - d.getTime()
-  if (diff < 60_000) return 'Az öň'
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} min öň`
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} sagat öň`
-  return d.toLocaleDateString(undefined, { timeZone: 'Europe/Moscow' })
+  if (diff < 60_000) return t.scannerDevices.justNow
+  if (diff < 3_600_000) return t.scannerDevices.minutesAgoTemplate.replace('{{n}}', String(Math.floor(diff / 60_000)))
+  if (diff < 86_400_000) return t.scannerDevices.hoursAgoTemplate.replace('{{n}}', String(Math.floor(diff / 3_600_000)))
+  return d.toLocaleDateString(locale, { timeZone: 'Europe/Moscow' })
 }
 
 // A device is nominally "active" but might actually be offline/frozen — the
@@ -42,6 +47,7 @@ function batteryColor(level: number | null) {
 // ─── Token reveal modal ───────────────────────────────────────────────────────
 
 function TokenModal({ deviceId, label, onClose }: { deviceId: string; label: string; onClose: () => void }) {
+  const { t } = useTranslation()
   const [token, setToken] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -71,15 +77,15 @@ function TokenModal({ deviceId, label, onClose }: { deviceId: string; label: str
         padding: 24, width: 480, maxWidth: '95vw',
       }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-          <h3 style={{ margin: 0, fontSize: 15 }}>{label} — Token</h3>
+          <h3 style={{ margin: 0, fontSize: 15 }}>{label} — {t.scannerDevices.tokenSuffix}</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={16} /></button>
         </div>
         <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16, marginTop: 0 }}>
-          Bu tokeni Android programmasynyň setup ekranyna giriziň.
+          {t.scannerDevices.tokenModalDesc}
         </p>
         {!token ? (
           <button className="btn btn--primary btn--sm" onClick={reveal} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Eye size={13} /> {loading ? 'Ýüklenýär...' : 'Tokeni görkez'}
+            <Eye size={13} /> {loading ? t.common.loading : t.scannerDevices.revealTokenBtn}
           </button>
         ) : (
           <div>
@@ -89,7 +95,7 @@ function TokenModal({ deviceId, label, onClose }: { deviceId: string; label: str
               marginBottom: 12, letterSpacing: 1,
             }}>{token}</div>
             <button className="btn btn--sm btn--secondary" onClick={copy} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Copy size={13} /> {copied ? '✓ Kopirlendy' : 'Kopirle'}
+              <Copy size={13} /> {copied ? `✓ ${t.scannerDevices.copiedLabel}` : t.settings.copyBtn}
             </button>
           </div>
         )}
@@ -107,6 +113,7 @@ function DeviceModal({
   workers: WorkerApi[];
   onClose: () => void;
 }) {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const [label, setLabel] = useState(device?.label ?? '')
   const [location, setLocation] = useState(device?.location ?? '')
@@ -153,14 +160,14 @@ function DeviceModal({
         padding: 24, width: 480, maxWidth: '95vw',
       }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h3 style={{ margin: 0, fontSize: 15 }}>{isEdit ? 'Enjamy üýtget' : 'Täze enjam'}</h3>
+          <h3 style={{ margin: 0, fontSize: 15 }}>{isEdit ? t.scannerDevices.editDeviceTitle : t.scannerDevices.newDeviceTitle}</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={16} /></button>
         </div>
 
         {newToken ? (
           <div>
             <p style={{ fontSize: 13, color: 'var(--success)', marginBottom: 12 }}>
-              ✓ Enjam döredildi! Aşakdaky tokeni Android programmasynyň setup ekranyna giriziň:
+              ✓ {t.scannerDevices.deviceCreatedMsg}
             </p>
             <div style={{
               background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8,
@@ -168,25 +175,25 @@ function DeviceModal({
             }}>{newToken}</div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn btn--sm btn--secondary" onClick={copyToken} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Copy size={13} /> {copied ? '✓ Kopirlendy' : 'Kopirle'}
+                <Copy size={13} /> {copied ? `✓ ${t.scannerDevices.copiedLabel}` : t.settings.copyBtn}
               </button>
-              <button className="btn btn--sm btn--primary" onClick={onClose}>Ýap</button>
+              <button className="btn btn--sm btn--primary" onClick={onClose}>{t.common.close}</button>
             </div>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div className="form-row">
-              <label className="form-label">Enjam ady *</label>
-              <input value={label} onChange={e => setLabel(e.target.value)} placeholder="1-nji Giriş Derwezesi" />
+              <label className="form-label">{t.scannerDevices.deviceNameLabel}</label>
+              <input value={label} onChange={e => setLabel(e.target.value)} placeholder={t.scannerDevices.deviceNamePlaceholder} />
             </div>
             <div className="form-row">
-              <label className="form-label">Ýerleşýän ýeri</label>
-              <input value={location} onChange={e => setLocation(e.target.value)} placeholder="Demirgazyk giriş" />
+              <label className="form-label">{t.scannerDevices.locationLabel}</label>
+              <input value={location} onChange={e => setLocation(e.target.value)} placeholder={t.scannerDevices.locationPlaceholder} />
             </div>
             <div className="form-row">
-              <label className="form-label">Operatör (bu enjamy ulanýan işçi)</label>
+              <label className="form-label">{t.scannerDevices.operatorLabel}</label>
               <select value={workerEntityId} onChange={e => setWorkerEntityId(e.target.value)}>
-                <option value="">— saýlaň —</option>
+                <option value="">{t.scannerDevices.selectPlaceholder}</option>
                 {workers.map(w => (
                   <option key={w.id} value={w.id}>{w.name} ({w.workerId})</option>
                 ))}
@@ -200,13 +207,13 @@ function DeviceModal({
             )}
 
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
-              <button className="btn btn--sm btn--secondary" onClick={onClose}>Ýap</button>
+              <button className="btn btn--sm btn--secondary" onClick={onClose}>{t.common.close}</button>
               <button
                 className="btn btn--sm btn--primary"
                 onClick={() => saveMutation.mutate()}
                 disabled={saveMutation.isPending || !label.trim()}
               >
-                {saveMutation.isPending ? 'Saklanýar...' : isEdit ? 'Sakla' : 'Döret'}
+                {saveMutation.isPending ? t.common.saving : isEdit ? t.common.save : t.scannerDevices.createBtn}
               </button>
             </div>
           </div>
@@ -259,12 +266,14 @@ function daysAgoStr(n: number): string {
   return d.toISOString().slice(0, 10)
 }
 
-function fmtLogTime(ms: number): string {
+function fmtLogTime(ms: number, locale: string): string {
   if (!ms) return '—'
-  return new Date(ms).toLocaleTimeString('ru-RU', { timeZone: 'Europe/Moscow', hour: '2-digit', minute: '2-digit' })
+  return new Date(ms).toLocaleTimeString(locale, { timeZone: 'Europe/Moscow', hour: '2-digit', minute: '2-digit' })
 }
 
 function OperatorLogTab({ workers }: { workers: WorkerApi[] }) {
+  const { t } = useTranslation()
+  const { language } = useUiPreferences()
   const [startDate, setStartDate] = useState(daysAgoStr(6))
   const [endDate, setEndDate] = useState(todayStr())
   const [deviceFilter, setDeviceFilter] = useState<string>('all')
@@ -314,28 +323,28 @@ function OperatorLogTab({ workers }: { workers: WorkerApi[] }) {
         background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 16,
       }}>
         <div>
-          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontWeight: 600 }}>Başlangyç sene</label>
+          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontWeight: 600 }}>{t.scannerDevices.startDateLabel}</label>
           <input type="date" value={startDate} max={endDate} onChange={e => setStartDate(e.target.value)}
             style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontSize: 13 }} />
         </div>
         <div>
-          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontWeight: 600 }}>Soňky sene</label>
+          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontWeight: 600 }}>{t.scannerDevices.endDateLabel}</label>
           <input type="date" value={endDate} min={startDate} max={todayStr()} onChange={e => setEndDate(e.target.value)}
             style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontSize: 13 }} />
         </div>
         <div>
-          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontWeight: 600 }}>Enjam / Operator</label>
+          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontWeight: 600 }}>{t.scannerDevices.deviceOperatorLabel}</label>
           <select value={deviceFilter} onChange={e => setDeviceFilter(e.target.value)}
             style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontSize: 13, minWidth: 200 }}>
-            <option value="all">Ähli enjamlar</option>
+            <option value="all">{t.scannerDevices.allDevicesOption}</option>
             {deviceOptions.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
           </select>
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
           {[
-            { label: 'Şu gün', s: todayStr(), e: todayStr() },
-            { label: 'Soňky 7 gün', s: daysAgoStr(6), e: todayStr() },
-            { label: 'Soňky 30 gün', s: daysAgoStr(29), e: todayStr() },
+            { label: t.common.today, s: todayStr(), e: todayStr() },
+            { label: t.scannerDevices.last7DaysLabel, s: daysAgoStr(6), e: todayStr() },
+            { label: t.scannerDevices.last30DaysLabel, s: daysAgoStr(29), e: todayStr() },
           ].map(p => (
             <button key={p.label} onClick={() => { setStartDate(p.s); setEndDate(p.e) }}
               className="btn btn-ghost" style={{ fontSize: 12 }}>
@@ -346,12 +355,12 @@ function OperatorLogTab({ workers }: { workers: WorkerApi[] }) {
       </div>
 
       {isLoading ? (
-        <div className="card"><div className="card-body">Ýüklenýär...</div></div>
+        <div className="card"><div className="card-body">{t.common.loading}</div></div>
       ) : grouped.length === 0 ? (
         <div className="card">
           <div className="card-body" style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
             <History size={32} style={{ opacity: 0.3, marginBottom: 12 }} />
-            <p style={{ margin: 0 }}>Bu aralykda scan tapylmady.</p>
+            <p style={{ margin: 0 }}>{t.scannerDevices.noScansInRange}</p>
           </div>
         </div>
       ) : (
@@ -380,7 +389,7 @@ function OperatorLogTab({ workers }: { workers: WorkerApi[] }) {
                           <Smartphone size={14} color="var(--primary)" />
                           <span style={{ fontWeight: 600, fontSize: 13 }}>{label}</span>
                           <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                            {rows.length} işçi · {totalScans} scan
+                            {t.scannerDevices.workersScansSummary.replace('{{n1}}', String(rows.length)).replace('{{n2}}', String(totalScans))}
                           </span>
                         </div>
                         {isOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
@@ -389,10 +398,10 @@ function OperatorLogTab({ workers }: { workers: WorkerApi[] }) {
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                           <thead>
                             <tr style={{ borderTop: '1px solid var(--border)' }}>
-                              <th style={{ padding: '7px 16px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600, fontSize: 11 }}>Işçi</th>
-                              <th style={{ padding: '7px 8px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600, fontSize: 11 }}>Scan sany</th>
-                              <th style={{ padding: '7px 8px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600, fontSize: 11 }}>Ilkinji</th>
-                              <th style={{ padding: '7px 16px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600, fontSize: 11 }}>Soňky</th>
+                              <th style={{ padding: '7px 16px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600, fontSize: 11 }}>{t.workTimeDay.colWorker}</th>
+                              <th style={{ padding: '7px 8px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600, fontSize: 11 }}>{t.scannerDevices.scanCountCol}</th>
+                              <th style={{ padding: '7px 8px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600, fontSize: 11 }}>{t.scannerDevices.firstScanCol}</th>
+                              <th style={{ padding: '7px 16px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600, fontSize: 11 }}>{t.scannerDevices.lastScanCol}</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -406,8 +415,8 @@ function OperatorLogTab({ workers }: { workers: WorkerApi[] }) {
                                     <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{r.workerId}</div>
                                   </td>
                                   <td style={{ padding: '7px 8px', textAlign: 'center' }}>{r.scanCount}</td>
-                                  <td style={{ padding: '7px 8px', textAlign: 'center', color: 'var(--text-secondary)' }}>{fmtLogTime(r.firstScan)}</td>
-                                  <td style={{ padding: '7px 16px', textAlign: 'center', color: 'var(--text-secondary)' }}>{fmtLogTime(r.lastScan)}</td>
+                                  <td style={{ padding: '7px 8px', textAlign: 'center', color: 'var(--text-secondary)' }}>{fmtLogTime(r.firstScan, DATE_LABEL_LOCALES[language])}</td>
+                                  <td style={{ padding: '7px 16px', textAlign: 'center', color: 'var(--text-secondary)' }}>{fmtLogTime(r.lastScan, DATE_LABEL_LOCALES[language])}</td>
                                 </tr>
                               ))}
                           </tbody>
@@ -493,38 +502,39 @@ function ZoneFormFields({
   onChange: (v: ZoneFormValue) => void
   devices: ScannerDevice[]
 }) {
+  const { t } = useTranslation()
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div>
-        <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontWeight: 600 }}>Ady</label>
+        <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontWeight: 600 }}>{t.common.name}</label>
         <input
           type="text" value={value.label}
           onChange={e => onChange({ ...value, label: e.target.value })}
-          placeholder="Meselem: Baş obýekt"
+          placeholder={t.scannerDevices.zoneNamePlaceholder}
           style={{ width: '100%', maxWidth: 320, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontSize: 13 }}
         />
       </div>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <div>
-          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontWeight: 600 }}>Kim üçin</label>
+          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontWeight: 600 }}>{t.scannerDevices.forWhomLabel}</label>
           <select
             value={value.scope}
             onChange={e => onChange({ ...value, scope: e.target.value as 'all' | 'device' })}
             style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontSize: 13, minWidth: 170 }}
           >
-            <option value="all">Ähli operatorlar</option>
-            <option value="device">Belli bir enjam / operator</option>
+            <option value="all">{t.scannerDevices.allOperatorsOption}</option>
+            <option value="device">{t.scannerDevices.specificDeviceOption}</option>
           </select>
         </div>
         {value.scope === 'device' && (
           <div>
-            <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontWeight: 600 }}>Enjam</label>
+            <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontWeight: 600 }}>{t.scannerDevices.deviceLabelShort}</label>
             <select
               value={value.deviceId}
               onChange={e => onChange({ ...value, deviceId: e.target.value })}
               style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontSize: 13, minWidth: 200 }}
             >
-              <option value="">— saýla —</option>
+              <option value="">{t.scannerDevices.selectPlaceholder}</option>
               {devices.map(d => (
                 <option key={d.id} value={d.id}>{d.operatorName ? `${d.label} (${d.operatorName})` : d.label}</option>
               ))}
@@ -532,7 +542,7 @@ function ZoneFormFields({
           </div>
         )}
         <div>
-          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontWeight: 600 }}>Radius (metr)</label>
+          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontWeight: 600 }}>{t.scannerDevices.radiusLabel}</label>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             <input
               type="number" min={1} value={value.radiusMeters}
@@ -560,6 +570,7 @@ function ZoneDraftCard({
   onCancel: () => void
   saving: boolean
 }) {
+  const { t } = useTranslation()
   const [value, setValue] = useState<ZoneFormValue>({ label: '', scope: 'all', deviceId: '', radiusMeters: 100 })
   const canSave = value.label.trim().length > 0 && (value.scope === 'all' || value.deviceId)
 
@@ -567,7 +578,7 @@ function ZoneDraftCard({
     <div className="card" style={{ marginBottom: 16, border: '1px solid var(--accent)' }}>
       <div className="card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Target size={14} color="var(--accent)" /> Täze zolak — {lat.toFixed(5)}, {lng.toFixed(5)}
+          <Target size={14} color="var(--accent)" /> {t.scannerDevices.newZonePrefix} {lat.toFixed(5)}, {lng.toFixed(5)}
         </span>
         <button className="btn btn-ghost btn--sm" onClick={onCancel}><X size={14} /></button>
       </div>
@@ -585,9 +596,9 @@ function ZoneDraftCard({
               radiusMeters: value.radiusMeters,
             })}
           >
-            {saving ? '...' : 'Ýatda sakla'}
+            {saving ? '...' : t.common.save}
           </button>
-          <button className="btn btn-ghost btn--sm" onClick={onCancel}>Ýatyr</button>
+          <button className="btn btn-ghost btn--sm" onClick={onCancel}>{t.common.cancel}</button>
         </div>
       </div>
     </div>
@@ -603,6 +614,7 @@ function ZoneRow({
   saving: boolean
   deleting: boolean
 }) {
+  const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState<ZoneFormValue>({
     label: zone.label,
@@ -612,7 +624,7 @@ function ZoneRow({
   })
 
   const deviceLabel = zone.scannerDeviceId
-    ? (devices.find(d => d.id === zone.scannerDeviceId)?.label ?? 'Näbelli enjam')
+    ? (devices.find(d => d.id === zone.scannerDeviceId)?.label ?? t.scannerDevices.unknownDeviceLabel)
     : null
 
   if (!editing) {
@@ -626,13 +638,13 @@ function ZoneRow({
           <div style={{ minWidth: 0 }}>
             <div style={{ fontWeight: 600, fontSize: 13 }}>{zone.label}</div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-              {formatRadius(zone.radiusMeters)} radius{deviceLabel ? ` · ${deviceLabel}` : ''} · {zone.latitude.toFixed(5)}, {zone.longitude.toFixed(5)}
+              {formatRadius(zone.radiusMeters)} {t.scannerDevices.radiusSuffixWord}{deviceLabel ? ` · ${deviceLabel}` : ''} · {zone.latitude.toFixed(5)}, {zone.longitude.toFixed(5)}
             </div>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-          <button className="btn btn--sm btn--secondary" onClick={() => setEditing(true)} title="Üýtget"><Pencil size={13} /></button>
-          <button className="btn btn--sm" style={{ background: 'var(--danger)', color: '#fff' }} disabled={deleting} onClick={onDelete} title="Poz"><Trash2 size={13} /></button>
+          <button className="btn btn--sm btn--secondary" onClick={() => setEditing(true)} title={t.common.edit}><Pencil size={13} /></button>
+          <button className="btn btn--sm" style={{ background: 'var(--danger)', color: '#fff' }} disabled={deleting} onClick={onDelete} title={t.common.delete}><Trash2 size={13} /></button>
         </div>
       </div>
     )
@@ -657,9 +669,9 @@ function ZoneRow({
               setEditing(false)
             }}
           >
-            {saving ? '...' : 'Ýatda sakla'}
+            {saving ? '...' : t.common.save}
           </button>
-          <button className="btn btn-ghost btn--sm" onClick={() => setEditing(false)}>Ýatyr</button>
+          <button className="btn btn-ghost btn--sm" onClick={() => setEditing(false)}>{t.common.cancel}</button>
         </div>
       </div>
     </div>
@@ -667,6 +679,8 @@ function ZoneRow({
 }
 
 function LocationsTab() {
+  const { t } = useTranslation()
+  const { language } = useUiPreferences()
   const qc = useQueryClient()
   const [startDate, setStartDate] = useState(daysAgoStr(6))
   const [endDate, setEndDate] = useState(todayStr())
@@ -777,7 +791,8 @@ function LocationsTab() {
       const anyOut = spot.points.some(p => p.outOfGeofence)
       const marker = anyOut ? L.marker([spot.lat, spot.lng], { icon: outOfBoundsIcon() }) : L.marker([spot.lat, spot.lng])
       marker.bindTooltip(
-        `${new Set(spot.points.map(p => p.employeeNumber)).size} işçi · ${spot.points.length} scan${anyOut ? ' · ⚠ zolakdan daşary' : ''}`,
+        t.scannerDevices.workersScansSummary.replace('{{n1}}', String(new Set(spot.points.map(p => p.employeeNumber)).size)).replace('{{n2}}', String(spot.points.length))
+          + (anyOut ? ` · ⚠ ${t.scannerDevices.outOfZoneSuffix}` : ''),
       )
       marker.on('click', () => setSelectedSpot(spot))
       marker.addTo(layer)
@@ -788,7 +803,7 @@ function LocationsTab() {
     } else if (markers.length > 1) {
       map.fitBounds(L.featureGroup(markers).getBounds().pad(0.2))
     }
-  }, [spots])
+  }, [spots, t])
 
   // Zone circles — re-fit the view around them when there's no scan data to
   // anchor on instead, so newly-added zones are always visible.
@@ -836,39 +851,39 @@ function LocationsTab() {
         background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 16,
       }}>
         <div>
-          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontWeight: 600 }}>Başlangyç sene</label>
+          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontWeight: 600 }}>{t.scannerDevices.startDateLabel}</label>
           <input type="date" value={startDate} max={endDate} onChange={e => setStartDate(e.target.value)}
             style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontSize: 13 }} />
         </div>
         <div>
-          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontWeight: 600 }}>Soňky sene</label>
+          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontWeight: 600 }}>{t.scannerDevices.endDateLabel}</label>
           <input type="date" value={endDate} min={startDate} max={todayStr()} onChange={e => setEndDate(e.target.value)}
             style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontSize: 13 }} />
         </div>
         <div>
-          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontWeight: 600 }}>Enjam / Operator</label>
+          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontWeight: 600 }}>{t.scannerDevices.deviceOperatorLabel}</label>
           <select value={deviceFilter} onChange={e => setDeviceFilter(e.target.value)}
             style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontSize: 13, minWidth: 200 }}>
-            <option value="all">Ähli enjamlar</option>
+            <option value="all">{t.scannerDevices.allDevicesOption}</option>
             {deviceOptions.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
           </select>
         </div>
         <div style={{ flex: 1, minWidth: 180 }}>
-          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontWeight: 600 }}>Gözle</label>
+          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontWeight: 600 }}>{t.common.search}</label>
           <div style={{ position: 'relative' }}>
             <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
             <input
               type="text" value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Işçiniň ady ýa-da belgisi..."
+              placeholder={t.common.searchByNameOrId}
               style={{ width: '100%', padding: '7px 10px 7px 30px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontSize: 13 }}
             />
           </div>
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
           {[
-            { label: 'Şu gün', s: todayStr(), e: todayStr() },
-            { label: 'Soňky 7 gün', s: daysAgoStr(6), e: todayStr() },
-            { label: 'Soňky 30 gün', s: daysAgoStr(29), e: todayStr() },
+            { label: t.common.today, s: todayStr(), e: todayStr() },
+            { label: t.scannerDevices.last7DaysLabel, s: daysAgoStr(6), e: todayStr() },
+            { label: t.scannerDevices.last30DaysLabel, s: daysAgoStr(29), e: todayStr() },
           ].map(p => (
             <button key={p.label} onClick={() => { setStartDate(p.s); setEndDate(p.e) }}
               className="btn btn-ghost" style={{ fontSize: 12 }}>
@@ -885,10 +900,10 @@ function LocationsTab() {
           style={{ display: 'flex', alignItems: 'center', gap: 6 }}
           onClick={() => { setAddingZone(v => !v); setZoneDraft(null) }}
         >
-          <Target size={14} /> {addingZone ? 'Kartada nokat saýlaň...' : 'Täze zolak goş'}
+          <Target size={14} /> {addingZone ? t.scannerDevices.pickPointOnMap : t.scannerDevices.addZoneBtn}
         </button>
         {addingZone && !zoneDraft && (
-          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Zolagyň merkezini bellemek üçin kartada islän nokadyňyza basyň.</span>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t.scannerDevices.zoneAddHint}</span>
         )}
       </div>
 
@@ -906,12 +921,12 @@ function LocationsTab() {
       <div ref={mapDivRef} style={{ width: '100%', height: 420, borderRadius: 12, overflow: 'hidden', marginBottom: 16, border: '1px solid var(--border)' }} />
 
       {isLoading ? (
-        <div className="card" style={{ marginBottom: 16 }}><div className="card-body">Ýüklenýär...</div></div>
+        <div className="card" style={{ marginBottom: 16 }}><div className="card-body">{t.common.loading}</div></div>
       ) : spots.length === 0 ? (
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-body" style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
             <MapPin size={32} style={{ opacity: 0.3, marginBottom: 12 }} />
-            <p style={{ margin: 0 }}>Bu aralykda lokasiýaly scan tapylmady.</p>
+            <p style={{ margin: 0 }}>{t.scannerDevices.noLocationScansInRange}</p>
           </div>
         </div>
       ) : (
@@ -928,11 +943,11 @@ function LocationsTab() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                   <thead>
                     <tr>
-                      <th style={{ padding: '7px 16px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600, fontSize: 11 }}>Işçi</th>
-                      <th style={{ padding: '7px 8px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600, fontSize: 11 }}>Operator</th>
-                      <th style={{ padding: '7px 8px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600, fontSize: 11 }}>Görnüşi</th>
-                      <th style={{ padding: '7px 8px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600, fontSize: 11 }}>Zolak</th>
-                      <th style={{ padding: '7px 16px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600, fontSize: 11 }}>Wagt</th>
+                      <th style={{ padding: '7px 16px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600, fontSize: 11 }}>{t.workTimeDay.colWorker}</th>
+                      <th style={{ padding: '7px 8px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600, fontSize: 11 }}>{t.scannerDevices.operatorCol}</th>
+                      <th style={{ padding: '7px 8px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600, fontSize: 11 }}>{t.scannerDevices.typeCol}</th>
+                      <th style={{ padding: '7px 8px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600, fontSize: 11 }}>{t.scannerDevices.zoneCol}</th>
+                      <th style={{ padding: '7px 16px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600, fontSize: 11 }}>{t.common.time}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -945,15 +960,15 @@ function LocationsTab() {
                           <td style={{ padding: '7px 8px', color: 'var(--text-secondary)' }}>{p.operatorName ?? p.deviceLabel}</td>
                           <td style={{ padding: '7px 8px', textAlign: 'center' }}>
                             <span style={{ color: p.eventType === 'CHECK_IN' ? 'var(--success)' : 'var(--warning, #F59E0B)', fontWeight: 600 }}>
-                              {p.eventType === 'CHECK_IN' ? 'Giriş' : 'Çykyş'}
+                              {p.eventType === 'CHECK_IN' ? t.workTimesheet.colCheckIn : t.workTimesheet.colCheckOut}
                             </span>
                           </td>
                           <td style={{ padding: '7px 8px', textAlign: 'center' }}>
-                            {p.outOfGeofence === true && <span style={{ color: 'var(--danger)', fontWeight: 600, fontSize: 11 }}>⚠ daşary</span>}
-                            {p.outOfGeofence === false && <span style={{ color: 'var(--success)', fontSize: 11 }}>✓ içinde</span>}
+                            {p.outOfGeofence === true && <span style={{ color: 'var(--danger)', fontWeight: 600, fontSize: 11 }}>⚠ {t.scannerDevices.outsideLabel}</span>}
+                            {p.outOfGeofence === false && <span style={{ color: 'var(--success)', fontSize: 11 }}>✓ {t.scannerDevices.insideLabel}</span>}
                             {p.outOfGeofence === null && <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>—</span>}
                           </td>
-                          <td style={{ padding: '7px 16px', textAlign: 'center', color: 'var(--text-secondary)' }}>{fmtLogTime(p.eventTime)}</td>
+                          <td style={{ padding: '7px 16px', textAlign: 'center', color: 'var(--text-secondary)' }}>{fmtLogTime(p.eventTime, DATE_LABEL_LOCALES[language])}</td>
                         </tr>
                       ))}
                   </tbody>
@@ -982,9 +997,9 @@ function LocationsTab() {
                       <MapPin size={14} color={anyOut ? 'var(--danger)' : 'var(--primary)'} />
                       <span style={{ fontWeight: 600, fontSize: 13 }}>{spot.lat.toFixed(5)}, {spot.lng.toFixed(5)}</span>
                       <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                        {new Set(spot.points.map(p => p.employeeNumber)).size} işçi · {spot.points.length} scan
+                        {t.scannerDevices.workersScansSummary.replace('{{n1}}', String(new Set(spot.points.map(p => p.employeeNumber)).size)).replace('{{n2}}', String(spot.points.length))}
                       </span>
-                      {anyOut && <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--danger)' }}>⚠ zolakdan daşary</span>}
+                      {anyOut && <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--danger)' }}>⚠ {t.scannerDevices.outOfZoneSuffix}</span>}
                     </div>
                     <ChevronDown size={15} />
                   </div>
@@ -998,18 +1013,18 @@ function LocationsTab() {
       <div className="card">
         <div className="card-header" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Target size={15} color="var(--accent)" />
-          <span style={{ fontWeight: 700, fontSize: 14 }}>Rugsat berlen zolaklar</span>
+          <span style={{ fontWeight: 700, fontSize: 14 }}>{t.scannerDevices.allowedZonesTitle}</span>
         </div>
         <div className="card-body">
           <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 14px' }}>
-            Hiç hili zolak goşulmasa, operatorlarda hiç hili çäklendirme bolmaz. Zolak goşulan badyna, ondan daşarda scan edilende operator duýduryş alar (scan barybir doly ýazga alynýar, blokirlenmeýär).
+            {t.scannerDevices.zonesExplanation}
           </p>
           {zones.length === 0 ? (
-            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>Häzirlikçe hiç hili zolak goşulmady.</p>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>{t.scannerDevices.noZonesYet}</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8 }}>Ähli operatorlar üçin ({globalZones.length})</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8 }}>{t.scannerDevices.forAllOperatorsCountLabel.replace('{{n}}', String(globalZones.length))}</div>
                 {globalZones.length === 0 ? (
                   <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>—</p>
                 ) : (
@@ -1019,14 +1034,14 @@ function LocationsTab() {
                         key={zone.id} zone={zone} devices={devices}
                         saving={updateZoneMutation.isPending} deleting={deleteZoneMutation.isPending}
                         onSave={input => updateZoneMutation.mutate({ id: zone.id, input })}
-                        onDelete={() => { if (window.confirm(`"${zone.label}" zolagyny pozmak isleýärsiňizmi?`)) deleteZoneMutation.mutate(zone.id) }}
+                        onDelete={() => { if (window.confirm(t.scannerDevices.deleteZoneConfirm.replace('{{label}}', zone.label))) deleteZoneMutation.mutate(zone.id) }}
                       />
                     ))}
                   </div>
                 )}
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8 }}>Aýratyn enjamlar üçin ({deviceZones.length})</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8 }}>{t.scannerDevices.forSpecificDevicesCountLabel.replace('{{n}}', String(deviceZones.length))}</div>
                 {deviceZones.length === 0 ? (
                   <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>—</p>
                 ) : (
@@ -1036,7 +1051,7 @@ function LocationsTab() {
                         key={zone.id} zone={zone} devices={devices}
                         saving={updateZoneMutation.isPending} deleting={deleteZoneMutation.isPending}
                         onSave={input => updateZoneMutation.mutate({ id: zone.id, input })}
-                        onDelete={() => { if (window.confirm(`"${zone.label}" zolagyny pozmak isleýärsiňizmi?`)) deleteZoneMutation.mutate(zone.id) }}
+                        onDelete={() => { if (window.confirm(t.scannerDevices.deleteZoneConfirm.replace('{{label}}', zone.label))) deleteZoneMutation.mutate(zone.id) }}
                       />
                     ))}
                   </div>
@@ -1053,6 +1068,8 @@ function LocationsTab() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function ScannerDevicesPage() {
+  const { t } = useTranslation()
+  const { language } = useUiPreferences()
   const qc = useQueryClient()
   const [activeTab, setActiveTab] = useState<'devices' | 'log' | 'locations'>('devices')
   const [showCreate, setShowCreate] = useState(false)
@@ -1115,7 +1132,7 @@ export function ScannerDevicesPage() {
 
       <div className="page-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <h1 style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Smartphone size={20} /> NFC Enjamlar
+          <Smartphone size={20} /> {t.scannerDevices.pageTitle}
         </h1>
         {activeTab === 'devices' && (
           <button
@@ -1123,21 +1140,21 @@ export function ScannerDevicesPage() {
             style={{ display: 'flex', alignItems: 'center', gap: 6 }}
             onClick={() => setShowCreate(true)}
           >
-            <Plus size={14} /> Täze enjam
+            <Plus size={14} /> {t.scannerDevices.newDeviceTitle}
           </button>
         )}
       </div>
 
       <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: -8, marginBottom: 16 }}>
-        Her fiziki NFC scanner enjamy üçin aýratyn token. Operatör — şol enjamy ulanýan işçi.
+        {t.scannerDevices.pageDesc}
       </p>
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '2px solid var(--border)' }}>
         {([
-          { key: 'devices' as const, icon: Smartphone, label: 'Enjamlar' },
-          { key: 'log' as const, icon: History, label: 'Operator Žurnaly' },
-          { key: 'locations' as const, icon: MapPin, label: 'Lokasiýalar' },
+          { key: 'devices' as const, icon: Smartphone, label: t.scannerDevices.devicesTab },
+          { key: 'log' as const, icon: History, label: t.scannerDevices.operatorLogTab },
+          { key: 'locations' as const, icon: MapPin, label: t.scannerDevices.locationsTab },
         ]).map(tab => (
           <button
             key={tab.key}
@@ -1172,31 +1189,31 @@ export function ScannerDevicesPage() {
           accent="var(--primary)"
           accentLight="var(--primary-light)"
           value={`${devices.filter(d => d.isActive).length}/${devices.length}`}
-          label="Işjeň enjam"
+          label={t.scannerDevices.activeDevicesLabel}
         />
         <StatCard
           icon={<Users size={19} color="var(--info)" />}
           accent="var(--info)"
           accentLight="var(--info-light)"
           value={scanSummary ? scanSummary.totalWorkersEverScanned : '—'}
-          label="Jemi scan edilen işçi"
+          label={t.scannerDevices.totalScannedWorkersLabel}
         />
         <StatCard
           icon={<ScanLine size={19} color="var(--success)" />}
           accent="var(--success)"
           accentLight="var(--success-light)"
           value={scanSummary ? scanSummary.todayWorkersScanned : '—'}
-          label="Şu gün scan edilen işçi"
+          label={t.scannerDevices.todayScannedWorkersLabel}
         />
       </div>
 
       {isLoading ? (
-        <div className="card"><div className="card-body">Ýüklenýär...</div></div>
+        <div className="card"><div className="card-body">{t.common.loading}</div></div>
       ) : devices.length === 0 ? (
         <div className="card">
           <div className="card-body" style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
             <Smartphone size={32} style={{ opacity: 0.3, marginBottom: 12 }} />
-            <p style={{ margin: 0 }}>Enjamlaryň ýok. Täze enjam döret.</p>
+            <p style={{ margin: 0 }}>{t.scannerDevices.noDevicesYet}</p>
           </div>
         </div>
       ) : (
@@ -1209,7 +1226,7 @@ export function ScannerDevicesPage() {
 
                 {/* Status icon */}
                 <div
-                  title={stale ? 'Enjamdan 20 minutdan bäri signal ýok' : undefined}
+                  title={stale ? t.scannerDevices.staleTooltip : undefined}
                   style={{
                     width: 40, height: 40, borderRadius: 10, flexShrink: 0,
                     background: !device.isActive ? 'var(--bg)' : stale ? 'rgba(255,193,7,0.12)' : 'var(--primary-light)',
@@ -1229,24 +1246,24 @@ export function ScannerDevicesPage() {
                   <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
                     {device.label}
                     {stale && (
-                      <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--warning)' }}>⚠ signal ýok</span>
+                      <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--warning)' }}>⚠ {t.scannerDevices.staleLabel}</span>
                     )}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                     {device.location && <span>📍 {device.location}</span>}
                     {device.operatorName
                       ? <span>👤 {device.operatorName}</span>
-                      : <span style={{ color: 'var(--warning)' }}>⚠ Operatör bellenilmedi</span>
+                      : <span style={{ color: 'var(--warning)' }}>⚠ {t.scannerDevices.noOperatorAssigned}</span>
                     }
                     <span style={{ fontFamily: 'monospace' }}>🔑 {device.tokenPrefix}...</span>
-                    <span>🕐 {formatLastSeen(device.lastSeenAt)}</span>
+                    <span>🕐 {formatLastSeen(device.lastSeenAt, t, DATE_LABEL_LOCALES[language])}</span>
                     {device.batteryLevel !== null && (
                       <span style={{ color: batteryColor(device.batteryLevel) }}>🔋 {device.batteryLevel}%</span>
                     )}
                     {device.appVersion && <span>📱 v{device.appVersion}</span>}
                     {!!device.pendingEventCount && (
                       <span style={{ color: device.pendingEventCount > 20 ? 'var(--danger)' : 'var(--warning)' }}>
-                        📦 {device.pendingEventCount} synchronizasiýa garaşýar
+                        📦 {t.scannerDevices.pendingSyncTemplate.replace('{{n}}', String(device.pendingEventCount))}
                       </span>
                     )}
                   </div>
@@ -1260,7 +1277,7 @@ export function ScannerDevicesPage() {
                       background: 'var(--info-light)', borderRadius: 99,
                       padding: '3px 10px',
                     }}>
-                      <Users size={11} /> Jemi: {device.totalWorkersScanned} işçi ({device.totalScans} scan)
+                      <Users size={11} /> {t.scannerDevices.totalPrefixLabel} {t.scannerDevices.workersScansSummary.replace('{{n1}}', String(device.totalWorkersScanned)).replace('{{n2}}', String(device.totalScans))}
                     </span>
                     <span style={{
                       display: 'inline-flex', alignItems: 'center', gap: 5,
@@ -1268,7 +1285,7 @@ export function ScannerDevicesPage() {
                       background: 'var(--success-light)', borderRadius: 99,
                       padding: '3px 10px',
                     }}>
-                      <ScanLine size={11} /> Şu gün: {device.todayWorkersScanned} işçi ({device.todayScans} scan)
+                      <ScanLine size={11} /> {t.scannerDevices.todayPrefixLabel} {t.scannerDevices.workersScansSummary.replace('{{n1}}', String(device.todayWorkersScanned)).replace('{{n2}}', String(device.todayScans))}
                     </span>
                   </div>
                 </div>
@@ -1278,7 +1295,7 @@ export function ScannerDevicesPage() {
                   <button
                     className="btn btn--sm btn--secondary"
                     onClick={() => setTokenModal(device)}
-                    title="Tokeni görkez"
+                    title={t.scannerDevices.revealTokenBtn}
                     style={{ display: 'flex', alignItems: 'center', gap: 4 }}
                   >
                     <Eye size={13} />
@@ -1287,7 +1304,7 @@ export function ScannerDevicesPage() {
                   <button
                     className="btn btn--sm btn--secondary"
                     onClick={() => setEditDevice(device)}
-                    title="Üýtget"
+                    title={t.common.edit}
                   >
                     <Pencil size={13} />
                   </button>
@@ -1296,7 +1313,7 @@ export function ScannerDevicesPage() {
                     className="btn btn--sm"
                     style={{ background: 'var(--warning)', color: '#000', display: 'flex', alignItems: 'center', gap: 4 }}
                     onClick={() => setRegenConfirm(device.id)}
-                    title="Token täzele"
+                    title={t.settings.regenerateBtn}
                   >
                     <RefreshCw size={13} />
                   </button>
@@ -1304,7 +1321,7 @@ export function ScannerDevicesPage() {
                   <button
                     className="btn btn--sm btn--secondary"
                     onClick={() => toggleMutation.mutate({ id: device.id, isActive: !device.isActive })}
-                    title={device.isActive ? 'Öçür' : 'Işjet'}
+                    title={device.isActive ? t.scannerDevices.deactivateLabel : t.scannerDevices.activateLabel}
                   >
                     {device.isActive ? <WifiOff size={13} /> : <Wifi size={13} />}
                   </button>
@@ -1313,11 +1330,11 @@ export function ScannerDevicesPage() {
                     className="btn btn--sm"
                     style={{ background: 'var(--danger)', color: '#fff', display: 'flex', alignItems: 'center', gap: 4 }}
                     onClick={() => {
-                      if (window.confirm(`"${device.label}" enjamyny pozmak isleýärsiňizmi?`)) {
+                      if (window.confirm(t.scannerDevices.deleteDeviceConfirm.replace('{{label}}', device.label))) {
                         deleteMutation.mutate(device.id)
                       }
                     }}
-                    title="Poz"
+                    title={t.common.delete}
                   >
                     <Trash2 size={13} />
                   </button>
@@ -1331,16 +1348,16 @@ export function ScannerDevicesPage() {
                   background: 'var(--warning-light, rgba(255,193,7,0.1))',
                   display: 'flex', alignItems: 'center', gap: 10, fontSize: 13,
                 }}>
-                  <span style={{ flex: 1 }}>⚠ Token täzeden döredilende, bu enjam täze token bilen täzeden sazlanmaly. Dowam etmeli?</span>
+                  <span style={{ flex: 1 }}>⚠ {t.scannerDevices.regenerateWarning}</span>
                   <button
                     className="btn btn--sm"
                     style={{ background: 'var(--warning)', color: '#000' }}
                     onClick={() => regenMutation.mutate(device.id)}
                     disabled={regenMutation.isPending}
                   >
-                    {regenMutation.isPending ? '...' : 'Hawa, täzele'}
+                    {regenMutation.isPending ? '...' : t.scannerDevices.yesRegenerateBtn}
                   </button>
-                  <button className="btn btn--sm btn--secondary" onClick={() => setRegenConfirm(null)}>Ýok</button>
+                  <button className="btn btn--sm btn--secondary" onClick={() => setRegenConfirm(null)}>{t.common.no}</button>
                 </div>
               )}
             </div>

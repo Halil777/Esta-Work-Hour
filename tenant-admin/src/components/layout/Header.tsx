@@ -24,7 +24,7 @@ export function Header({ title }: Props) {
           <h2 className="header-title">{title}</h2>
           <span className="page-kicker">{user?.objectName ?? ''}</span>
         </div>
-        <span className="header-live">Live</span>
+        <span className="header-live">{t.common.live}</span>
       </div>
       <div className="header-actions">
         <div className="lang-switcher">
@@ -44,7 +44,7 @@ export function Header({ title }: Props) {
           {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
         </button>
 
-        <button className="icon-btn" title="Notifications">
+        <button className="icon-btn" title={t.common.notifications}>
           <Bell size={16} />
         </button>
 

@@ -30,14 +30,17 @@ function lastDay(d: Date): string {
   return `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, "0")}-${String(last.getDate()).padStart(2, "0")}`;
 }
 
-function fmtMs(ms: number): string {
+// Hour/minute unit suffixes are passed in by the caller (sourced from the
+// active tr/en/ru translation set) so this stays language-neutral — never a
+// hardcoded Turkish/Turkmen string regardless of the selected UI language.
+function fmtMs(ms: number, units: { h: string; min: string } = { h: "h", min: "min" }): string {
   if (!ms || ms <= 0) return "—";
   const totalMin = Math.round(ms / 60000);
   const h = Math.floor(totalMin / 60);
   const m = totalMin % 60;
-  if (h === 0) return `${m} min`;
-  if (m === 0) return `${h} sag`;
-  return `${h}:${String(m).padStart(2, "0")} sag`;
+  if (h === 0) return `${m} ${units.min}`;
+  if (m === 0) return `${h} ${units.h}`;
+  return `${h}:${String(m).padStart(2, "0")} ${units.h}`;
 }
 
 function fmtTime(ms: number): string {
@@ -235,6 +238,7 @@ function OverrideModal({ workerEntityId, date, existing, actualCheckIn, actualCh
 // ─── Card assignment history panel ───────────────────────────────────────────
 
 function CardHistoryPanel({ workerEntityId }: { workerEntityId: string }) {
+  const { t } = useTranslation();
   const { data: history = [] } = useQuery({
     queryKey: ["card-assignment-history", workerEntityId],
     queryFn: () => cardAssignmentHistoryApi.getForWorker(workerEntityId),
@@ -246,7 +250,7 @@ function CardHistoryPanel({ workerEntityId }: { workerEntityId: string }) {
   return (
     <div className="card" style={{ marginBottom: 14 }}>
       <div className="card-header">
-        <span style={{ fontSize: 13, fontWeight: 600 }}>📡 Karta taryhy</span>
+        <span style={{ fontSize: 13, fontWeight: 600 }}>📡 {t.workerDetail.cardHistoryTitle}</span>
       </div>
       <div className="card-body" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {history.map(h => (
@@ -256,11 +260,11 @@ function CardHistoryPanel({ workerEntityId }: { workerEntityId: string }) {
             </span>
             <span style={{ color: h.action === "ASSIGNED" ? "#10B981" : "var(--danger)", fontWeight: 500 }}>
               {h.action === "ASSIGNED"
-                ? `✓ Karta birikdirildi (${h.newCardUid})`
-                : `✕ Karta aýryldy (${h.previousCardUid})`}
+                ? `✓ ${t.workerDetail.cardAttached} (${h.newCardUid})`
+                : `✕ ${t.workerDetail.cardRemoved} (${h.previousCardUid})`}
             </span>
             <span style={{ color: "var(--text-muted)" }}>
-              {h.source === "card-report" ? "hasabat arkaly" : "golaýdan üýtgedildi"}
+              {h.source === "card-report" ? t.workerDetail.viaReport : t.workerDetail.manualChange}
               {h.changedBy ? ` — ${h.changedBy}` : ""}
             </span>
             {h.note && (
@@ -275,6 +279,7 @@ function CardHistoryPanel({ workerEntityId }: { workerEntityId: string }) {
 
 export function WorkerDetailPage() {
   const { t } = useTranslation();
+  const hourUnits = { h: t.workers.hourUnit, min: t.workers.minUnit };
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
@@ -432,7 +437,7 @@ export function WorkerDetailPage() {
             {STATS.map(s => (
               <div key={s.label} className="card" style={{ padding: "12px 14px" }}>
                 <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 3 }}>{s.label}</div>
-                <div style={{ fontSize: 17, fontWeight: 700, color: "var(--primary)" }}>{fmtMs(s.ms ?? 0)}</div>
+                <div style={{ fontSize: 17, fontWeight: 700, color: "var(--primary)" }}>{fmtMs(s.ms ?? 0, hourUnits)}</div>
                 <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{s.days} {t.common.days}</div>
               </div>
             ))}
@@ -471,7 +476,7 @@ export function WorkerDetailPage() {
               )}
               {!isLoading && days.length > 0 && (
                 <span style={{ marginLeft: "auto", fontSize: 13, color: "var(--text-muted)" }}>
-                  {t.workerDetail.totalLabel}: <strong style={{ color: "var(--primary)" }}>{fmtMs(data?.totalMs ?? 0)}</strong>
+                  {t.workerDetail.totalLabel}: <strong style={{ color: "var(--primary)" }}>{fmtMs(data?.totalMs ?? 0, hourUnits)}</strong>
                   {" · "}{workedDays(days)} {t.workerDetail.workedDays}
                 </span>
               )}
@@ -565,10 +570,10 @@ export function WorkerDetailPage() {
                             </td>
                             <td>
                               <strong style={{ fontSize: 13, color: displayMs > 0 ? (isOverridden ? "var(--warning, #F59E0B)" : "var(--primary)") : "var(--text-muted)" }}>
-                                {fmtMs(displayMs)}
+                                {fmtMs(displayMs, hourUnits)}
                               </strong>
                               {isOverridden && day.totalMs > 0 && (
-                                <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{t.workerDetail.actualLabel}: {fmtMs(day.totalMs)}</div>
+                                <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{t.workerDetail.actualLabel}: {fmtMs(day.totalMs, hourUnits)}</div>
                               )}
                             </td>
                             <td>

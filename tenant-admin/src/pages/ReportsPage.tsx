@@ -13,11 +13,14 @@ import { useUiPreferences } from '../app/providers/useUiPreferences'
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
-function fmtMs(ms: number): string {
+// Hour/minute unit suffixes are passed in by the caller (sourced from the
+// active tr/en/ru translation set) so this stays language-neutral — never a
+// hardcoded Turkish/Turkmen string regardless of the selected UI language.
+function fmtMs(ms: number, units: { h: string; min: string } = { h: 'h', min: 'min' }): string {
   if (!ms || ms <= 0) return '—'
   const h = Math.floor(ms / 3600000)
   const m = Math.floor((ms % 3600000) / 60000)
-  return m > 0 ? `${h} sag ${m} min` : `${h} sag`
+  return m > 0 ? `${h} ${units.h} ${m} ${units.min}` : `${h} ${units.h}`
 }
 
 function today(): string {
@@ -163,6 +166,7 @@ export function ReportsPage() {
   const { t } = useTranslation()
   const { language } = useUiPreferences()
   const qc = useQueryClient()
+  const hourUnits = { h: t.workers.hourUnit, min: t.workers.minUnit }
 
   // ── Filter state ─────────────────────────────────────────────────────────────
   const [startDate, setStartDate] = useState(monthStart(0))
@@ -436,8 +440,8 @@ export function ReportsPage() {
               {[
                 { label: t.reports.totalWorkers, value: totalWorkers, color: '#1d4ed8', bg: '#eff6ff', icon: Users },
                 { label: t.reports.workedWorkers, value: workedWorkers, color: '#16a34a', bg: '#f0fdf4', icon: TrendingUp },
-                { label: t.reports.totalHoursLabel, value: fmtMs(totalMs), color: '#4f46e5', bg: '#eef2ff', icon: Clock },
-                { label: t.reports.avgPerWorker, value: fmtMs(avgMs), color: '#b45309', bg: '#fef9c3', icon: BarChart3 },
+                { label: t.reports.totalHoursLabel, value: fmtMs(totalMs, hourUnits), color: '#4f46e5', bg: '#eef2ff', icon: Clock },
+                { label: t.reports.avgPerWorker, value: fmtMs(avgMs, hourUnits), color: '#b45309', bg: '#fef9c3', icon: BarChart3 },
               ].map(s => (
                 <div key={s.label} style={{ background: s.bg, borderRadius: 10, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
                   <s.icon size={22} color={s.color} />
@@ -530,9 +534,9 @@ export function ReportsPage() {
                                 : <span style={{ color: '#ef4444', fontSize: 12 }}>—</span>}
                             </td>
                             <td style={{ padding: '9px 14px', fontSize: 13, fontWeight: 700, color: row.totalMs > 0 ? '#1e3a5f' : '#ef4444' }}>
-                              {fmtMs(row.totalMs)}
+                              {fmtMs(row.totalMs, hourUnits)}
                             </td>
-                            <td style={{ padding: '9px 14px', fontSize: 12, color: '#64748b' }}>{fmtMs(avgDay)}</td>
+                            <td style={{ padding: '9px 14px', fontSize: 12, color: '#64748b' }}>{fmtMs(avgDay, hourUnits)}</td>
                           </tr>
                         )
                       })}
