@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.NFC" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- Requested at first launch (see MainActivity) so each NFC scan can be
+         tagged with the operator's location — lets the tenant admin see, on
+         a map, which site/gate each scan happened at. Coarse is requested
+         alongside fine so a last-known network-based fix is still available
+         if the operator declines the precise permission. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <uses-feature
+        android:name="android.hardware.nfc"
+        android:required="true" />
+
+    <application
+        android:name=".AttendanceApplication"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.EstaAttendance"
+        android:usesCleartextTraffic="true"
+        tools:targetApi="31">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.nfc.action.TAG_DISCOVERED" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".AttendanceHistoryActivity"
+            android:label="@string/attendance_history"
+            android:parentActivityName=".MainActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".SetupActivity"
+            android:label="@string/settings"
+            android:windowSoftInputMode="adjustResize"
+            android:exported="false" />
+
+        <activity
+            android:name=".CardReportActivity"
+            android:label="@string/card_report_title"
+            android:windowSoftInputMode="adjustResize"
+            android:parentActivityName=".MainActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".SettingsActivity"
+            android:label="@string/settings"
+            android:parentActivityName=".MainActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".NotScannedActivity"
+            android:label="@string/not_scanned_title"
+            android:parentActivityName=".MainActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ShiftAssignmentActivity"
+            android:label="@string/shift_assignment_title"
+            android:parentActivityName=".MainActivity"
+            android:exported="false" />
+
+    </application>
+
+</manifest>

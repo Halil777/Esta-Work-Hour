@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Attend Flow</string>
+    <string name="nfc_waiting">Kartı okutun</string>
+    <string name="nfc_unavailable">Bu cihazda NFC yok</string>
+    <string name="nfc_hint">NFC kartı telefona yaklaştırın</string>
+    <string name="location_required_short">Konum gerekli</string>
+    <string name="location_permission_required">Tarama için konum izni gerekli.</string>
+    <string name="location_services_required">Taramadan önce cihaz konumunu açın.</string>
+    <string name="location_fix_required">Konum alınamadı. Tarama kaydedilmedi; tekrar deneyin.</string>
+    <string name="bind_card_hint">Kart bağlamak için çalışan seçin</string>
+    <string name="select_worker">Çalışan seçin…</string>
+    <string name="confirm_binding">Kartı Bağla</string>
+    <string name="view_history">Geçmiş</string>
+    <string name="attendance_history">Devam Geçmişi</string>
+    <string name="check_in">GİRİŞ</string>
+    <string name="check_out">ÇIKIŞ</string>
+    <string name="sync_pending">BEKLEMEDE</string>
+    <string name="sync_synced">EŞİTLENDİ</string>
+    <string name="sync_failed">HATA</string>
+    <string name="today_label">Bugün</string>
+    <string name="syncing">Eşitleniyor…</string>
+    <string name="sync_done">Eşitleme tamamlandı</string>
+    <string name="sync_error">Eşitleme hatası</string>
+    <string name="mode_check_in">Giriş</string>
+    <string name="mode_check_out">Çıkış</string>
+    <string name="workers_synced">%1$d çalışan güncellendi</string>
+    <string name="workers_sync_error">Çalışanlar yüklenemedi</string>
+    <string name="settings">Ayarlar</string>
+    <!-- Biometric -->
+    <string name="biometric_title">Uygulamayı Aç</string>
+    <string name="biometric_subtitle">Devam etmek için biyometri veya PIN kullanın</string>
+    <string name="biometric_cancel">İptal</string>
+    <!-- Card report -->
+    <string name="card_report_title">Kart Sorununu Bildir</string>
+    <string name="card_report_subtitle">Yanlış kart atamasını yöneticiye bildir</string>
+    <string name="card_report_current_worker">Kart şu anda bağlı:</string>
+    <string name="card_report_suggest">Doğru çalışanı öner (isteğe bağlı)</string>
+    <string name="card_report_note_hint">Sorunu açıklayın…</string>
+    <string name="card_report_send">Rapor Gönder</string>
+    <string name="card_report_sent">Rapor yöneticiye gönderildi</string>
+    <string name="card_report_error">Rapor gönderilemedi</string>
+    <string name="card_report_cancel">İptal</string>
+    <!-- Card binding -->
+    <string name="bind_card_uid_label">Kart UID:</string>
+    <string name="report_wrong_card">Yanlış Atamayı Bildir</string>
+    <!-- Theme -->
+    <string name="theme_dark">🌙 Koyu</string>
+    <string name="theme_light">☀️ Açık</string>
+    <string name="theme_system">🔄 Sistem</string>
+    <!-- Settings screen -->
+    <string name="settings_appearance">Görünüm</string>
+    <string name="settings_theme_title">Tema</string>
+    <string name="settings_language_title">Dil</string>
+    <!-- Setup screen -->
+    <string name="setup_subtitle">Cihazı yapılandırmak için\ngiriş bilgilerini girin</string>
+    <string name="setup_server_url">Sunucu URL</string>
+    <string name="setup_username">Kullanıcı adı</string>
+    <string name="setup_password">Şifre</string>
+    <string name="setup_hint">Kiracı yöneticisi tarafından sağlanan giriş bilgilerini girin</string>
+    <string name="setup_connect">Bağlan</string>
+    <string name="setup_connecting">Bağlanıyor…</string>
+    <!-- History screen -->
+    <string name="history_count">%1$d olay</string>
+    <string name="history_pending">%1$d beklemede</string>
+    <string name="history_search_hint">İsme göre ara…</string>
+    <!-- Setup validation -->
+    <string name="error_url_required">Sunucu URL gerekli</string>
+    <string name="error_username_required">Kullanıcı adı gerekli</string>
+    <string name="error_password_required">Şifre gerekli</string>
+    <string name="error_invalid_credentials">Kullanıcı adı veya şifre yanlış</string>
+    <string name="error_device_not_configured">Bu çalışan için cihaz yapılandırılmamış. Yöneticiyle iletişime geçin.</string>
+    <string name="error_server_not_found">Sunucu bulunamadı: %1$s</string>
+    <!-- Home stats + not-scanned alert -->
+    <string name="stats_total_workers">Toplam işçi</string>
+    <string name="stats_scanned_today">Bugün taranan</string>
+    <string name="not_scanned_banner_title">%1$d kişi taranmadı</string>
+    <string name="not_scanned_banner_view">Görüntüle</string>
+    <string name="not_scanned_title">Taranmayanlar</string>
+    <string name="not_scanned_day_shift">Gündüz vardiyası</string>
+    <string name="not_scanned_night_shift">Gece vardiyası</string>
+    <string name="not_scanned_alert_message">Bu işçiler %1$s çalışıyor ve geliş saatinde taranmadı</string>
+    <string name="not_scanned_none">Herkes tarandı</string>
+    <string name="not_scanned_grace_pending">Tolerans süresi henüz dolmadı</string>
+    <string name="not_scanned_count">%1$d kişi taranmadı</string>
+    <!-- Shift assignment -->
+    <string name="action_shift_change">Vardiyalar</string>
+    <string name="shift_assignment_title">İşçi Vardiyasını Değiştir</string>
+    <string name="shift_assignment_search_hint">İşçi ara…</string>
+    <string name="shift_day">Gündüz</string>
+    <string name="shift_night">Gece</string>
+    <string name="shift_none">Atanmadı</string>
+    <string name="shift_change_confirm_title">Vardiya değiştirilsin mi?</string>
+    <string name="shift_change_confirm_message">%1$s işçisi %2$s vardiyasından %3$s vardiyasına taşınsın mı?</string>
+    <string name="shift_change_success">%1$s %2$s vardiyasına taşındı</string>
+    <string name="shift_change_error">Vardiya değiştirilemedi</string>
+</resources>

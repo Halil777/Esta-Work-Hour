@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Attend Flow</string>
+    <string name="nfc_waiting">कार्ड स्कैन करें</string>
+    <string name="nfc_unavailable">इस डिवाइस पर NFC उपलब्ध नहीं है</string>
+    <string name="nfc_hint">NFC कार्ड को फोन के पास रखें</string>
+    <string name="unknown_card">अज्ञात कार्ड: %1$s</string>
+    <string name="bind_card_hint">इस कार्ड को लिंक करने के लिए कर्मचारी चुनें</string>
+    <string name="bind_card_uid_label">कार्ड UID:</string>
+    <string name="select_worker">कर्मचारी चुनें…</string>
+    <string name="confirm_binding">कार्ड लिंक करें</string>
+    <string name="report_wrong_card">गलत असाइनमेंट की रिपोर्ट करें</string>
+    <string name="view_history">इतिहास</string>
+    <string name="attendance_history">उपस्थिति इतिहास</string>
+    <string name="check_in">प्रवेश</string>
+    <string name="check_out">निकास</string>
+    <string name="sync_pending">लंबित</string>
+    <string name="sync_synced">सिंक्रनाइज़</string>
+    <string name="sync_failed">विफल</string>
+    <string name="today_label">आज</string>
+    <string name="syncing">सिंक हो रहा है…</string>
+    <string name="sync_done">सिंक पूर्ण</string>
+    <string name="sync_error">सिंक त्रुटि</string>
+    <string name="no_events">कोई घटना नहीं</string>
+    <string name="mode_check_in">प्रवेश</string>
+    <string name="mode_check_out">निकास</string>
+    <string name="workers_synced">%1$d कर्मचारी अपडेट हुए</string>
+    <string name="workers_sync_error">कर्मचारी लोड नहीं हो सके</string>
+    <string name="settings">सेटिंग्स</string>
+    <!-- Biometric -->
+    <string name="biometric_title">ऐप अनलॉक करें</string>
+    <string name="biometric_subtitle">जारी रखने के लिए बायोमेट्रिक्स या PIN का उपयोग करें</string>
+    <string name="biometric_cancel">रद्द करें</string>
+    <string name="biometric_failed">प्रमाणीकरण विफल</string>
+    <!-- Card report -->
+    <string name="card_report_title">कार्ड समस्या रिपोर्ट करें</string>
+    <string name="card_report_subtitle">एडमिन को गलत कार्ड असाइनमेंट की रिपोर्ट करें</string>
+    <string name="card_report_current_worker">कार्ड वर्तमान में लिंक है</string>
+    <string name="card_report_suggest">सही कर्मचारी सुझाएं (वैकल्पिक)</string>
+    <string name="card_report_note_hint">समस्या का वर्णन करें…</string>
+    <string name="card_report_send">रिपोर्ट भेजें</string>
+    <string name="card_report_sent">रिपोर्ट एडमिन को भेजी गई</string>
+    <string name="card_report_error">रिपोर्ट नहीं भेजी जा सकी</string>
+    <string name="card_report_cancel">रद्द करें</string>
+    <!-- Theme -->
+    <string name="theme_dark">🌙 डार्क</string>
+    <string name="theme_light">☀️ लाइट</string>
+    <string name="theme_system">🔄 सिस्टम</string>
+    <!-- Settings screen -->
+    <string name="settings_appearance">रूप</string>
+    <string name="settings_theme_title">थीम</string>
+    <string name="settings_language_title">भाषा</string>
+    <!-- Setup screen -->
+    <string name="setup_subtitle">डिवाइस कॉन्फ़िगर करने के लिए\nलॉगिन क्रेडेंशियल दर्ज करें</string>
+    <string name="setup_server_url">सर्वर URL</string>
+    <string name="setup_username">उपयोगकर्ता नाम</string>
+    <string name="setup_password">पासवर्ड</string>
+    <string name="setup_hint">किरायेदार एडमिन द्वारा प्रदान किए गए लॉगिन क्रेडेंशियल दर्ज करें</string>
+    <string name="setup_connect">कनेक्ट करें</string>
+    <string name="setup_connecting">कनेक्ट हो रहा है…</string>
+    <!-- History screen -->
+    <string name="history_count">%1$d घटनाएं</string>
+    <string name="history_pending">%1$d लंबित</string>
+    <string name="history_search_hint">नाम से खोजें…</string>
+    <!-- Setup validation -->
+    <string name="error_url_required">सर्वर URL आवश्यक है</string>
+    <string name="error_username_required">उपयोगकर्ता नाम आवश्यक है</string>
+    <string name="error_password_required">पासवर्ड आवश्यक है</string>
+    <string name="error_invalid_credentials">गलत उपयोगकर्ता नाम या पासवर्ड</string>
+    <string name="error_device_not_configured">इस कर्मचारी का कोई डिवाइस कॉन्फ़िगर नहीं है। किरायेदार एडमिन से संपर्क करें।</string>
+    <string name="error_server_not_found">सर्वर नहीं मिला: %1$s</string>
+    <!-- Admin corrections -->
+    <string name="admin_corrections">एडमिन सुधार</string>
+    <string name="admin_corrected_label">एडमिन ने सुधारा</string>
+    <string name="original_time_label">मूल समय</string>
+    <string name="corrected_time_label">सुधारित समय</string>
+    <string name="no_corrections">आज कोई सुधार नहीं</string>
+</resources>

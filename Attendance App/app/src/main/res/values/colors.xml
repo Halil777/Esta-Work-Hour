@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand -->
+    <color name="brand_primary">#3B82F6</color>
+    <color name="brand_primary_dark">#2563EB</color>
+    <color name="brand_primary_bg">#EFF6FF</color>
+
+    <!-- Light backgrounds (default / light mode) -->
+    <color name="bg_dark">#F8FAFC</color>
+    <color name="bg_surface">#FFFFFF</color>
+    <color name="bg_surface_elevated">#F1F5F9</color>
+    <color name="bg_border">#E2E8F0</color>
+
+    <!-- Text (light mode) -->
+    <color name="text_primary">#1E293B</color>
+    <color name="text_secondary">#475569</color>
+    <color name="text_muted">#94A3B8</color>
+
+    <!-- Status: CHECK_IN -->
+    <color name="checkin_color">#10B981</color>
+    <color name="checkin_bg">#F0FDF4</color>
+
+    <!-- Status: CHECK_OUT -->
+    <color name="checkout_color">#F59E0B</color>
+    <color name="checkout_bg">#FFFBEB</color>
+
+    <!-- Error / Warning -->
+    <color name="error_color">#EF4444</color>
+    <color name="error_bg">#FEF2F2</color>
+
+    <!-- Sync status -->
+    <color name="sync_pending">#F59E0B</color>
+    <color name="sync_synced">#3B82F6</color>
+    <color name="sync_failed">#EF4444</color>
+
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+</resources>

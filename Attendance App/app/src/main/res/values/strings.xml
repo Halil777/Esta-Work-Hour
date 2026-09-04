@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Attend Flow</string>
+    <string name="nfc_waiting">Scan card</string>
+    <string name="nfc_unavailable">NFC not available on this device</string>
+    <string name="nfc_hint">Hold NFC card close to phone</string>
+    <string name="location_required_short">Location required</string>
+    <string name="location_permission_required">Location permission is required before scanning.</string>
+    <string name="location_services_required">Turn on device location before scanning.</string>
+    <string name="location_fix_required">Could not get location. Scan was not saved; try again.</string>
+    <string name="unknown_card">Unknown card: %1$s</string>
+    <string name="bind_card_hint">Select a worker to link this card</string>
+    <string name="bind_card_uid_label">Card UID:</string>
+    <string name="select_worker">Select worker…</string>
+    <string name="select_worker_ambiguous">Multiple workers share that name — tap one from the list</string>
+    <string name="confirm_binding">Link Card</string>
+    <string name="report_wrong_card">Report Wrong Assignment</string>
+    <string name="view_history">History</string>
+    <string name="attendance_history">Attendance History</string>
+    <string name="check_in">CHECK-IN</string>
+    <string name="check_out">CHECK-OUT</string>
+    <string name="sync_pending">PENDING</string>
+    <string name="sync_synced">SYNCED</string>
+    <string name="sync_failed">FAILED</string>
+    <string name="today_label">Today</string>
+    <string name="syncing">Syncing…</string>
+    <string name="sync_done">Sync completed</string>
+    <string name="sync_error">Sync error</string>
+    <string name="no_events">No events</string>
+    <string name="mode_check_in">Check-In</string>
+    <string name="mode_check_out">Check-Out</string>
+    <string name="workers_synced">%1$d workers updated</string>
+    <string name="workers_sync_error">Could not load workers</string>
+    <string name="settings">Settings</string>
+    <!-- Biometric -->
+    <string name="biometric_title">Unlock App</string>
+    <string name="biometric_subtitle">Use biometrics or PIN to continue</string>
+    <string name="biometric_cancel">Cancel</string>
+    <string name="biometric_failed">Authentication failed</string>
+    <!-- Card report -->
+    <string name="card_report_title">Report Card Issue</string>
+    <string name="card_report_subtitle">Report an incorrect card assignment to the admin</string>
+    <string name="card_report_current_worker">Card is currently linked to</string>
+    <string name="card_report_suggest">Suggest correct worker (optional)</string>
+    <string name="card_report_note_hint">Describe the issue…</string>
+    <string name="card_report_send">Send Report</string>
+    <string name="card_report_sent">Report sent to admin</string>
+    <string name="card_report_error">Could not send report</string>
+    <string name="card_report_cancel">Cancel</string>
+    <!-- Theme -->
+    <string name="theme_dark">🌙 Dark</string>
+    <string name="theme_light">☀️ Light</string>
+    <string name="theme_system">🔄 System</string>
+    <!-- Settings screen -->
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_theme_title">Theme</string>
+    <string name="settings_language_title">Language</string>
+    <!-- Setup screen -->
+    <string name="setup_subtitle">Enter credentials to\nconfigure the device</string>
+    <string name="setup_server_url">Server URL</string>
+    <string name="setup_username">Username</string>
+    <string name="setup_password">Password</string>
+    <string name="setup_hint">Enter the login credentials provided by the tenant admin</string>
+    <string name="setup_connect">Connect</string>
+    <string name="setup_connecting">Connecting…</string>
+    <!-- History screen -->
+    <string name="history_count">%1$d events</string>
+    <string name="history_pending">%1$d pending</string>
+    <string name="history_search_hint">Search by name…</string>
+    <!-- Setup validation -->
+    <string name="error_url_required">Server URL is required</string>
+    <string name="error_username_required">Username is required</string>
+    <string name="error_password_required">Password is required</string>
+    <string name="error_invalid_credentials">Incorrect username or password</string>
+    <string name="error_device_not_configured">This worker has no device configured. Contact tenant admin.</string>
+    <string name="error_server_not_found">Server not found: %1$s</string>
+    <!-- Admin corrections -->
+    <string name="admin_corrections">Admin Corrections</string>
+    <string name="admin_corrected_label">Admin corrected</string>
+    <string name="original_time_label">Original time</string>
+    <string name="corrected_time_label">Corrected time</string>
+    <string name="no_corrections">No corrections today</string>
+    <!-- Home stats + not-scanned alert -->
+    <string name="stats_total_workers">Total workers</string>
+    <string name="stats_scanned_today">Scanned today</string>
+    <string name="not_scanned_banner_title">%1$d not scanned yet</string>
+    <string name="not_scanned_banner_view">View</string>
+    <string name="not_scanned_title">Not Scanned</string>
+    <string name="not_scanned_day_shift">Day shift</string>
+    <string name="not_scanned_night_shift">Night shift</string>
+    <string name="not_scanned_alert_message">These workers are on the %1$s and were not scanned at arrival time</string>
+    <string name="not_scanned_none">Everyone has scanned in</string>
+    <string name="not_scanned_grace_pending">Grace period not over yet</string>
+    <string name="not_scanned_count">%1$d not scanned</string>
+    <!-- Shift assignment -->
+    <string name="action_shift_change">Shifts</string>
+    <string name="shift_assignment_title">Change Worker Shift</string>
+    <string name="shift_assignment_search_hint">Search worker…</string>
+    <string name="shift_day">Day</string>
+    <string name="shift_night">Night</string>
+    <string name="shift_none">Not assigned</string>
+    <string name="shift_change_confirm_title">Change shift?</string>
+    <string name="shift_change_confirm_message">Move %1$s from %2$s to %3$s?</string>
+    <string name="shift_change_success">%1$s moved to %2$s</string>
+    <string name="shift_change_error">Could not change shift</string>
+</resources>

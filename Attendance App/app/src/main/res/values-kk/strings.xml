@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Attend Flow</string>
+    <string name="nfc_waiting">Картаны сканерлеңіз</string>
+    <string name="nfc_unavailable">Бұл құрылғыда NFC жоқ</string>
+    <string name="nfc_hint">NFC картасын телефонға жақындатыңыз</string>
+    <string name="unknown_card">Белгісіз карта: %1$s</string>
+    <string name="bind_card_hint">Бұл картаны байланыстыру үшін қызметкерді таңдаңыз</string>
+    <string name="bind_card_uid_label">Карта UID:</string>
+    <string name="select_worker">Қызметкерді таңдаңыз…</string>
+    <string name="confirm_binding">Картаны байланыстыру</string>
+    <string name="report_wrong_card">Қате тағайындалуды хабарлаңыз</string>
+    <string name="view_history">Тарих</string>
+    <string name="attendance_history">Қатысу тарихы</string>
+    <string name="check_in">КІРУ</string>
+    <string name="check_out">ШЫҒУ</string>
+    <string name="sync_pending">КҮТІЛУДЕ</string>
+    <string name="sync_synced">СИНХРОН.</string>
+    <string name="sync_failed">СӘТСІЗ</string>
+    <string name="today_label">Бүгін</string>
+    <string name="syncing">Синхрондалуда…</string>
+    <string name="sync_done">Синхрондау аяқталды</string>
+    <string name="sync_error">Синхрондау қатесі</string>
+    <string name="no_events">Оқиғалар жоқ</string>
+    <string name="mode_check_in">Кіру</string>
+    <string name="mode_check_out">Шығу</string>
+    <string name="workers_synced">%1$d қызметкер жаңартылды</string>
+    <string name="workers_sync_error">Қызметкерлерді жүктеу мүмкін болмады</string>
+    <string name="settings">Параметрлер</string>
+    <!-- Biometric -->
+    <string name="biometric_title">Қолданбаны ашу</string>
+    <string name="biometric_subtitle">Жалғастыру үшін биометрия немесе PIN пайдаланыңыз</string>
+    <string name="biometric_cancel">Болдырмау</string>
+    <string name="biometric_failed">Аутентификация сәтсіз аяқталды</string>
+    <!-- Card report -->
+    <string name="card_report_title">Карта мәселесін хабарлаңыз</string>
+    <string name="card_report_subtitle">Картаның қате тағайындалуы туралы әкімшіге хабарлаңыз</string>
+    <string name="card_report_current_worker">Карта қазір байланысты</string>
+    <string name="card_report_suggest">Дұрыс қызметкерді ұсыныңыз (міндетті емес)</string>
+    <string name="card_report_note_hint">Мәселені сипаттаңыз…</string>
+    <string name="card_report_send">Есеп жіберу</string>
+    <string name="card_report_sent">Есеп әкімшіге жіберілді</string>
+    <string name="card_report_error">Есеп жіберу мүмкін болмады</string>
+    <string name="card_report_cancel">Болдырмау</string>
+    <!-- Theme -->
+    <string name="theme_dark">🌙 Қараңғы</string>
+    <string name="theme_light">☀️ Жарық</string>
+    <string name="theme_system">🔄 Жүйе</string>
+    <!-- Settings screen -->
+    <string name="settings_appearance">Сыртқы келбет</string>
+    <string name="settings_theme_title">Тақырып</string>
+    <string name="settings_language_title">Тіл</string>
+    <!-- Setup screen -->
+    <string name="setup_subtitle">Құрылғыны баптандыру үшін\nкіру тіркелгі деректерін енгізіңіз</string>
+    <string name="setup_server_url">Сервер URL</string>
+    <string name="setup_username">Пайдаланушы аты</string>
+    <string name="setup_password">Құпия сөз</string>
+    <string name="setup_hint">Жалгерші әкімші берген кіру тіркелгі деректерін енгізіңіз</string>
+    <string name="setup_connect">Қосылу</string>
+    <string name="setup_connecting">Қосылуда…</string>
+    <!-- History screen -->
+    <string name="history_count">%1$d оқиға</string>
+    <string name="history_pending">%1$d күтілуде</string>
+    <string name="history_search_hint">Атымен іздеу…</string>
+    <!-- Setup validation -->
+    <string name="error_url_required">Сервер URL міндетті</string>
+    <string name="error_username_required">Пайдаланушы аты міндетті</string>
+    <string name="error_password_required">Құпия сөз міндетті</string>
+    <string name="error_invalid_credentials">Пайдаланушы аты немесе құпия сөз қате</string>
+    <string name="error_device_not_configured">Бұл қызметкердің құрылғысы баптандырылмаған. Жалгерші әкімшіге хабарласыңыз.</string>
+    <string name="error_server_not_found">Сервер табылмады: %1$s</string>
+    <!-- Admin corrections -->
+    <string name="admin_corrections">Әкімші Түзетулері</string>
+    <string name="admin_corrected_label">Әкімші түзетті</string>
+    <string name="original_time_label">Бастапқы уақыт</string>
+    <string name="corrected_time_label">Түзетілген уақыт</string>
+    <string name="no_corrections">Бүгін түзетулер жоқ</string>
+</resources>

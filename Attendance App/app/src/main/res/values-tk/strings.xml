@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Attend Flow</string>
+    <string name="nfc_waiting">Karti okaň</string>
+    <string name="nfc_unavailable">Bu enjamda NFC elýeterli däl</string>
+    <string name="nfc_hint">NFC kartyny telefona ýakynlaşdyryň</string>
+    <string name="location_required_short">Ýerleşiş gerek</string>
+    <string name="location_permission_required">Skanlamazdan öň ýerleşiş rugsady gerek.</string>
+    <string name="location_services_required">Skanlamazdan öň enjamyň ýerleşişini açyň.</string>
+    <string name="location_fix_required">Ýerleşişi alyp bolmady. Skan ýazylmady; gaýtadan synanyşyň.</string>
+    <string name="unknown_card">Näbelli kart: %1$s</string>
+    <string name="bind_card_hint">Bu karti baglamak üçin işçi saýlaň</string>
+    <string name="bind_card_uid_label">Kartyň UID-i:</string>
+    <string name="select_worker">Işçi saýlaň…</string>
+    <string name="confirm_binding">Karti baglaň</string>
+    <string name="report_wrong_card">Ýalňyş bellik habar beriň</string>
+    <string name="view_history">Taryh</string>
+    <string name="attendance_history">Gatnasyk Taryhy</string>
+    <string name="check_in">GİRİŞ</string>
+    <string name="check_out">ÇYKYŞ</string>
+    <string name="sync_pending">GARAŞYLÝAR</string>
+    <string name="sync_synced">SINHRON.</string>
+    <string name="sync_failed">ÝALŇYŞLYK</string>
+    <string name="today_label">Şu gün</string>
+    <string name="syncing">Sinhronlaşýar…</string>
+    <string name="sync_done">Sinhronlaşma tamamlandy</string>
+    <string name="sync_error">Sinhronlaşma ýalňyşlygy</string>
+    <string name="no_events">Wakalar ýok</string>
+    <string name="mode_check_in">Giriş</string>
+    <string name="mode_check_out">Çykyş</string>
+    <string name="workers_synced">%1$d işçi täzelendi</string>
+    <string name="workers_sync_error">Işçileri ýükläp bolmady</string>
+    <string name="settings">Sazlamalar</string>
+    <!-- Biometric -->
+    <string name="biometric_title">Programma açyň</string>
+    <string name="biometric_subtitle">Dowam etmek üçin biometriýa ýa-da PIN ulanyň</string>
+    <string name="biometric_cancel">Ýatyr et</string>
+    <string name="biometric_failed">Tassyklama başa barmady</string>
+    <!-- Card report -->
+    <string name="card_report_title">Kart meselesini habar beriň</string>
+    <string name="card_report_subtitle">Admin-a ýalňyş kart belligini habar beriň</string>
+    <string name="card_report_current_worker">Kart häzir bagly</string>
+    <string name="card_report_suggest">Dogry işçi teklip ediň (isleg boýunça)</string>
+    <string name="card_report_note_hint">Meselä düşündiriş beriň…</string>
+    <string name="card_report_send">Hasabat iberiň</string>
+    <string name="card_report_sent">Hasabat admin-a iberildi</string>
+    <string name="card_report_error">Hasabat iberip bolmady</string>
+    <string name="card_report_cancel">Ýatyr et</string>
+    <!-- Theme -->
+    <string name="theme_dark">🌙 Garaňky</string>
+    <string name="theme_light">☀️ Açyk</string>
+    <string name="theme_system">🔄 Ulgam</string>
+    <!-- Settings screen -->
+    <string name="settings_appearance">Görnüş</string>
+    <string name="settings_theme_title">Tema</string>
+    <string name="settings_language_title">Dil</string>
+    <!-- Setup screen -->
+    <string name="setup_subtitle">Enjamy sazlamak üçin\ngiriş maglumatlaryny giriziň</string>
+    <string name="setup_server_url">Server URL</string>
+    <string name="setup_username">Ulanyjy ady</string>
+    <string name="setup_password">Açar söz</string>
+    <string name="setup_hint">Kirapçy admin tarapyndan berilen giriş maglumatlaryny giriziň</string>
+    <string name="setup_connect">Birikdir</string>
+    <string name="setup_connecting">Birikdirilýär…</string>
+    <!-- History screen -->
+    <string name="history_count">%1$d waka</string>
+    <string name="history_pending">%1$d garaşylýar</string>
+    <string name="history_search_hint">Ada görä gözle…</string>
+    <!-- Setup validation -->
+    <string name="error_url_required">Server URL hökmany</string>
+    <string name="error_username_required">Ulanyjy ady hökmany</string>
+    <string name="error_password_required">Açar söz hökmany</string>
+    <string name="error_invalid_credentials">Ýalňyş ulanyjy ady ýa-da açar söz</string>
+    <string name="error_device_not_configured">Bu işçiniň enjamy sazlanmadyk. Kirapçy admin bilen habarlaşyň.</string>
+    <string name="error_server_not_found">Server tapylmady: %1$s</string>
+    <!-- Admin corrections -->
+    <string name="admin_corrections">Admin Düzedişleri</string>
+    <string name="admin_corrected_label">Admin düzetdi</string>
+    <string name="original_time_label">Asyl wagt</string>
+    <string name="corrected_time_label">Düzedilen wagt</string>
+    <string name="no_corrections">Bu gün düzediş ýok</string>
+</resources>

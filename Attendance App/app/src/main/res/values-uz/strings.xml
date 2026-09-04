@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Attend Flow</string>
+    <string name="nfc_waiting">Kartani skanerlang</string>
+    <string name="nfc_unavailable">Bu qurilmada NFC mavjud emas</string>
+    <string name="nfc_hint">NFC kartani telefonga yaqinlashtiring</string>
+    <string name="unknown_card">Noma\'lum karta: %1$s</string>
+    <string name="bind_card_hint">Bu kartani ulash uchun ishchi tanlang</string>
+    <string name="bind_card_uid_label">Karta UID:</string>
+    <string name="select_worker">Ishchi tanlang…</string>
+    <string name="confirm_binding">Kartani ulash</string>
+    <string name="report_wrong_card">Noto\'g\'ri belgilash haqida xabar bering</string>
+    <string name="view_history">Tarix</string>
+    <string name="attendance_history">Davomat Tarixi</string>
+    <string name="check_in">KIRISH</string>
+    <string name="check_out">CHIQISH</string>
+    <string name="sync_pending">KUTILMOQDA</string>
+    <string name="sync_synced">SINXRON.</string>
+    <string name="sync_failed">XATO</string>
+    <string name="today_label">Bugun</string>
+    <string name="syncing">Sinxronlanmoqda…</string>
+    <string name="sync_done">Sinxronlash yakunlandi</string>
+    <string name="sync_error">Sinxronlash xatosi</string>
+    <string name="no_events">Hodisalar yo\'q</string>
+    <string name="mode_check_in">Kirish</string>
+    <string name="mode_check_out">Chiqish</string>
+    <string name="workers_synced">%1$d ishchi yangilandi</string>
+    <string name="workers_sync_error">Ishchilarni yuklab bo\'lmadi</string>
+    <string name="settings">Sozlamalar</string>
+    <!-- Biometric -->
+    <string name="biometric_title">Ilovani ochish</string>
+    <string name="biometric_subtitle">Davom etish uchun biometrik yoki PIN-dan foydalaning</string>
+    <string name="biometric_cancel">Bekor qilish</string>
+    <string name="biometric_failed">Autentifikatsiya muvaffaqiyatsiz bo\'ldi</string>
+    <!-- Card report -->
+    <string name="card_report_title">Karta muammosini bildirish</string>
+    <string name="card_report_subtitle">Noto\'g\'ri karta belgilanishi haqida adminga xabar bering</string>
+    <string name="card_report_current_worker">Karta hozir ulangan</string>
+    <string name="card_report_suggest">To\'g\'ri ishchini taklif qiling (ixtiyoriy)</string>
+    <string name="card_report_note_hint">Muammoni tasvirlab bering…</string>
+    <string name="card_report_send">Hisobot yuborish</string>
+    <string name="card_report_sent">Hisobot adminga yuborildi</string>
+    <string name="card_report_error">Hisobot yuborib bo\'lmadi</string>
+    <string name="card_report_cancel">Bekor qilish</string>
+    <!-- Theme -->
+    <string name="theme_dark">🌙 Qorong\'u</string>
+    <string name="theme_light">☀️ Yorug\'</string>
+    <string name="theme_system">🔄 Tizim</string>
+    <!-- Settings screen -->
+    <string name="settings_appearance">Ko\'rinish</string>
+    <string name="settings_theme_title">Mavzu</string>
+    <string name="settings_language_title">Til</string>
+    <!-- Setup screen -->
+    <string name="setup_subtitle">Qurilmani sozlash uchun\nkirish ma\'lumotlarini kiriting</string>
+    <string name="setup_server_url">Server URL</string>
+    <string name="setup_username">Foydalanuvchi nomi</string>
+    <string name="setup_password">Parol</string>
+    <string name="setup_hint">Ijara admini tomonidan berilgan kirish ma\'lumotlarini kiriting</string>
+    <string name="setup_connect">Ulash</string>
+    <string name="setup_connecting">Ulanmoqda…</string>
+    <!-- History screen -->
+    <string name="history_count">%1$d hodisa</string>
+    <string name="history_pending">%1$d kutilmoqda</string>
+    <string name="history_search_hint">Ism bo\'yicha qidirish…</string>
+    <!-- Setup validation -->
+    <string name="error_url_required">Server URL talab qilinadi</string>
+    <string name="error_username_required">Foydalanuvchi nomi talab qilinadi</string>
+    <string name="error_password_required">Parol talab qilinadi</string>
+    <string name="error_invalid_credentials">Noto\'g\'ri foydalanuvchi nomi yoki parol</string>
+    <string name="error_device_not_configured">Ushbu ishchining qurilmasi sozlanmagan. Ijara admini bilan bog\'laning.</string>
+    <string name="error_server_not_found">Server topilmadi: %1$s</string>
+    <!-- Admin corrections -->
+    <string name="admin_corrections">Admin Tuzatmalari</string>
+    <string name="admin_corrected_label">Admin tuzatdi</string>
+    <string name="original_time_label">Asl vaqt</string>
+    <string name="corrected_time_label">Tuzatilgan vaqt</string>
+    <string name="no_corrections">Bugun tuzatmalar yo\'q</string>
+</resources>

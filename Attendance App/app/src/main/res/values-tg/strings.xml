@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Attend Flow</string>
+    <string name="nfc_waiting">Корт скан кунед</string>
+    <string name="nfc_unavailable">NFC дар ин дастгоҳ дастрас нест</string>
+    <string name="nfc_hint">Корти NFC-ро ба телефон наздик кунед</string>
+    <string name="unknown_card">Корти номаълум: %1$s</string>
+    <string name="bind_card_hint">Барои пайвасткунии ин корт кормандро интихоб кунед</string>
+    <string name="bind_card_uid_label">UID-и корт:</string>
+    <string name="select_worker">Кормандро интихоб кунед…</string>
+    <string name="confirm_binding">Корт пайваст кунед</string>
+    <string name="report_wrong_card">Дар бораи таъинот хато хабар диҳед</string>
+    <string name="view_history">Таърих</string>
+    <string name="attendance_history">Таърихи иштирок</string>
+    <string name="check_in">ВОРИДШАВӢ</string>
+    <string name="check_out">БАРОМАД</string>
+    <string name="sync_pending">ИНТИЗОР</string>
+    <string name="sync_synced">СИНХРОН.</string>
+    <string name="sync_failed">ХАТО</string>
+    <string name="today_label">Имрӯз</string>
+    <string name="syncing">Синхронизатсия…</string>
+    <string name="sync_done">Синхронизатсия анҷом ёфт</string>
+    <string name="sync_error">Хатои синхронизатсия</string>
+    <string name="no_events">Рӯйдодҳо нест</string>
+    <string name="mode_check_in">Воридшавӣ</string>
+    <string name="mode_check_out">Баромад</string>
+    <string name="workers_synced">%1$d корманд навсозӣ шуд</string>
+    <string name="workers_sync_error">Борид кардани кормандон имконпазир нест</string>
+    <string name="settings">Танзимот</string>
+    <!-- Biometric -->
+    <string name="biometric_title">Барномаро кушоед</string>
+    <string name="biometric_subtitle">Барои давом аз биометрика ё PIN истифода баред</string>
+    <string name="biometric_cancel">Бекор кунед</string>
+    <string name="biometric_failed">Тасдиқнома ноком шуд</string>
+    <!-- Card report -->
+    <string name="card_report_title">Мушкили корт хабар диҳед</string>
+    <string name="card_report_subtitle">Дар бораи таъинот нодурусти корт ба маъмур хабар диҳед</string>
+    <string name="card_report_current_worker">Корт ҳоло пайваст аст</string>
+    <string name="card_report_suggest">Кормандро пешниҳод кунед (ихтиёрӣ)</string>
+    <string name="card_report_note_hint">Мушкилотро тавсиф кунед…</string>
+    <string name="card_report_send">Хабарот фиристед</string>
+    <string name="card_report_sent">Хабарот ба маъмур фиристода шуд</string>
+    <string name="card_report_error">Фиристодани хабарот имконпазир нест</string>
+    <string name="card_report_cancel">Бекор кунед</string>
+    <!-- Theme -->
+    <string name="theme_dark">🌙 Торик</string>
+    <string name="theme_light">☀️ Равшан</string>
+    <string name="theme_system">🔄 Система</string>
+    <!-- Settings screen -->
+    <string name="settings_appearance">Намуд</string>
+    <string name="settings_theme_title">Тема</string>
+    <string name="settings_language_title">Забон</string>
+    <!-- Setup screen -->
+    <string name="setup_subtitle">Барои танзими дастгоҳ\nэътибороти воридшавиро ворид кунед</string>
+    <string name="setup_server_url">URL-и сервер</string>
+    <string name="setup_username">Номи корбар</string>
+    <string name="setup_password">Парол</string>
+    <string name="setup_hint">Эътибороти воридшавиро, ки маъмури иҷора додааст, ворид кунед</string>
+    <string name="setup_connect">Пайвасткунӣ</string>
+    <string name="setup_connecting">Пайваст мешавад…</string>
+    <!-- History screen -->
+    <string name="history_count">%1$d рӯйдод</string>
+    <string name="history_pending">%1$d интизор</string>
+    <string name="history_search_hint">Ҷустуҷӯ аз рӯи ном…</string>
+    <!-- Setup validation -->
+    <string name="error_url_required">URL-и сервер талаб карда мешавад</string>
+    <string name="error_username_required">Номи корбар талаб карда мешавад</string>
+    <string name="error_password_required">Парол талаб карда мешавад</string>
+    <string name="error_invalid_credentials">Номи корбар ё парол нодуруст</string>
+    <string name="error_device_not_configured">Барои ин корманд дастгоҳ танзим нашудааст. Бо маъмури иҷора тамос гиред.</string>
+    <string name="error_server_not_found">Сервер ёфт нашуд: %1$s</string>
+    <!-- Admin corrections -->
+    <string name="admin_corrections">Ислоҳоти Маъмур</string>
+    <string name="admin_corrected_label">Маъмур ислоҳ кард</string>
+    <string name="original_time_label">Вақти аслӣ</string>
+    <string name="corrected_time_label">Вақти ислоҳшуда</string>
+    <string name="no_corrections">Имрӯз ислоҳот нест</string>
+</resources>

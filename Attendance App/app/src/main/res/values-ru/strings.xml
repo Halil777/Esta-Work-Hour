@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Attend Flow</string>
+    <string name="nfc_waiting">Поднесите карту</string>
+    <string name="nfc_unavailable">NFC недоступен на этом устройстве</string>
+    <string name="nfc_hint">Поднесите NFC карту к телефону</string>
+    <string name="location_required_short">Геолокация нужна</string>
+    <string name="location_permission_required">Для сканирования нужно разрешение геолокации.</string>
+    <string name="location_services_required">Включите геолокацию устройства перед сканированием.</string>
+    <string name="location_fix_required">Не удалось получить геолокацию. Сканирование не сохранено; попробуйте снова.</string>
+    <string name="bind_card_hint">Выберите работника для привязки карты</string>
+    <string name="bind_card_uid_label">UID карты:</string>
+    <string name="select_worker">Выберите работника…</string>
+    <string name="confirm_binding">Привязать карту</string>
+    <string name="report_wrong_card">Сообщить о неверной привязке</string>
+    <string name="view_history">История</string>
+    <string name="attendance_history">История посещений</string>
+    <string name="check_in">ПРИХОД</string>
+    <string name="check_out">УХОД</string>
+    <string name="sync_pending">ОЖИДАНИЕ</string>
+    <string name="sync_synced">СИНХ.</string>
+    <string name="sync_failed">ОШИБКА</string>
+    <string name="today_label">Сегодня</string>
+    <string name="syncing">Синхронизация…</string>
+    <string name="sync_done">Синхронизация завершена</string>
+    <string name="sync_error">Ошибка синхронизации</string>
+    <string name="mode_check_in">Приход</string>
+    <string name="mode_check_out">Уход</string>
+    <string name="workers_synced">Обновлено %1$d работников</string>
+    <string name="workers_sync_error">Не удалось загрузить работников</string>
+    <string name="settings">Настройки</string>
+    <!-- Biometric -->
+    <string name="biometric_title">Разблокировать</string>
+    <string name="biometric_subtitle">Используйте биометрику или PIN-код</string>
+    <string name="biometric_cancel">Отмена</string>
+    <!-- Card report -->
+    <string name="card_report_title">Сообщить о проблеме с картой</string>
+    <string name="card_report_subtitle">Отправить администратору сообщение о неверной привязке</string>
+    <string name="card_report_current_worker">Карта привязана к</string>
+    <string name="card_report_suggest">Предложить работника (необязательно)</string>
+    <string name="card_report_note_hint">Опишите проблему…</string>
+    <string name="card_report_send">Отправить сообщение</string>
+    <string name="card_report_sent">Сообщение отправлено администратору</string>
+    <string name="card_report_error">Не удалось отправить сообщение</string>
+    <string name="card_report_cancel">Отмена</string>
+    <!-- Theme -->
+    <string name="theme_dark">🌙 Тёмная</string>
+    <string name="theme_light">☀️ Светлая</string>
+    <string name="theme_system">🔄 Системная</string>
+    <!-- Settings screen -->
+    <string name="settings_appearance">Внешний вид</string>
+    <string name="settings_theme_title">Тема</string>
+    <string name="settings_language_title">Язык</string>
+    <!-- Setup screen -->
+    <string name="setup_subtitle">Введите данные для\nнастройки устройства</string>
+    <string name="setup_server_url">URL сервера</string>
+    <string name="setup_username">Имя пользователя</string>
+    <string name="setup_password">Пароль</string>
+    <string name="setup_hint">Введите данные для входа, предоставленные администратором</string>
+    <string name="setup_connect">Подключить</string>
+    <string name="setup_connecting">Подключение…</string>
+    <!-- History screen -->
+    <string name="history_count">%1$d событий</string>
+    <string name="history_pending">%1$d в ожидании</string>
+    <string name="history_search_hint">Поиск по имени…</string>
+    <!-- Setup validation -->
+    <string name="error_url_required">Укажите URL сервера</string>
+    <string name="error_username_required">Укажите имя пользователя</string>
+    <string name="error_password_required">Укажите пароль</string>
+    <string name="error_invalid_credentials">Неверное имя пользователя или пароль</string>
+    <string name="error_device_not_configured">Устройство не назначено этому работнику. Обратитесь к администратору.</string>
+    <string name="error_server_not_found">Сервер не найден: %1$s</string>
+    <!-- Home stats + not-scanned alert -->
+    <string name="stats_total_workers">Всего рабочих</string>
+    <string name="stats_scanned_today">Отмечено сегодня</string>
+    <string name="not_scanned_banner_title">%1$d не отмечено</string>
+    <string name="not_scanned_banner_view">Смотреть</string>
+    <string name="not_scanned_title">Не отмеченные</string>
+    <string name="not_scanned_day_shift">Дневная смена</string>
+    <string name="not_scanned_night_shift">Ночная смена</string>
+    <string name="not_scanned_alert_message">Эти работники работают в %1$s и не были отмечены при явке</string>
+    <string name="not_scanned_none">Все отметились</string>
+    <string name="not_scanned_grace_pending">Льготный период ещё не закончился</string>
+    <string name="not_scanned_count">%1$d не отмечено</string>
+    <!-- Shift assignment -->
+    <string name="action_shift_change">Смены</string>
+    <string name="shift_assignment_title">Изменить смену работника</string>
+    <string name="shift_assignment_search_hint">Поиск работника…</string>
+    <string name="shift_day">День</string>
+    <string name="shift_night">Ночь</string>
+    <string name="shift_none">Не назначено</string>
+    <string name="shift_change_confirm_title">Изменить смену?</string>
+    <string name="shift_change_confirm_message">Перевести %1$s из %2$s в %3$s?</string>
+    <string name="shift_change_success">%1$s переведён(а) в %2$s</string>
+    <string name="shift_change_error">Не удалось изменить смену</string>
+</resources>
