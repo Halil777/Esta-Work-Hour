@@ -159,6 +159,32 @@ export const workTimeApi = {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   },
+
+  exportDayXlsx: async (date: string, lang?: string): Promise<void> => {
+    const token = localStorage.getItem('adminJwt');
+    const params = new URLSearchParams({ date });
+    if (lang) params.set('lang', lang);
+    const res = await fetch(`/api/admin/work-time/export-day-xlsx?${params}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (res.status === 401) {
+      localStorage.removeItem('adminJwt');
+      window.location.href = '/login';
+      throw new Error('Sesiýa tamam boldy');
+    }
+    if (!res.ok) throw new Error(`Export ýalňyşlyk: ${res.status}`);
+    const blob = await res.blob();
+    const prefixes: Record<string, string> = { en: 'work-day', ru: 'rabochiy-den', tr: 'gunluk-mesai' };
+    const prefix = prefixes[lang ?? ''] ?? 'gunluk-mesai';
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `${prefix}-${date}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
 }
 
 // ── Adjustment Reasons ─────────────────────────────────────────────────────────

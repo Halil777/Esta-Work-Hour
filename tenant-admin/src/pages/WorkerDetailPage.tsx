@@ -264,7 +264,11 @@ function CardHistoryPanel({ workerEntityId }: { workerEntityId: string }) {
                 : `✕ ${t.workerDetail.cardRemoved} (${h.previousCardUid})`}
             </span>
             <span style={{ color: "var(--text-muted)" }}>
-              {h.source === "card-report" ? t.workerDetail.viaReport : t.workerDetail.manualChange}
+              {h.source === "card-report"
+                ? t.workerDetail.viaReport
+                : h.source === "mobile-device"
+                ? t.workerDetail.viaMobile
+                : t.workerDetail.manualChange}
               {h.changedBy ? ` — ${h.changedBy}` : ""}
             </span>
             {h.note && (

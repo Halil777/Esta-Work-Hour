@@ -16,7 +16,7 @@ import { WorkerDetailPage } from '../pages/WorkerDetailPage'
 import { LateArrivalsPage } from '../pages/LateArrivalsPage'
 import { ReportsPage } from '../pages/ReportsPage'
 import { ScannerDevicesPage } from '../pages/ScannerDevicesPage'
-import { CardReportsPage } from '../pages/CardReportsPage'
+import { CardAssignmentHistoryPage } from '../pages/CardAssignmentHistoryPage'
 import { WorkTimePage } from '../pages/WorkTimePage'
 import { WorkTimesheetPage } from '../pages/WorkTimesheetPage'
 import { AdjustmentReasonsPage } from '../pages/AdjustmentReasonsPage'
@@ -46,7 +46,7 @@ export const router = createBrowserRouter([
       { path: 'late-arrivals', element: <LateArrivalsPage /> },
       { path: 'reports', element: <ReportsPage /> },
       { path: 'scanner-devices', element: <ScannerDevicesPage /> },
-      { path: 'card-reports', element: <CardReportsPage /> },
+      { path: 'card-history', element: <CardAssignmentHistoryPage /> },
       { path: 'work-time', element: <WorkTimePage /> },
       { path: 'work-time/reasons', element: <AdjustmentReasonsPage /> },
       { path: 'work-time/day', element: <WorkTimeDayPage /> },

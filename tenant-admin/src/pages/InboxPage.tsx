@@ -2,11 +2,10 @@ import type { ElementType, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  Inbox as InboxIcon, CreditCard, Clock, WifiOff, Check, X,
-  AlertTriangle, ArrowRight, PartyPopper, RefreshCw,
+  Inbox as InboxIcon, Clock, WifiOff, Check, X,
+  ArrowRight, PartyPopper, RefreshCw,
 } from 'lucide-react'
 import { adminInboxApi } from '../api/adminInbox'
-import { cardReportsApi } from '../api/cardReports'
 import { extraHoursApi } from '../api/extraHours'
 import { useTranslation } from '../i18n/useTranslation'
 
@@ -58,34 +57,17 @@ export function InboxPage() {
     staleTime: 15_000,
   })
 
-  const invalidateWorkerCaches = () =>
-    qc.invalidateQueries({
-      predicate: query => typeof query.queryKey[0] === 'string' && query.queryKey[0].toLowerCase().startsWith('worker'),
-    })
-
   const refreshAll = () => {
     qc.invalidateQueries({ queryKey: ['admin-inbox'] })
-    qc.invalidateQueries({ queryKey: ['card-reports'] })
     qc.invalidateQueries({ queryKey: ['extra-hours'] })
-    invalidateWorkerCaches()
   }
-
-  const resolveMut = useMutation({
-    mutationFn: ({ id, workerId }: { id: string; workerId?: string }) => cardReportsApi.resolve(id, workerId),
-    onSuccess: refreshAll,
-  })
-
-  const dismissMut = useMutation({
-    mutationFn: (id: string) => cardReportsApi.dismiss(id),
-    onSuccess: refreshAll,
-  })
 
   const extraHoursMut = useMutation({
     mutationFn: ({ id, action }: { id: string; action: 'approved' | 'rejected' }) => extraHoursApi.action(id, action),
     onSuccess: refreshAll,
   })
 
-  const counts = data?.counts ?? { cardReports: 0, extraHours: 0, staleDevices: 0, total: 0 }
+  const counts = data?.counts ?? { extraHours: 0, staleDevices: 0, total: 0 }
 
   return (
     <>
@@ -115,74 +97,6 @@ export function InboxPage() {
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: -8, marginBottom: 18 }}>
             {t.inbox.totalPending.replace('{{n}}', String(counts.total))}
           </p>
-
-          {/* ── Card reports ── */}
-          <InboxSection
-            icon={CreditCard}
-            title={t.inbox.sectionCardReports}
-            count={counts.cardReports}
-            emptyLabel={t.cardReports.noData}
-          >
-            {data!.cardReports.map(report => (
-              <div key={report.id} style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 6, alignItems: 'center' }}>
-                    <span style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, background: 'var(--bg-surface)', padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)' }}>
-                      {report.cardUid}
-                    </span>
-                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{new Date(report.createdAt).toLocaleString(undefined, { timeZone: 'Europe/Moscow' })}</span>
-                    {report.deviceLabel && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>📟 {report.deviceLabel}</span>}
-                  </div>
-                  <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', fontSize: 13 }}>
-                    {report.currentWorkerName && (
-                      <div>
-                        <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>{t.cardReports.currentWorker}: </span>
-                        <span style={{ color: 'var(--danger)', fontWeight: 600 }}>{report.currentWorkerName}</span>
-                      </div>
-                    )}
-                    {(report.suggestedWorkerId || report.suggestedWorkerName) ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <AlertTriangle size={12} color="#F59E0B" />
-                        <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>{t.cardReports.suggestedWorker}: </span>
-                        <span style={{ color: '#10B981', fontWeight: 600 }}>
-                          {report.suggestedWorkerName || report.suggestedWorkerId}
-                          {report.suggestedWorkerId && report.suggestedWorkerName && ` (${report.suggestedWorkerId})`}
-                        </span>
-                      </div>
-                    ) : (
-                      <span style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>{t.inbox.noSuggestion}</span>
-                    )}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: 6, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                  {report.suggestedWorkerId ? (
-                    <button
-                      className="btn btn--primary btn--sm"
-                      type="button"
-                      style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}
-                      onClick={() => resolveMut.mutate({ id: report.id, workerId: report.suggestedWorkerId! })}
-                      disabled={resolveMut.isPending}
-                    >
-                      <Check size={12} /> {t.inbox.approveSuggested}
-                    </button>
-                  ) : (
-                    <Link to="/card-reports" className="btn btn--secondary btn--sm" style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}>
-                      {t.inbox.openCardReports} <ArrowRight size={11} />
-                    </Link>
-                  )}
-                  <button
-                    className="btn btn--secondary btn--sm"
-                    type="button"
-                    style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}
-                    onClick={() => dismissMut.mutate(report.id)}
-                    disabled={dismissMut.isPending}
-                  >
-                    <X size={12} /> {t.cardReports.dismissBtn}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </InboxSection>
 
           {/* ── Extra hours ── */}
           <InboxSection

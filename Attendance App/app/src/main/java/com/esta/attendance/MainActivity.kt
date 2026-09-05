@@ -29,7 +29,7 @@ import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.esta.attendance.data.local.entity.Worker
-import com.esta.attendance.network.dto.CardReportRequest
+import com.esta.attendance.network.dto.CardAssignRequest
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.card.MaterialCardView
 import kotlinx.coroutines.Job
@@ -398,9 +398,8 @@ class MainActivity : BaseActivity() {
         btnConfirmBinding.setOnClickListener { confirmBinding() }
 
         btnReportWrongCard.setOnClickListener {
-            val intent = Intent(this, CardReportActivity::class.java).apply {
-                putExtra(CardReportActivity.EXTRA_CARD_UID, lastScannedUid)
-                putExtra(CardReportActivity.EXTRA_CURRENT_WORKER_NAME, lastResultWorkerName)
+            val intent = Intent(this, FixCardActivity::class.java).apply {
+                putExtra(FixCardActivity.EXTRA_PREFILL_WORKER_NAME, lastResultWorkerName)
             }
             startActivity(intent)
         }
@@ -751,44 +750,40 @@ class MainActivity : BaseActivity() {
             return
         }
 
+        btnConfirmBinding.isEnabled = false
         lifecycleScope.launch {
-            val card = com.esta.attendance.data.local.entity.Card(
-                workerId = worker.id, cardUid = uid, cardType = "NFC"
-            )
-            repository.registerCard(card)
-
-            // registerCard() only writes to this device's local database —
-            // it never told the backend, so the admin panel never learned
-            // about the binding and no other scanner device would ever pick
-            // it up (each device has its own local roster). This was the
-            // other half of "fixing wrong cards doesn't go through": the fix
-            // looked like it worked here, but never actually propagated
-            // anywhere. Submitting it as a card report lets the admin
-            // approve it from the (now-fixed) Card Reports page, which then
-            // syncs back down to every device via the periodic worker resync.
             try {
-                apiService.submitCardReport(
-                    CardReportRequest(
-                        cardUid = uid,
-                        currentWorkerName = null,
-                        suggestedWorkerId = worker.employeeNumber,
-                        suggestedWorkerName = worker.fullName,
-                        note = "Enjamda näbelli kart täze işçä ýerli birikdirildi (admin tassyklamagyny garaşýar)"
-                    )
+                // Bind on the server first — it's the single source of truth,
+                // and the only thing every other device's periodic resync
+                // sees. Only once that succeeds do we mirror it into this
+                // device's local Room DB, so a failed/offline call never
+                // leaves a card working here but invisible everywhere else
+                // (the bug the old report-and-wait-for-admin flow had: it
+                // wrote locally first and only *hoped* the report made it).
+                apiService.assignWorkerCard(
+                    CardAssignRequest(cardUid = uid, workerId = worker.employeeNumber)
                 )
-            } catch (e: Exception) {
-                // Offline is fine — the card still works on this device;
-                // the report can be resubmitted (or fixed directly) once
-                // this device is back online.
-                android.util.Log.w("MainActivity", "Could not notify backend of new card binding: ${e.message}")
-            }
 
-            Toast.makeText(this@MainActivity, "${worker.fullName} — linked", Toast.LENGTH_SHORT).show()
-            bindingContainer.visibility = View.GONE
-            lastResultText.visibility = View.GONE
-            workerAutoComplete.text.clear()
-            selectedBindingWorker = null
-            processAttendance(uid)
+                val card = com.esta.attendance.data.local.entity.Card(
+                    workerId = worker.id, cardUid = uid, cardType = "NFC"
+                )
+                repository.registerCard(card)
+
+                Toast.makeText(this@MainActivity, "${worker.fullName} — linked", Toast.LENGTH_SHORT).show()
+                bindingContainer.visibility = View.GONE
+                lastResultText.visibility = View.GONE
+                workerAutoComplete.text.clear()
+                selectedBindingWorker = null
+                processAttendance(uid)
+            } catch (e: Exception) {
+                Toast.makeText(
+                    this@MainActivity,
+                    getString(R.string.bind_card_error),
+                    Toast.LENGTH_LONG
+                ).show()
+            } finally {
+                btnConfirmBinding.isEnabled = true
+            }
         }
     }
 

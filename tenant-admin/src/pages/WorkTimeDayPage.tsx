@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
-  CheckSquare, Square, Plus, ExternalLink, RotateCcw,
+  CheckSquare, Square, Plus, ExternalLink, RotateCcw, Download,
 } from 'lucide-react'
 import { workTimeApi, type DayWorkerRow } from '../api/workTime'
 import { AdjustmentModal } from './WorkTimePage'
@@ -90,6 +90,8 @@ export function WorkTimeDayPage() {
   // Day-shift vs night-shift filter, same w.shift field already shown in the
   // Shift column below.
   const [shiftFilter, setShiftFilter] = useState<'all' | 'day' | 'night'>('all')
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState('')
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['work-time-day', date],
@@ -149,6 +151,18 @@ export function WorkTimeDayPage() {
     })
   }
 
+  const handleExport = async () => {
+    setExporting(true)
+    setExportError('')
+    try {
+      await workTimeApi.exportDayXlsx(date, language)
+    } catch (e: any) {
+      setExportError(e.message ?? t.workTime.exportErrorLabel)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const selectedWorkers = filtered.filter(w => selected.has(w.workerEntityId))
   const isToday = date >= todayStr()
 
@@ -200,7 +214,21 @@ export function WorkTimeDayPage() {
         <button onClick={() => refetch()} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
           <RotateCcw size={14} />
         </button>
+        <div style={{ width: 1, alignSelf: 'stretch', background: 'var(--border)' }} />
+        <button
+          onClick={handleExport}
+          disabled={exporting}
+          className="btn btn-ghost"
+          style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, padding: '4px 10px' }}
+          title={t.workTimeDay.exportDayTitle}
+        >
+          <Download size={14} />
+          {exporting ? t.workTime.preparingLabel : t.workTime.exportBtn}
+        </button>
       </div>
+      {exportError && (
+        <div style={{ color: '#ef4444', fontSize: 12, marginBottom: 8 }}>{exportError}</div>
+      )}
       <div style={{ marginBottom: 20, color: 'var(--text-secondary)', fontSize: 13 }}>{fmtDateLabel(date, DATE_LABEL_LOCALES[language])}</div>
 
       {/* Search + select all */}

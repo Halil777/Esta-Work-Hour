@@ -66,4 +66,28 @@ export class WorkTimeController {
     const d = date ?? new Date().toISOString().slice(0, 10);
     return this.svc.getDaySummary(d, req.adminUser.tenantId);
   }
+
+  /**
+   * Single-day Excel export — same data as day-summary, formatted as an
+   * attendance sheet, so the admin can download it straight from the Day
+   * View after correcting hours there, without visiting the monthly page.
+   * GET /api/admin/work-time/export-day-xlsx?date=2026-08-20
+   */
+  @Get('export-day-xlsx')
+  async exportDayXlsx(
+    @Req() req: any,
+    @Query('date') date: string,
+    @Query('lang') lang: string,
+    @Res() res: Response,
+  ) {
+    const d    = date ?? new Date().toISOString().slice(0, 10);
+    const l    = lang || 'tr';
+    const buf  = await this.svc.generateDayXlsx(d, req.adminUser.tenantId, l);
+    const prefixes: Record<string, string> = { en: 'work-day', ru: 'rabochiy-den', tr: 'gunluk-mesai' };
+    const prefix = prefixes[l] ?? 'gunluk-mesai';
+    const name = `${prefix}-${d}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${name}"`);
+    res.send(buf);
+  }
 }

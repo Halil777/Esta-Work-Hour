@@ -42,7 +42,7 @@ export function Sidebar() {
     { path: '/work-time/day', icon: CalendarDays, label: t.nav.workTimeDay, section: t.sidebar.workTime },
     { path: '/work-time/analytics', icon: BarChart3, label: t.nav.adjustmentsAnalytics, section: t.sidebar.workTime },
     { path: '/work-time/reasons', icon: ListChecks, label: t.nav.adjustmentReasons, section: t.sidebar.workTime },
-    { path: '/card-reports', icon: CreditCard, label: t.nav.cardReports, section: t.sidebar.system },
+    { path: '/card-history', icon: CreditCard, label: t.nav.cardHistory, section: t.sidebar.system },
     { path: '/history', icon: History, label: t.nav.history, section: t.sidebar.system },
     { path: '/scanner-devices', icon: Smartphone, label: 'NFC Enjamlar', section: t.sidebar.system },
     { path: '/settings', icon: Settings, label: t.nav.settings, section: t.sidebar.system },

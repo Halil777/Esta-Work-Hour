@@ -1,6 +1,7 @@
 package com.esta.attendance
 
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.widget.TextView
@@ -18,6 +19,9 @@ class SettingsActivity : BaseActivity() {
 
         findViewById<View>(R.id.itemTheme).setOnClickListener { showThemeDialog() }
         findViewById<View>(R.id.itemLanguage).setOnClickListener { showLanguageDialog() }
+        findViewById<View>(R.id.itemFixCard).setOnClickListener {
+            startActivity(Intent(this, FixCardActivity::class.java))
+        }
     }
 
     override fun onResume() {
@@ -46,5 +50,7 @@ class SettingsActivity : BaseActivity() {
             "tr" -> "Türkçe"
             else -> "English"
         }
+
+        findViewById<TextView>(R.id.tvFixCardValue).text = getString(R.string.settings_fix_card_subtitle)
     }
 }

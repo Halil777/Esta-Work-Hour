@@ -8,8 +8,9 @@
     <string name="bind_card_hint">Bu kartani ulash uchun ishchi tanlang</string>
     <string name="bind_card_uid_label">Karta UID:</string>
     <string name="select_worker">Ishchi tanlang…</string>
+    <string name="bind_card_error">Kartani ulab bo\'lmadi</string>
     <string name="confirm_binding">Kartani ulash</string>
-    <string name="report_wrong_card">Noto\'g\'ri belgilash haqida xabar bering</string>
+    <string name="report_wrong_card">Karta bog\'lanishini tuzatish</string>
     <string name="view_history">Tarix</string>
     <string name="attendance_history">Davomat Tarixi</string>
     <string name="check_in">KIRISH</string>
@@ -32,16 +33,20 @@
     <string name="biometric_subtitle">Davom etish uchun biometrik yoki PIN-dan foydalaning</string>
     <string name="biometric_cancel">Bekor qilish</string>
     <string name="biometric_failed">Autentifikatsiya muvaffaqiyatsiz bo\'ldi</string>
-    <!-- Card report -->
-    <string name="card_report_title">Karta muammosini bildirish</string>
-    <string name="card_report_subtitle">Noto\'g\'ri karta belgilanishi haqida adminga xabar bering</string>
-    <string name="card_report_current_worker">Karta hozir ulangan</string>
-    <string name="card_report_suggest">To\'g\'ri ishchini taklif qiling (ixtiyoriy)</string>
-    <string name="card_report_note_hint">Muammoni tasvirlab bering…</string>
-    <string name="card_report_send">Hisobot yuborish</string>
-    <string name="card_report_sent">Hisobot adminga yuborildi</string>
-    <string name="card_report_error">Hisobot yuborib bo\'lmadi</string>
-    <string name="card_report_cancel">Bekor qilish</string>
+    <!-- Fix card (self-service unbind/rebind) -->
+    <string name="fix_card_title">Karta bog\'lanishini tuzatish</string>
+    <string name="fix_card_subtitle">Noto\'g\'ri karta ulangan ishchini toping va uni uzing. Keyin to\'g\'ri ishchiga ulash uchun kartani qayta skanerlang.</string>
+    <string name="fix_card_search_hint">Ishchini qidirish…</string>
+    <string name="fix_card_current_card_label">Ulangan karta:</string>
+    <string name="fix_card_no_card">Ulangan karta yo\'q</string>
+    <string name="fix_card_unbind_button">Kartani uzish</string>
+    <string name="fix_card_cancel">Bekor qilish</string>
+    <string name="fix_card_confirm_title">Karta uzilsinmi?</string>
+    <string name="fix_card_confirm_message">%1$s ishchisiga ulangan karta olib tashlansinmi? Shundan so\'ng to\'g\'ri ishchiga ulash uchun kartani qayta skanerlang.</string>
+    <string name="fix_card_confirm_yes">Ha, uzish</string>
+    <string name="fix_card_confirm_no">Yo\'q</string>
+    <string name="fix_card_success">%1$s ishchisining kartasi uzildi. To\'g\'ri ishchiga ulash uchun kartani qayta skanerlang.</string>
+    <string name="fix_card_error">Kartani uzib bo\'lmadi</string>
     <!-- Theme -->
     <string name="theme_dark">🌙 Qorong\'u</string>
     <string name="theme_light">☀️ Yorug\'</string>
@@ -50,6 +55,8 @@
     <string name="settings_appearance">Ko\'rinish</string>
     <string name="settings_theme_title">Mavzu</string>
     <string name="settings_language_title">Til</string>
+    <string name="settings_fix_card_title">Karta bog\'lanishini tuzatish</string>
+    <string name="settings_fix_card_subtitle">Noto\'g\'ri kartani uzib, qayta bog\'lang</string>
     <!-- Setup screen -->
     <string name="setup_subtitle">Qurilmani sozlash uchun\nkirish ma\'lumotlarini kiriting</string>
     <string name="setup_server_url">Server URL</string>

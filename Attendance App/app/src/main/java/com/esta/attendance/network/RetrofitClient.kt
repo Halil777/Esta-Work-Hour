@@ -19,7 +19,7 @@ object RetrofitClient {
      * Returns a shared ApiService, building the underlying OkHttpClient +
      * Retrofit only once per process. Every Activity used to call
      * `app.createApiService()` in its own `by lazy`, so each Activity
-     * recreation (screen rotation, leaving and re-entering CardReportActivity,
+     * recreation (screen rotation, leaving and re-entering FixCardActivity,
      * etc.) built a brand-new OkHttpClient — each with its own connection
      * pool and dispatcher thread pool — throwing away connection keep-alive
      * and paying full setup cost again for no reason.

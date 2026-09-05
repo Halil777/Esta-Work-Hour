@@ -53,4 +53,20 @@ export class CardAssignmentHistoryService {
       order: { createdAt: 'DESC' },
     });
   }
+
+  /**
+   * Tenant-wide feed (not scoped to one worker) — powers the admin panel's
+   * Card History report, so an admin can see every card unbind/rebind
+   * across all workers and devices in one place: who (changedBy/source)
+   * touched which worker's card and when. `limit` is capped so a very old
+   * tenant with years of history can't return an unbounded result set.
+   */
+  async findRecent(tenantId?: string, limit = 300) {
+    const cappedLimit = Math.min(Math.max(limit, 1), 1000);
+    return this.repo.find({
+      where: tenantId ? { tenantId } : {},
+      order: { createdAt: 'DESC' },
+      take: cappedLimit,
+    });
+  }
 }

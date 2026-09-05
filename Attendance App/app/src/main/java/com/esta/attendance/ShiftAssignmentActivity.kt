@@ -95,7 +95,7 @@ class ShiftAssignmentActivity : BaseActivity() {
                 dialog.dismiss()
                 applyShiftChange(worker, newShift)
             }
-            .setNegativeButton(R.string.card_report_cancel, null)
+            .setNegativeButton(R.string.biometric_cancel, null)
             .show()
     }
 

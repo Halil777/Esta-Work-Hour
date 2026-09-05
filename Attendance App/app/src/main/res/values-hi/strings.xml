@@ -8,8 +8,9 @@
     <string name="bind_card_hint">इस कार्ड को लिंक करने के लिए कर्मचारी चुनें</string>
     <string name="bind_card_uid_label">कार्ड UID:</string>
     <string name="select_worker">कर्मचारी चुनें…</string>
+    <string name="bind_card_error">कार्ड लिंक नहीं किया जा सका</string>
     <string name="confirm_binding">कार्ड लिंक करें</string>
-    <string name="report_wrong_card">गलत असाइनमेंट की रिपोर्ट करें</string>
+    <string name="report_wrong_card">कार्ड लिंक ठीक करें</string>
     <string name="view_history">इतिहास</string>
     <string name="attendance_history">उपस्थिति इतिहास</string>
     <string name="check_in">प्रवेश</string>
@@ -32,16 +33,20 @@
     <string name="biometric_subtitle">जारी रखने के लिए बायोमेट्रिक्स या PIN का उपयोग करें</string>
     <string name="biometric_cancel">रद्द करें</string>
     <string name="biometric_failed">प्रमाणीकरण विफल</string>
-    <!-- Card report -->
-    <string name="card_report_title">कार्ड समस्या रिपोर्ट करें</string>
-    <string name="card_report_subtitle">एडमिन को गलत कार्ड असाइनमेंट की रिपोर्ट करें</string>
-    <string name="card_report_current_worker">कार्ड वर्तमान में लिंक है</string>
-    <string name="card_report_suggest">सही कर्मचारी सुझाएं (वैकल्पिक)</string>
-    <string name="card_report_note_hint">समस्या का वर्णन करें…</string>
-    <string name="card_report_send">रिपोर्ट भेजें</string>
-    <string name="card_report_sent">रिपोर्ट एडमिन को भेजी गई</string>
-    <string name="card_report_error">रिपोर्ट नहीं भेजी जा सकी</string>
-    <string name="card_report_cancel">रद्द करें</string>
+    <!-- Fix card (self-service unbind/rebind) -->
+    <string name="fix_card_title">कार्ड लिंक ठीक करें</string>
+    <string name="fix_card_subtitle">उस कर्मचारी को खोजें जिससे गलत कार्ड जुड़ा है और उसे अनलिंक करें। फिर सही कर्मचारी से जोड़ने के लिए कार्ड को फिर से स्कैन करें।</string>
+    <string name="fix_card_search_hint">कर्मचारी खोजें…</string>
+    <string name="fix_card_current_card_label">जुड़ा हुआ कार्ड:</string>
+    <string name="fix_card_no_card">कोई कार्ड लिंक नहीं है</string>
+    <string name="fix_card_unbind_button">कार्ड अनलिंक करें</string>
+    <string name="fix_card_cancel">रद्द करें</string>
+    <string name="fix_card_confirm_title">कार्ड अनलिंक करें?</string>
+    <string name="fix_card_confirm_message">%1$s से जुड़ा कार्ड हटाएं? इसके बाद सही कर्मचारी से जोड़ने के लिए कार्ड को फिर से स्कैन करें।</string>
+    <string name="fix_card_confirm_yes">हां, अनलिंक करें</string>
+    <string name="fix_card_confirm_no">नहीं</string>
+    <string name="fix_card_success">%1$s का कार्ड अनलिंक कर दिया गया है। सही कर्मचारी से जोड़ने के लिए कार्ड को फिर से स्कैन करें।</string>
+    <string name="fix_card_error">कार्ड अनलिंक नहीं किया जा सका</string>
     <!-- Theme -->
     <string name="theme_dark">🌙 डार्क</string>
     <string name="theme_light">☀️ लाइट</string>
@@ -50,6 +55,8 @@
     <string name="settings_appearance">रूप</string>
     <string name="settings_theme_title">थीम</string>
     <string name="settings_language_title">भाषा</string>
+    <string name="settings_fix_card_title">कार्ड लिंक ठीक करें</string>
+    <string name="settings_fix_card_subtitle">गलत कार्ड अनलिंक करें और फिर से लिंक करें</string>
     <!-- Setup screen -->
     <string name="setup_subtitle">डिवाइस कॉन्फ़िगर करने के लिए\nलॉगिन क्रेडेंशियल दर्ज करें</string>
     <string name="setup_server_url">सर्वर URL</string>

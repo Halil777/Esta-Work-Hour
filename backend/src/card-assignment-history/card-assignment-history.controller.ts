@@ -12,4 +12,15 @@ export class CardAssignmentHistoryController {
     if (!workerId) throw new BadRequestException('workerId gerek');
     return this.service.findForWorker(workerId, req.adminUser.tenantId);
   }
+
+  /**
+   * Tenant-wide feed — powers the admin panel's Card History report page
+   * (which operator/device unbound or rebound which worker's card, and when).
+   * GET /api/admin/card-assignment-history/recent?limit=300
+   */
+  @Get('recent')
+  findRecent(@Req() req: any, @Query('limit') limit?: string) {
+    const parsedLimit = limit ? Number(limit) : undefined;
+    return this.service.findRecent(req.adminUser.tenantId, parsedLimit && !Number.isNaN(parsedLimit) ? parsedLimit : undefined);
+  }
 }

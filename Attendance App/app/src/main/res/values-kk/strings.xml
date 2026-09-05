@@ -8,8 +8,9 @@
     <string name="bind_card_hint">Бұл картаны байланыстыру үшін қызметкерді таңдаңыз</string>
     <string name="bind_card_uid_label">Карта UID:</string>
     <string name="select_worker">Қызметкерді таңдаңыз…</string>
+    <string name="bind_card_error">Картаны байланыстыру мүмкін болмады</string>
     <string name="confirm_binding">Картаны байланыстыру</string>
-    <string name="report_wrong_card">Қате тағайындалуды хабарлаңыз</string>
+    <string name="report_wrong_card">Карта байланысын түзету</string>
     <string name="view_history">Тарих</string>
     <string name="attendance_history">Қатысу тарихы</string>
     <string name="check_in">КІРУ</string>
@@ -32,16 +33,20 @@
     <string name="biometric_subtitle">Жалғастыру үшін биометрия немесе PIN пайдаланыңыз</string>
     <string name="biometric_cancel">Болдырмау</string>
     <string name="biometric_failed">Аутентификация сәтсіз аяқталды</string>
-    <!-- Card report -->
-    <string name="card_report_title">Карта мәселесін хабарлаңыз</string>
-    <string name="card_report_subtitle">Картаның қате тағайындалуы туралы әкімшіге хабарлаңыз</string>
-    <string name="card_report_current_worker">Карта қазір байланысты</string>
-    <string name="card_report_suggest">Дұрыс қызметкерді ұсыныңыз (міндетті емес)</string>
-    <string name="card_report_note_hint">Мәселені сипаттаңыз…</string>
-    <string name="card_report_send">Есеп жіберу</string>
-    <string name="card_report_sent">Есеп әкімшіге жіберілді</string>
-    <string name="card_report_error">Есеп жіберу мүмкін болмады</string>
-    <string name="card_report_cancel">Болдырмау</string>
+    <!-- Fix card (self-service unbind/rebind) -->
+    <string name="fix_card_title">Карта байланысын түзету</string>
+    <string name="fix_card_subtitle">Қате карта байланысқан қызметкерді тауып, оны ажыратыңыз. Содан кейін картаны қайта сканерлеп, дұрыс қызметкерге байланыстырыңыз.</string>
+    <string name="fix_card_search_hint">Қызметкерді іздеу…</string>
+    <string name="fix_card_current_card_label">Байланысқан карта:</string>
+    <string name="fix_card_no_card">Байланысқан карта жоқ</string>
+    <string name="fix_card_unbind_button">Картаны ажырату</string>
+    <string name="fix_card_cancel">Болдырмау</string>
+    <string name="fix_card_confirm_title">Карта ажыратылсын ба?</string>
+    <string name="fix_card_confirm_message">%1$s қызметкеріне байланысқан карта алынып тасталсын ба? Содан кейін дұрыс қызметкерге байланыстыру үшін картаны қайта сканерлеңіз.</string>
+    <string name="fix_card_confirm_yes">Иә, ажырату</string>
+    <string name="fix_card_confirm_no">Жоқ</string>
+    <string name="fix_card_success">%1$s қызметкерінің картасы ажыратылды. Дұрыс қызметкерге байланыстыру үшін картаны қайта сканерлеңіз.</string>
+    <string name="fix_card_error">Картаны ажырату мүмкін болмады</string>
     <!-- Theme -->
     <string name="theme_dark">🌙 Қараңғы</string>
     <string name="theme_light">☀️ Жарық</string>
@@ -50,6 +55,8 @@
     <string name="settings_appearance">Сыртқы келбет</string>
     <string name="settings_theme_title">Тақырып</string>
     <string name="settings_language_title">Тіл</string>
+    <string name="settings_fix_card_title">Карта байланысын түзету</string>
+    <string name="settings_fix_card_subtitle">Қате картаны ажыратып, қайта байланыстырыңыз</string>
     <!-- Setup screen -->
     <string name="setup_subtitle">Құрылғыны баптандыру үшін\nкіру тіркелгі деректерін енгізіңіз</string>
     <string name="setup_server_url">Сервер URL</string>

@@ -8,8 +8,9 @@
     <string name="bind_card_hint">Барои пайвасткунии ин корт кормандро интихоб кунед</string>
     <string name="bind_card_uid_label">UID-и корт:</string>
     <string name="select_worker">Кормандро интихоб кунед…</string>
+    <string name="bind_card_error">Пайваст кардани корт имконпазир нашуд</string>
     <string name="confirm_binding">Корт пайваст кунед</string>
-    <string name="report_wrong_card">Дар бораи таъинот хато хабар диҳед</string>
+    <string name="report_wrong_card">Пайвасти кортро ислоҳ кунед</string>
     <string name="view_history">Таърих</string>
     <string name="attendance_history">Таърихи иштирок</string>
     <string name="check_in">ВОРИДШАВӢ</string>
@@ -32,16 +33,20 @@
     <string name="biometric_subtitle">Барои давом аз биометрика ё PIN истифода баред</string>
     <string name="biometric_cancel">Бекор кунед</string>
     <string name="biometric_failed">Тасдиқнома ноком шуд</string>
-    <!-- Card report -->
-    <string name="card_report_title">Мушкили корт хабар диҳед</string>
-    <string name="card_report_subtitle">Дар бораи таъинот нодурусти корт ба маъмур хабар диҳед</string>
-    <string name="card_report_current_worker">Корт ҳоло пайваст аст</string>
-    <string name="card_report_suggest">Кормандро пешниҳод кунед (ихтиёрӣ)</string>
-    <string name="card_report_note_hint">Мушкилотро тавсиф кунед…</string>
-    <string name="card_report_send">Хабарот фиристед</string>
-    <string name="card_report_sent">Хабарот ба маъмур фиристода шуд</string>
-    <string name="card_report_error">Фиристодани хабарот имконпазир нест</string>
-    <string name="card_report_cancel">Бекор кунед</string>
+    <!-- Fix card (self-service unbind/rebind) -->
+    <string name="fix_card_title">Пайвасти кортро ислоҳ кунед</string>
+    <string name="fix_card_subtitle">Кормандеро, ки корти нодуруст ба ӯ пайваст аст, ёбед ва онро кандаед. Сипас барои пайваст кардан ба корманди дуруст, кортро аз нав скан кунед.</string>
+    <string name="fix_card_search_hint">Кормандро ҷустуҷӯ кунед…</string>
+    <string name="fix_card_current_card_label">Корти пайвастшуда:</string>
+    <string name="fix_card_no_card">Корт пайваст нест</string>
+    <string name="fix_card_unbind_button">Корт кандан</string>
+    <string name="fix_card_cancel">Бекор кунед</string>
+    <string name="fix_card_confirm_title">Корт канда шавад?</string>
+    <string name="fix_card_confirm_message">Корти пайваста ба %1$s хориҷ карда шавад? Пас аз он барои пайваст кардан ба корманди дуруст, кортро аз нав скан кунед.</string>
+    <string name="fix_card_confirm_yes">Ҳа, кандан</string>
+    <string name="fix_card_confirm_no">Не</string>
+    <string name="fix_card_success">Корти корманд %1$s канда шуд. Барои пайваст кардан ба корманди дуруст, кортро аз нав скан кунед.</string>
+    <string name="fix_card_error">Кандани корт имконпазир нашуд</string>
     <!-- Theme -->
     <string name="theme_dark">🌙 Торик</string>
     <string name="theme_light">☀️ Равшан</string>
@@ -50,6 +55,8 @@
     <string name="settings_appearance">Намуд</string>
     <string name="settings_theme_title">Тема</string>
     <string name="settings_language_title">Забон</string>
+    <string name="settings_fix_card_title">Пайвасти кортро ислоҳ кунед</string>
+    <string name="settings_fix_card_subtitle">Корти нодурустро канда, аз нав пайваст кунед</string>
     <!-- Setup screen -->
     <string name="setup_subtitle">Барои танзими дастгоҳ\nэътибороти воридшавиро ворид кунед</string>
     <string name="setup_server_url">URL-и сервер</string>

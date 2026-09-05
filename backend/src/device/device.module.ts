@@ -7,9 +7,9 @@ import { DeviceGuard } from './device.guard';
 import { TenantsModule } from '../tenants/tenants.module';
 import { AttendanceEventsModule } from '../attendance-events/attendance-events.module';
 import { ScannerDevicesModule } from '../scanner-devices/scanner-devices.module';
-import { CardReportsModule } from '../card-reports/card-reports.module';
 import { AttendanceAnomaliesModule } from '../attendance-anomalies/attendance-anomalies.module';
 import { WorkersModule } from '../workers/workers.module';
+import { CardAssignmentHistoryModule } from '../card-assignment-history/card-assignment-history.module';
 
 @Module({
   imports: [
@@ -17,9 +17,9 @@ import { WorkersModule } from '../workers/workers.module';
     TenantsModule,
     AttendanceEventsModule,
     ScannerDevicesModule,
-    CardReportsModule,
     AttendanceAnomaliesModule,
     WorkersModule,
+    CardAssignmentHistoryModule,
   ],
   controllers: [DeviceController],
   providers: [DeviceGuard],

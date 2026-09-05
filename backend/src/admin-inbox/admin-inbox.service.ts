@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { CardReportsService } from '../card-reports/card-reports.service';
 import { ExtraHoursService } from '../extra-hours/extra-hours.service';
 import { ScannerDevicesService } from '../scanner-devices/scanner-devices.service';
 
@@ -13,16 +12,21 @@ const STALE_DEVICE_THRESHOLD_MS = 20 * 60_000;
 @Injectable()
 export class AdminInboxService {
   constructor(
-    private readonly cardReportsService: CardReportsService,
     private readonly extraHoursService: ExtraHoursService,
     private readonly scannerDevicesService: ScannerDevicesService,
   ) {}
 
   /**
    * One aggregated "what needs my attention today" feed. Before this,
-   * getting the same picture meant visiting Card Reports, Overtime, and
-   * Scanner Devices separately — this is the single call the Inbox page
-   * makes each time it loads or refreshes.
+   * getting the same picture meant visiting Overtime and Scanner Devices
+   * separately — this is the single call the Inbox page makes each time it
+   * loads or refreshes.
+   *
+   * Card mismatches used to show up here too, as pending Card Reports
+   * awaiting admin approval — that whole approve-from-admin workflow is
+   * gone now. An operator clears and rebinds a wrong card directly from the
+   * device's Settings screen, instantly and without an admin step; see the
+   * Card History report page for the audit trail of those changes.
    */
   async getInbox(tenantId?: string) {
     // AdminJwtGuard always populates adminUser (or rejects the request
@@ -31,15 +35,13 @@ export class AdminInboxService {
     // than crash if that ever isn't true.
     if (!tenantId) {
       return {
-        cardReports: [],
         extraHours: [],
         staleDevices: [],
-        counts: { cardReports: 0, extraHours: 0, staleDevices: 0, total: 0 },
+        counts: { extraHours: 0, staleDevices: 0, total: 0 },
       };
     }
 
-    const [pendingCardReports, extraHoursAll, devices] = await Promise.all([
-      this.cardReportsService.findAll(tenantId, 'pending'),
+    const [extraHoursAll, devices] = await Promise.all([
       this.extraHoursService.getAllRequests({ tenantId }),
       this.scannerDevicesService.findAll(tenantId),
     ]);
@@ -54,14 +56,12 @@ export class AdminInboxService {
     });
 
     return {
-      cardReports: pendingCardReports,
       extraHours,
       staleDevices,
       counts: {
-        cardReports: pendingCardReports.length,
         extraHours: extraHours.length,
         staleDevices: staleDevices.length,
-        total: pendingCardReports.length + extraHours.length + staleDevices.length,
+        total: extraHours.length + staleDevices.length,
       },
     };
   }

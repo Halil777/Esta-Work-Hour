@@ -13,8 +13,9 @@
     <string name="bind_card_uid_label">Card UID:</string>
     <string name="select_worker">Select worker…</string>
     <string name="select_worker_ambiguous">Multiple workers share that name — tap one from the list</string>
+    <string name="bind_card_error">Could not link card</string>
     <string name="confirm_binding">Link Card</string>
-    <string name="report_wrong_card">Report Wrong Assignment</string>
+    <string name="report_wrong_card">Fix Wrong Card</string>
     <string name="view_history">History</string>
     <string name="attendance_history">Attendance History</string>
     <string name="check_in">CHECK-IN</string>
@@ -37,16 +38,20 @@
     <string name="biometric_subtitle">Use biometrics or PIN to continue</string>
     <string name="biometric_cancel">Cancel</string>
     <string name="biometric_failed">Authentication failed</string>
-    <!-- Card report -->
-    <string name="card_report_title">Report Card Issue</string>
-    <string name="card_report_subtitle">Report an incorrect card assignment to the admin</string>
-    <string name="card_report_current_worker">Card is currently linked to</string>
-    <string name="card_report_suggest">Suggest correct worker (optional)</string>
-    <string name="card_report_note_hint">Describe the issue…</string>
-    <string name="card_report_send">Send Report</string>
-    <string name="card_report_sent">Report sent to admin</string>
-    <string name="card_report_error">Could not send report</string>
-    <string name="card_report_cancel">Cancel</string>
+    <!-- Fix card (self-service unbind/rebind) -->
+    <string name="fix_card_title">Fix Card Binding</string>
+    <string name="fix_card_subtitle">Find the worker holding the wrong card and unbind it. Then scan the card again to link it to the right worker.</string>
+    <string name="fix_card_search_hint">Search worker…</string>
+    <string name="fix_card_current_card_label">Currently linked card:</string>
+    <string name="fix_card_no_card">No card linked</string>
+    <string name="fix_card_unbind_button">Unbind Card</string>
+    <string name="fix_card_cancel">Cancel</string>
+    <string name="fix_card_confirm_title">Unbind card?</string>
+    <string name="fix_card_confirm_message">Remove the card linked to %1$s? Scan the correct card again afterward to link it to the right worker.</string>
+    <string name="fix_card_confirm_yes">Yes, unbind</string>
+    <string name="fix_card_confirm_no">No</string>
+    <string name="fix_card_success">%1$s’s card was unbound. Scan the card again to link it to the right worker.</string>
+    <string name="fix_card_error">Could not unbind card</string>
     <!-- Theme -->
     <string name="theme_dark">🌙 Dark</string>
     <string name="theme_light">☀️ Light</string>
@@ -55,6 +60,8 @@
     <string name="settings_appearance">Appearance</string>
     <string name="settings_theme_title">Theme</string>
     <string name="settings_language_title">Language</string>
+    <string name="settings_fix_card_title">Fix Card Binding</string>
+    <string name="settings_fix_card_subtitle">Unbind a wrong card, then rescan for the right worker</string>
     <!-- Setup screen -->
     <string name="setup_subtitle">Enter credentials to\nconfigure the device</string>
     <string name="setup_server_url">Server URL</string>

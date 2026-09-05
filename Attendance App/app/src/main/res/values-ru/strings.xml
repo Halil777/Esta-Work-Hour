@@ -11,8 +11,9 @@
     <string name="bind_card_hint">Выберите работника для привязки карты</string>
     <string name="bind_card_uid_label">UID карты:</string>
     <string name="select_worker">Выберите работника…</string>
+    <string name="bind_card_error">Не удалось привязать карту</string>
     <string name="confirm_binding">Привязать карту</string>
-    <string name="report_wrong_card">Сообщить о неверной привязке</string>
+    <string name="report_wrong_card">Исправить привязку карты</string>
     <string name="view_history">История</string>
     <string name="attendance_history">История посещений</string>
     <string name="check_in">ПРИХОД</string>
@@ -33,16 +34,20 @@
     <string name="biometric_title">Разблокировать</string>
     <string name="biometric_subtitle">Используйте биометрику или PIN-код</string>
     <string name="biometric_cancel">Отмена</string>
-    <!-- Card report -->
-    <string name="card_report_title">Сообщить о проблеме с картой</string>
-    <string name="card_report_subtitle">Отправить администратору сообщение о неверной привязке</string>
-    <string name="card_report_current_worker">Карта привязана к</string>
-    <string name="card_report_suggest">Предложить работника (необязательно)</string>
-    <string name="card_report_note_hint">Опишите проблему…</string>
-    <string name="card_report_send">Отправить сообщение</string>
-    <string name="card_report_sent">Сообщение отправлено администратору</string>
-    <string name="card_report_error">Не удалось отправить сообщение</string>
-    <string name="card_report_cancel">Отмена</string>
+    <!-- Fix card (self-service unbind/rebind) -->
+    <string name="fix_card_title">Исправить привязку карты</string>
+    <string name="fix_card_subtitle">Найдите работника, к которому неверно привязана карта, и отвяжите её. Затем отсканируйте карту снова, чтобы привязать её к нужному работнику.</string>
+    <string name="fix_card_search_hint">Поиск работника…</string>
+    <string name="fix_card_current_card_label">Привязанная карта:</string>
+    <string name="fix_card_no_card">Карта не привязана</string>
+    <string name="fix_card_unbind_button">Отвязать карту</string>
+    <string name="fix_card_cancel">Отмена</string>
+    <string name="fix_card_confirm_title">Отвязать карту?</string>
+    <string name="fix_card_confirm_message">Убрать карту, привязанную к %1$s? После этого отсканируйте нужную карту заново, чтобы привязать её к правильному работнику.</string>
+    <string name="fix_card_confirm_yes">Да, отвязать</string>
+    <string name="fix_card_confirm_no">Нет</string>
+    <string name="fix_card_success">Карта работника %1$s отвязана. Отсканируйте карту снова, чтобы привязать её к нужному работнику.</string>
+    <string name="fix_card_error">Не удалось отвязать карту</string>
     <!-- Theme -->
     <string name="theme_dark">🌙 Тёмная</string>
     <string name="theme_light">☀️ Светлая</string>
@@ -51,6 +56,8 @@
     <string name="settings_appearance">Внешний вид</string>
     <string name="settings_theme_title">Тема</string>
     <string name="settings_language_title">Язык</string>
+    <string name="settings_fix_card_title">Исправить привязку карты</string>
+    <string name="settings_fix_card_subtitle">Отвязать неверную карту и привязать заново</string>
     <!-- Setup screen -->
     <string name="setup_subtitle">Введите данные для\nнастройки устройства</string>
     <string name="setup_server_url">URL сервера</string>

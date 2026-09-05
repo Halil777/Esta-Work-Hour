@@ -10,6 +10,7 @@
     <string name="location_fix_required">Konum alınamadı. Tarama kaydedilmedi; tekrar deneyin.</string>
     <string name="bind_card_hint">Kart bağlamak için çalışan seçin</string>
     <string name="select_worker">Çalışan seçin…</string>
+    <string name="bind_card_error">Kart bağlanamadı</string>
     <string name="confirm_binding">Kartı Bağla</string>
     <string name="view_history">Geçmiş</string>
     <string name="attendance_history">Devam Geçmişi</string>
@@ -31,19 +32,23 @@
     <string name="biometric_title">Uygulamayı Aç</string>
     <string name="biometric_subtitle">Devam etmek için biyometri veya PIN kullanın</string>
     <string name="biometric_cancel">İptal</string>
-    <!-- Card report -->
-    <string name="card_report_title">Kart Sorununu Bildir</string>
-    <string name="card_report_subtitle">Yanlış kart atamasını yöneticiye bildir</string>
-    <string name="card_report_current_worker">Kart şu anda bağlı:</string>
-    <string name="card_report_suggest">Doğru çalışanı öner (isteğe bağlı)</string>
-    <string name="card_report_note_hint">Sorunu açıklayın…</string>
-    <string name="card_report_send">Rapor Gönder</string>
-    <string name="card_report_sent">Rapor yöneticiye gönderildi</string>
-    <string name="card_report_error">Rapor gönderilemedi</string>
-    <string name="card_report_cancel">İptal</string>
+    <!-- Fix card (self-service unbind/rebind) -->
+    <string name="fix_card_title">Kart Bağlantısını Düzelt</string>
+    <string name="fix_card_subtitle">Yanlış kartın bağlı olduğu çalışanı bulun ve bağlantısını kaldırın. Ardından kartı tekrar okutarak doğru çalışana bağlayın.</string>
+    <string name="fix_card_search_hint">Çalışan ara…</string>
+    <string name="fix_card_current_card_label">Bağlı kart:</string>
+    <string name="fix_card_no_card">Bağlı kart yok</string>
+    <string name="fix_card_unbind_button">Kart Bağlantısını Kaldır</string>
+    <string name="fix_card_cancel">İptal</string>
+    <string name="fix_card_confirm_title">Kart bağlantısı kaldırılsın mı?</string>
+    <string name="fix_card_confirm_message">%1$s işçisine bağlı kart kaldırılsın mı? Ardından doğru çalışana bağlamak için kartı tekrar okutun.</string>
+    <string name="fix_card_confirm_yes">Evet, kaldır</string>
+    <string name="fix_card_confirm_no">Hayır</string>
+    <string name="fix_card_success">%1$s işçisinin kart bağlantısı kaldırıldı. Doğru çalışana bağlamak için kartı tekrar okutun.</string>
+    <string name="fix_card_error">Kart bağlantısı kaldırılamadı</string>
     <!-- Card binding -->
     <string name="bind_card_uid_label">Kart UID:</string>
-    <string name="report_wrong_card">Yanlış Atamayı Bildir</string>
+    <string name="report_wrong_card">Kart Bağlantısını Düzelt</string>
     <!-- Theme -->
     <string name="theme_dark">🌙 Koyu</string>
     <string name="theme_light">☀️ Açık</string>
@@ -52,6 +57,8 @@
     <string name="settings_appearance">Görünüm</string>
     <string name="settings_theme_title">Tema</string>
     <string name="settings_language_title">Dil</string>
+    <string name="settings_fix_card_title">Kart Bağlantısını Düzelt</string>
+    <string name="settings_fix_card_subtitle">Yanlış kartı kaldır ve yeniden bağla</string>
     <!-- Setup screen -->
     <string name="setup_subtitle">Cihazı yapılandırmak için\ngiriş bilgilerini girin</string>
     <string name="setup_server_url">Sunucu URL</string>

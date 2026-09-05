@@ -59,8 +59,8 @@
             android:exported="false" />
 
         <activity
-            android:name=".CardReportActivity"
-            android:label="@string/card_report_title"
+            android:name=".FixCardActivity"
+            android:label="@string/fix_card_title"
             android:windowSoftInputMode="adjustResize"
             android:parentActivityName=".MainActivity"
             android:exported="false" />

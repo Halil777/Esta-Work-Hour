@@ -808,4 +808,179 @@ export class WorkTimeService {
 
     return { date, workers: rows };
   }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  Single-day Excel export — same data as getDaySummary, laid out as a flat
+  //  attendance sheet, so an admin can pull the report straight from the Day
+  //  View right after correcting hours there, without switching to the
+  //  monthly page.
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  async generateDayXlsx(date: string, tenantId: string, lang = 'tr'): Promise<Buffer> {
+    const { workers } = await this.getDaySummary(date, tenantId);
+    return this.buildDayXlsx(date, workers, lang);
+  }
+
+  private async buildDayXlsx(
+    date: string,
+    workers: {
+      workerId: string;
+      name: string;
+      profession: string;
+      brigade: string;
+      shift: string | null;
+      checkIn: number | null;
+      checkOut: number | null;
+      actualMinutes: number;
+      creditedMinutes: number;
+      adjustmentMinutes: number;
+      adjustments: { reasonLabel: string | null; adjustmentType: string }[];
+    }[],
+    lang = 'tr',
+  ): Promise<Buffer> {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const ExcelJS = require('exceljs');
+
+    const I18N: Record<string, {
+      locale: string; sheetName: string; title: string; workerCount: string;
+      colNum: string; colRegNo: string; colName: string; colProfession: string; colBrigade: string;
+      colShift: string; colCheckIn: string; colCheckOut: string; colActual: string; colCredited: string;
+      colAdjustment: string; colNote: string; shiftDay: string; shiftNight: string; total: string;
+    }> = {
+      en: {
+        locale: 'en-US', sheetName: 'Day View',
+        title: 'Daily Attendance Report', workerCount: 'Workers',
+        colNum: '#', colRegNo: 'Reg No', colName: 'Full Name', colProfession: 'Profession', colBrigade: 'Brigade',
+        colShift: 'Shift', colCheckIn: 'Check-In', colCheckOut: 'Check-Out', colActual: 'Actual', colCredited: 'Credited',
+        colAdjustment: 'Adjustment', colNote: 'Note', shiftDay: 'Day', shiftNight: 'Night', total: 'TOTAL',
+      },
+      ru: {
+        locale: 'ru-RU', sheetName: 'По дням',
+        title: 'Отчёт посещаемости за день', workerCount: 'Работников',
+        colNum: '#', colRegNo: 'Таб. №', colName: 'Имя', colProfession: 'Профессия', colBrigade: 'Бригада',
+        colShift: 'Смена', colCheckIn: 'Приход', colCheckOut: 'Уход', colActual: 'Факт', colCredited: 'Зачтено',
+        colAdjustment: 'Корр.', colNote: 'Примечание', shiftDay: 'День', shiftNight: 'Ночь', total: 'ИТОГО',
+      },
+      tr: {
+        locale: 'tr-TR', sheetName: 'Gün Görünümü',
+        title: 'Günlük Devam Raporu', workerCount: 'Çalışan sayısı',
+        colNum: '#', colRegNo: 'Sicil No', colName: 'Ad Soyad', colProfession: 'Meslek', colBrigade: 'Brigada',
+        colShift: 'Vardiya', colCheckIn: 'Giriş', colCheckOut: 'Çıkış', colActual: 'Gerçek', colCredited: 'Onaylı',
+        colAdjustment: 'Düzeltme', colNote: 'Not', shiftDay: 'Gündüz', shiftNight: 'Gece', total: 'TOPLAM',
+      },
+    };
+    const L = I18N[lang] ?? I18N['tr'];
+
+    const dateLabel = new Date(`${date}T00:00:00Z`).toLocaleDateString(L.locale, {
+      timeZone: 'UTC', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    });
+
+    const headers = [
+      L.colNum, L.colRegNo, L.colName, L.colProfession, L.colBrigade, L.colShift,
+      L.colCheckIn, L.colCheckOut, L.colActual, L.colCredited, L.colAdjustment, L.colNote,
+    ];
+    const totalCols = headers.length;
+
+    const solidFill = (argb: string) => ({ type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb } });
+    const thinBd    = (argb = 'FF94A3B8') => ({ style: 'thin' as const, color: { argb } });
+    const hairBd    = (argb = 'FFE2E8F0') => ({ style: 'hair' as const, color: { argb } });
+    const BG = {
+      title: 'FF1E3A5F', subtitle: 'FF2D5E8E', hdr: 'FF334155',
+      even: 'FFFAFAFA', odd: 'FFFFFFFF', total: 'FF0F2D4A', white: 'FFFFFFFF',
+    };
+
+    const fmtSignedMin = (mins: number): string => {
+      if (!mins) return '';
+      const sign = mins < 0 ? '-' : '+';
+      return `${sign}${this.fmtHoursMs(Math.abs(mins) * 60000)}`;
+    };
+
+    const wb = new ExcelJS.Workbook();
+    wb.created = new Date();
+    const ws = wb.addWorksheet(L.sheetName, {
+      views:     [{ state: 'frozen', ySplit: 3 }],
+      pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1 },
+    });
+
+    ws.columns = [
+      { width: 4 }, { width: 11 }, { width: 24 }, { width: 16 }, { width: 14 }, { width: 10 },
+      { width: 10 }, { width: 10 }, { width: 10 }, { width: 10 }, { width: 10 }, { width: 28 },
+    ];
+
+    const titleRow = ws.addRow([`${L.title} — ${dateLabel}`]);
+    ws.mergeCells(1, 1, 1, totalCols);
+    Object.assign(titleRow.getCell(1), {
+      fill:      solidFill(BG.title),
+      font:      { bold: true, size: 13, color: { argb: BG.white } },
+      alignment: { horizontal: 'center', vertical: 'middle' },
+    });
+    titleRow.height = 28;
+
+    const subRow = ws.addRow([`${L.workerCount}: ${workers.length}`]);
+    ws.mergeCells(2, 1, 2, totalCols);
+    Object.assign(subRow.getCell(1), {
+      fill:      solidFill(BG.subtitle),
+      font:      { size: 10, color: { argb: 'FFBFDBFE' } },
+      alignment: { horizontal: 'center', vertical: 'middle' },
+    });
+    subRow.height = 18;
+
+    const hdrRow = ws.addRow(headers);
+    hdrRow.height = 20;
+    hdrRow.eachCell((c: any) => {
+      c.fill      = solidFill(BG.hdr);
+      c.font      = { bold: true, size: 10, color: { argb: BG.white } };
+      c.alignment = { horizontal: 'center', vertical: 'middle' };
+      c.border    = { top: thinBd(), left: thinBd(), right: thinBd(), bottom: thinBd() };
+    });
+
+    let sumActual = 0;
+    let sumCredited = 0;
+
+    workers.forEach((w, idx) => {
+      sumActual   += w.actualMinutes;
+      sumCredited += w.creditedMinutes;
+      const shiftLabel = w.shift === 'day' ? L.shiftDay : w.shift === 'night' ? L.shiftNight : '—';
+      const note = w.adjustments.map(a => a.reasonLabel || a.adjustmentType).join(', ');
+
+      const row = ws.addRow([
+        idx + 1,
+        w.workerId,
+        w.name,
+        w.profession || '—',
+        w.brigade || '—',
+        shiftLabel,
+        this.fmtTimeMs(w.checkIn),
+        this.fmtTimeMs(w.checkOut),
+        w.actualMinutes   > 0 ? this.fmtHoursMs(w.actualMinutes * 60000)   : '',
+        w.creditedMinutes > 0 ? this.fmtHoursMs(w.creditedMinutes * 60000) : '',
+        fmtSignedMin(w.adjustmentMinutes),
+        note,
+      ]);
+      row.height = 16;
+      const bg = idx % 2 === 0 ? BG.even : BG.odd;
+      row.eachCell((cell: any, col: number) => {
+        cell.fill      = solidFill(bg);
+        cell.font      = { size: 9 };
+        cell.alignment = { horizontal: (col === 3 || col === 12) ? 'left' : 'center', vertical: 'middle' };
+        cell.border    = { bottom: hairBd() };
+      });
+    });
+
+    const footRow = ws.addRow([
+      '', '', L.total, '', '', '', '', '',
+      sumActual   > 0 ? this.fmtHoursMs(sumActual * 60000)   : '',
+      sumCredited > 0 ? this.fmtHoursMs(sumCredited * 60000) : '',
+      '', '',
+    ]);
+    footRow.height = 20;
+    footRow.eachCell((c: any) => {
+      c.fill      = solidFill(BG.total);
+      c.font      = { bold: true, size: 10, color: { argb: BG.white } };
+      c.alignment = { horizontal: 'center', vertical: 'middle' };
+    });
+
+    const buf = await wb.xlsx.writeBuffer();
+    return Buffer.from(buf as ArrayBuffer);
+  }
 }

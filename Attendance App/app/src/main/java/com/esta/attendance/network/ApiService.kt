@@ -1,8 +1,9 @@
 package com.esta.attendance.network
 
 import com.esta.attendance.network.dto.BackendWorker
-import com.esta.attendance.network.dto.CardReportRequest
-import com.esta.attendance.network.dto.CardReportResponse
+import com.esta.attendance.network.dto.CardAssignRequest
+import com.esta.attendance.network.dto.CardBindingResponse
+import com.esta.attendance.network.dto.CardUnbindRequest
 import com.esta.attendance.network.dto.DeviceInfoResponse
 import com.esta.attendance.network.dto.DeviceSetupRequest
 import com.esta.attendance.network.dto.DeviceSetupResponse
@@ -34,8 +35,23 @@ interface ApiService {
     @GET("device/workers")
     suspend fun getWorkers(): List<BackendWorker>
 
-    @POST("device/card-reports")
-    suspend fun submitCardReport(@Body request: CardReportRequest): CardReportResponse
+    /**
+     * Operator self-service: clear a worker's NFC card directly from the
+     * device (e.g. it was bound to the wrong person). Applied immediately
+     * on the server — no admin approval step — and recorded in the
+     * tenant's card-assignment history.
+     */
+    @POST("device/cards/unbind")
+    suspend fun unbindWorkerCard(@Body request: CardUnbindRequest): CardBindingResponse
+
+    /**
+     * Bind an NFC card to a worker directly from the device. Used both for
+     * a brand-new/unknown card scan and for rebinding a card after it was
+     * cleared with [unbindWorkerCard]. If the card currently belongs to
+     * someone else, the server clears it from them first.
+     */
+    @POST("device/cards/assign")
+    suspend fun assignWorkerCard(@Body request: CardAssignRequest): CardBindingResponse
 
     /** Periodic health check-in: battery, APK version, local unsynced count */
     @POST("device/heartbeat")
