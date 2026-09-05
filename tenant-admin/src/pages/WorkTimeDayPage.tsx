@@ -87,6 +87,9 @@ export function WorkTimeDayPage() {
   // Staff (Aylık/monthly) vs regular (Saatlik/hourly) worker filter — same
   // mesaiSistemi/isStaff distinction used on the Workers table and Reports.
   const [staffFilter, setStaffFilter] = useState<'all' | 'staff' | 'workers'>('all')
+  // Day-shift vs night-shift filter, same w.shift field already shown in the
+  // Shift column below.
+  const [shiftFilter, setShiftFilter] = useState<'all' | 'day' | 'night'>('all')
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['work-time-day', date],
@@ -99,6 +102,7 @@ export function WorkTimeDayPage() {
     if (noScanOnly && w.hasScan) return false
     if (staffFilter === 'staff' && !w.isStaff) return false
     if (staffFilter === 'workers' && w.isStaff) return false
+    if (shiftFilter !== 'all' && w.shift !== shiftFilter) return false
     return true
   })
 
@@ -247,6 +251,27 @@ export function WorkTimeDayPage() {
                 border: 'none', cursor: 'pointer',
                 background: staffFilter === opt.key ? 'var(--accent)' : 'var(--bg-card)',
                 color: staffFilter === opt.key ? '#fff' : 'var(--text-secondary)',
+              }}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+          {([
+            { key: 'all' as const, label: t.workTimeDay.filterAll },
+            { key: 'day' as const, label: `☀️ ${t.workers.dayShift}` },
+            { key: 'night' as const, label: `🌙 ${t.workers.nightShift}` },
+          ]).map(opt => (
+            <button
+              key={opt.key}
+              onClick={() => setShiftFilter(opt.key)}
+              style={{
+                padding: '6px 12px', fontSize: 12, fontWeight: shiftFilter === opt.key ? 600 : 500,
+                border: 'none', cursor: 'pointer',
+                background: shiftFilter === opt.key ? 'var(--accent)' : 'var(--bg-card)',
+                color: shiftFilter === opt.key ? '#fff' : 'var(--text-secondary)',
               }}
             >
               {opt.label}

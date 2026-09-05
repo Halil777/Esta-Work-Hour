@@ -22,32 +22,15 @@ function msToMinutes(ms: number): number {
 }
 
 /**
- * Day View's hour calculation: the span between the worker's FIRST CHECK_IN
- * scan of the day and their LAST scan of the day (any type), rather than
- * summing paired CHECK_IN/CHECK_OUT sessions. Callers must pass events
- * already scoped to a single calendar date (getDaySummary's query does this).
- *
- * This is deliberately different from buildDailyAttendance (used by the
- * monthly timesheet / reports / worker detail page), which pairs sessions
- * strictly and is correct there. Here, a duplicate or extra CHECK_OUT scan
- * for the same worker on the same day (a real, recurring device/operator
- * issue) would otherwise break the CHECK_IN/CHECK_OUT alternation and leave
- * the displayed check-out time inconsistent with the counted duration —
- * first-scan-to-last-scan is robust to that noise and matches how an admin
- * reading the raw scan list on this page expects the hours to be counted.
+ * Adds/subtracts whole calendar days from a "YYYY-MM-DD" string. Pure
+ * calendar arithmetic done in UTC so it never shifts under a local TZ/DST
+ * offset — mirrors the frontend's own shiftDate() helper.
  */
-function computeDaySpan(events: { eventType: string; eventTime: number }[]): {
-  checkIn: number | null;
-  checkOut: number | null;
-  ms: number;
-} {
-  if (events.length === 0) return { checkIn: null, checkOut: null, ms: 0 };
-  const sorted = [...events].sort((a, b) => a.eventTime - b.eventTime);
-  const firstCheckIn = sorted.find(e => e.eventType === 'CHECK_IN');
-  const checkIn = firstCheckIn ? firstCheckIn.eventTime : null;
-  const checkOut = sorted[sorted.length - 1].eventTime;
-  const ms = checkIn !== null && checkOut > checkIn ? checkOut - checkIn : 0;
-  return { checkIn, checkOut, ms };
+function shiftDateStr(dateStr: string, deltaDays: number): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + deltaDays);
+  return dt.toISOString().slice(0, 10);
 }
 
 @Injectable()
@@ -705,22 +688,51 @@ export class WorkTimeService {
 
     const workerIds = workers.map(w => w.workerId);
 
-    const events: { employeeNumber: string; eventType: string; eventTime: string }[] =
+    // Query a 3-day window (the day before and after `date`), not just
+    // `date` itself. A night-shift worker who checks in the evening of
+    // `date` and checks out the morning after has their CHECK_IN and
+    // CHECK_OUT on two different calendar dates — filtering the query to
+    // exactly `date` only ever saw the CHECK_IN half of that pair, so the
+    // old first-scan/last-scan span always came out as ~0 minutes. Fetching
+    // through `date + 1` lets the CHECK_OUT be seen too; fetching from
+    // `date - 1` likewise lets a session that started the evening before
+    // pair correctly (it is simply attributed to that earlier date, not to
+    // `date`, so it doesn't add to `date`'s total — see below). Pairing the
+    // whole chronological stream per worker with buildDailyAttendance and
+    // then reading the bucket for `date` (which attributes each finished
+    // session to the calendar date of its CHECK_IN — see
+    // attendance-pairing.util.ts) fixes this and keeps the day view
+    // consistent with the monthly summary/timesheet, which already use the
+    // same function.
+    const prevDate = shiftDateStr(date, -1);
+    const nextDate = shiftDateStr(date, 1);
+
+    const events: { employeeNumber: string; eventType: string; eventTime: string; work_date: string }[] =
       await this.eventRepo.query(
-        `SELECT "employeeNumber", "eventType", "eventTime"
+        `SELECT "employeeNumber", "eventType", "eventTime",
+                DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE '${APP_TZ}') AS work_date
          FROM attendance_events
          WHERE "employeeNumber" = ANY($1)
-           AND DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE '${APP_TZ}') = $2
+           AND DATE(to_timestamp("eventTime" / 1000.0) AT TIME ZONE '${APP_TZ}') BETWEEN $2 AND $3
          ORDER BY "employeeNumber", "eventTime" ASC`,
-        [workerIds, date],
+        [workerIds, prevDate, nextDate],
       );
 
     type Ev = { eventType: string; eventTime: number };
     const byWorker = new Map<string, Ev[]>();
+    // Raw scans that fall on `date` itself, regardless of which calendar
+    // date the paired session ends up credited to — used only for
+    // `hasScan`, so a night-shift worker scanned out on `date` morning
+    // (session credited to the previous date) still shows as scanned rather
+    // than "no scan" on `date`.
+    const rawTodayCount = new Map<string, number>();
     for (const ev of events) {
       const arr = byWorker.get(ev.employeeNumber) ?? [];
       arr.push({ eventType: ev.eventType, eventTime: Number(ev.eventTime) });
       byWorker.set(ev.employeeNumber, arr);
+      if (String(ev.work_date) === date) {
+        rawTodayCount.set(ev.employeeNumber, (rawTodayCount.get(ev.employeeNumber) ?? 0) + 1);
+      }
     }
 
     const entityIds = workers.map(w => w.id);
@@ -746,9 +758,8 @@ export class WorkTimeService {
 
     const rows = workers.map(w => {
       const evList = byWorker.get(w.workerId) ?? [];
-      // evList is already scoped to exactly this `date` by the SQL query
-      // above, so a first-scan-to-last-scan span needs no date bucketing.
-      const span = computeDaySpan(evList);
+      const daily = buildDailyAttendance(evList, (t) => new Date(t + TZ_OFFSET_MS).toISOString().split('T')[0]);
+      const day = daily.get(date);
       const ov = overrideByEntity.get(w.id);
 
       let actualMinutes: number;
@@ -761,9 +772,9 @@ export class WorkTimeService {
         checkIn = ci;
         checkOut = co;
       } else {
-        actualMinutes = msToMinutes(span.ms);
-        checkIn = span.checkIn;
-        checkOut = span.checkOut;
+        actualMinutes = msToMinutes(day?.ms ?? 0);
+        checkIn = day?.checkIn ?? null;
+        checkOut = day?.checkOut ?? null;
       }
 
       const dayAdjs = adjByEntity.get(w.id) ?? [];
@@ -783,7 +794,7 @@ export class WorkTimeService {
         adjustmentMinutes: creditedMinutes - actualMinutes,
         checkIn,
         checkOut,
-        hasScan: evList.length > 0,
+        hasScan: (rawTodayCount.get(w.workerId) ?? 0) > 0,
         adjustments: dayAdjs.map(a => ({
           id: a.id,
           adjustmentType: a.adjustmentType,
